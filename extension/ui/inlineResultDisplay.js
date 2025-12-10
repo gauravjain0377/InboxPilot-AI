@@ -27,7 +27,7 @@ class InlineResultDisplay {
     const closeBtn = document.createElement('button');
     closeBtn.className = 'inboxpilot-inline-close';
     closeBtn.setAttribute('type', 'button');
-    closeBtn.innerHTML = '×';
+    closeBtn.textContent = '×';
     closeBtn.setAttribute('title', 'Close');
     closeBtn.addEventListener('click', () => {
       this.removeResult(action);
@@ -69,7 +69,7 @@ class InlineResultDisplay {
     const closeBtn = document.createElement('button');
     closeBtn.className = 'inboxpilot-inline-close';
     closeBtn.setAttribute('type', 'button');
-    closeBtn.innerHTML = '×';
+    closeBtn.textContent = '×';
     closeBtn.addEventListener('click', () => {
       this.removeResult(action);
     });

@@ -33,7 +33,7 @@ class ReplyToneSelector {
       btn.className = 'inboxpilot-reply-tone-btn';
       btn.setAttribute('type', 'button');
       btn.setAttribute('data-tone', tone.value);
-      btn.innerHTML = `${tone.icon} ${tone.label}`;
+      btn.textContent = `${tone.icon} ${tone.label}`;
       
       btn.addEventListener('click', async () => {
         // Disable all buttons

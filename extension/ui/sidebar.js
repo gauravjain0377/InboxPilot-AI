@@ -60,7 +60,7 @@ class SidebarUI {
     toggle.className = 'inboxpilot-toggle-btn';
     toggle.setAttribute('title', 'Toggle InboxPilot AI Sidebar');
     toggle.setAttribute('type', 'button');
-    toggle.innerHTML = '✨';
+    toggle.textContent = '✨';
     
     toggle.addEventListener('click', (e) => {
       e.preventDefault();
