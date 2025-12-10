@@ -28,7 +28,19 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["injectedUI.js", "styles.css"],
+      "resources": [
+        "injectedUI.js",
+        "styles.css",
+        "services/apiService.js",
+        "services/emailExtractor.js",
+        "services/actionHandlers.js",
+        "ui/sidebar.js",
+        "ui/resultDisplay.js",
+        "ui/composeToolbar.js",
+        "ui/emailActions.js",
+        "ui/emailListFeatures.js",
+        "utils/domHelpers.js"
+      ],
       "matches": ["https://mail.google.com/*"]
     }
   ]
