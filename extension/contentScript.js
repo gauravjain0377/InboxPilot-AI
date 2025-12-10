@@ -1,10 +1,38 @@
 // Inject the UI script into the page context
-const script = document.createElement('script');
-script.src = chrome.runtime.getURL('injectedUI.js');
-script.onload = function() {
-  this.remove();
-};
-(document.head || document.documentElement).appendChild(script);
+// Wait for chrome.runtime to be available (in case of timing issues)
+function injectUIScript(attempts = 0) {
+  const maxAttempts = 10;
+  
+  // Check if chrome.runtime is available
+  if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
+    try {
+      const script = document.createElement('script');
+      const scriptUrl = chrome.runtime.getURL('injectedUI.js');
+      script.src = scriptUrl;
+      script.onload = function() {
+        this.remove();
+      };
+      script.onerror = function() {
+        console.error('InboxPilot: Failed to load injectedUI.js from:', scriptUrl);
+      };
+      (document.head || document.documentElement).appendChild(script);
+    } catch (error) {
+      console.error('InboxPilot: Error injecting UI script:', error);
+    }
+  } else if (attempts < maxAttempts) {
+    // Retry after a short delay if chrome.runtime isn't ready yet
+    setTimeout(() => injectUIScript(attempts + 1), 100);
+  } else {
+    console.error('InboxPilot: chrome.runtime.getURL not available after', maxAttempts, 'attempts. Extension may not be properly loaded.');
+  }
+}
+
+// Start injection when script loads
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => injectUIScript());
+} else {
+  injectUIScript();
+}
 
 // Listen for messages from injected script
 window.addEventListener('message', async (event) => {
@@ -23,21 +51,29 @@ async function handleMessage(data) {
     case 'INBOXPILOT_GET_TOKEN':
       // Get token from background script via message passing
       // Content scripts can't access chrome.storage directly, must use message passing
-      chrome.runtime.sendMessage({ type: 'INBOXPILOT_GET_TOKEN' }, (response) => {
-        const token = response?.token || null;
-        // Store in localStorage for direct access by injected script
-        if (token) {
-          try {
-            localStorage.setItem('inboxpilot_authToken', token);
-          } catch (e) {
-            console.warn('InboxPilot: Could not store token in localStorage:', e);
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({ type: 'INBOXPILOT_GET_TOKEN' }, (response) => {
+          const token = response?.token || null;
+          // Store in localStorage for direct access by injected script
+          if (token) {
+            try {
+              localStorage.setItem('inboxpilot_authToken', token);
+            } catch (e) {
+              console.warn('InboxPilot: Could not store token in localStorage:', e);
+            }
           }
-        }
+          window.postMessage({ 
+            type: 'INBOXPILOT_TOKEN_RESPONSE', 
+            token: token 
+          }, '*');
+        });
+      } else {
+        // If chrome.runtime is not available, send null token
         window.postMessage({ 
           type: 'INBOXPILOT_TOKEN_RESPONSE', 
-          token: token 
+          token: null 
         }, '*');
-      });
+      }
       break;
     case 'INBOXPILOT_INJECT_UI':
       // UI injection is handled by injectedUI.js

@@ -551,28 +551,58 @@
         switch (action) {
           case 'summarize':
             result = await this.apiCall('/ai/summarize', { emailBody: emailContent.body });
-            this.showResult(result.summary || result.text || result, 'AI Summary');
+            console.log('InboxPilot: Summarize result:', result);
+            // Handle different response formats
+            const summaryText = result?.summary || result?.text || (typeof result === 'string' ? result : (result ? JSON.stringify(result) : ''));
+            console.log('InboxPilot: Summary text:', summaryText);
+            if (summaryText && summaryText.trim().length > 0) {
+              this.showResult(summaryText, 'AI Summary');
+            } else {
+              this.showError('No summary generated. Response: ' + JSON.stringify(result));
+            }
             break;
           case 'reply':
-            // Show tone selector for reply
-            this.showToneSelector((selectedTone) => {
-              this.handleReplyWithTone(emailContent.body, selectedTone);
+            // First open Gmail's reply window, then show tone selector
+            this.openGmailReplyWindow(() => {
+              // After reply window is open, show tone selector
+              this.showToneSelector((selectedTone) => {
+                this.handleReplyWithTone(emailContent.body, selectedTone);
+              });
             });
             break;
           case 'followup':
             result = await this.apiCall('/ai/followup', { emailBody: emailContent.body });
-            this.showResult(result.followUp || result.text || result, 'Follow-up Draft');
+            console.log('InboxPilot: Follow-up result:', result);
+            // Handle different response formats
+            const followUpText = result?.followUp || result?.text || (typeof result === 'string' ? result : (result ? JSON.stringify(result) : ''));
+            console.log('InboxPilot: Follow-up text:', followUpText);
+            if (followUpText && followUpText.trim().length > 0) {
+              this.showResult(followUpText, 'Follow-up Draft');
+            } else {
+              this.showError('No follow-up generated. Response: ' + JSON.stringify(result));
+            }
             break;
           case 'meeting':
             result = await this.apiCall('/calendar/suggest', { emailBody: emailContent.body });
-            this.showMeetingSuggestions(result);
+            console.log('InboxPilot: Meeting result:', result);
+            if (result) {
+              this.showMeetingSuggestions(result);
+            } else {
+              this.showError('No meeting suggestions generated');
+            }
             break;
           case 'explain':
             result = await this.apiCall('/ai/rewrite', {
               text: emailContent.body,
               instruction: 'Explain this email in simple, easy-to-understand words'
             });
-            this.showResult(result.rewritten || result.text || result, 'Simple Explanation');
+            // Handle different response formats
+            const explainText = result.rewritten || result.text || (typeof result === 'string' ? result : JSON.stringify(result));
+            if (explainText) {
+              this.showResult(explainText, 'Simple Explanation');
+            } else {
+              this.showError('No explanation generated');
+            }
             break;
         }
       } catch (error) {
@@ -703,7 +733,17 @@
         const result = await this.apiCall('/ai/reply', { emailBody, tone });
         const toneLabel = tone.charAt(0).toUpperCase() + tone.slice(1);
         const replies = result.replies || (result.reply ? [result.reply] : [result.text || result]);
-        this.showReplies(replies, toneLabel);
+        
+        // Get the first reply and insert it into Gmail's reply window
+        const firstReply = Array.isArray(replies) ? replies[0] : replies;
+        if (firstReply) {
+          this.insertReplyIntoGmail(firstReply);
+          
+          // Also show all replies in sidebar for user to choose
+          this.showReplies(replies, toneLabel);
+        } else {
+          this.showError('No reply generated');
+        }
       } catch (error) {
         this.showError('Failed to generate reply: ' + error.message);
       } finally {
@@ -853,67 +893,83 @@
     }
 
     showResult(text, title = 'AI Summary') {
-      if (this.panel) {
-        const results = this.panel.querySelector('#inboxpilot-results');
-        if (results) {
-          results.textContent = '';
-          
-          // Create AI Summary Card matching image design
-          const card = document.createElement('div');
-          card.className = 'inboxpilot-ai-summary-card';
-          
-          const header = document.createElement('div');
-          header.className = 'inboxpilot-ai-summary-header';
-          
-          const icon = document.createElement('span');
-          icon.className = 'inboxpilot-ai-summary-icon';
-          icon.textContent = '✨';
-          
-          const titleDiv = document.createElement('div');
-          titleDiv.className = 'inboxpilot-ai-summary-title';
-          titleDiv.textContent = title.toUpperCase();
-          
-          header.appendChild(icon);
-          header.appendChild(titleDiv);
-          
-          const contentDiv = document.createElement('div');
-          contentDiv.className = 'inboxpilot-ai-summary-content';
-          
-          // Build content with proper DOM elements to avoid TrustedHTML error
-          const highlightRegex = /(\$[\d,]+\.?\d*|[\w\s]+LLC|[\w\s]+Inc\.?|[\w\s]+Corp\.?|[\w\s]+Ltd\.?|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:st|nd|rd|th)?)/gi;
-          
-          let lastIndex = 0;
-          let match;
-          
-          while ((match = highlightRegex.exec(text)) !== null) {
-            // Add text before the match
-            if (match.index > lastIndex) {
-              contentDiv.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
-            }
-            
-            // Add highlighted match
-            const strong = document.createElement('strong');
-            strong.textContent = match[0];
-            contentDiv.appendChild(strong);
-            
-            lastIndex = match.index + match[0].length;
-          }
-          
-          // Add remaining text
-          if (lastIndex < text.length) {
-            contentDiv.appendChild(document.createTextNode(text.substring(lastIndex)));
-          }
-          
-          // If no matches, just add the text
-          if (contentDiv.childNodes.length === 0) {
-            contentDiv.textContent = text;
-          }
-          
-          card.appendChild(header);
-          card.appendChild(contentDiv);
-          results.appendChild(card);
-        }
+      if (!this.panel) {
+        console.error('InboxPilot: Panel not found');
+        return;
       }
+      
+      const results = this.panel.querySelector('#inboxpilot-results');
+      if (!results) {
+        console.error('InboxPilot: Results container not found');
+        return;
+      }
+      
+      // Ensure results container is visible
+      results.style.display = 'block';
+      results.textContent = '';
+      
+      // Convert text to string if it's not already
+      const textStr = typeof text === 'string' ? text : String(text || '');
+      
+      if (!textStr || textStr.trim().length === 0) {
+        this.showError('No content to display');
+        return;
+      }
+      
+      // Create AI Summary Card matching image design
+      const card = document.createElement('div');
+      card.className = 'inboxpilot-ai-summary-card';
+      
+      const header = document.createElement('div');
+      header.className = 'inboxpilot-ai-summary-header';
+      
+      const icon = document.createElement('span');
+      icon.className = 'inboxpilot-ai-summary-icon';
+      icon.textContent = '✨';
+      
+      const titleDiv = document.createElement('div');
+      titleDiv.className = 'inboxpilot-ai-summary-title';
+      titleDiv.textContent = title.toUpperCase();
+      
+      header.appendChild(icon);
+      header.appendChild(titleDiv);
+      
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'inboxpilot-ai-summary-content';
+      
+      // Build content with proper DOM elements to avoid TrustedHTML error
+      const highlightRegex = /(\$[\d,]+\.?\d*|[\w\s]+LLC|[\w\s]+Inc\.?|[\w\s]+Corp\.?|[\w\s]+Ltd\.?|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:st|nd|rd|th)?)/gi;
+      
+      let lastIndex = 0;
+      let match;
+      
+      while ((match = highlightRegex.exec(textStr)) !== null) {
+        // Add text before the match
+        if (match.index > lastIndex) {
+          contentDiv.appendChild(document.createTextNode(textStr.substring(lastIndex, match.index)));
+        }
+        
+        // Add highlighted match
+        const strong = document.createElement('strong');
+        strong.textContent = match[0];
+        contentDiv.appendChild(strong);
+        
+        lastIndex = match.index + match[0].length;
+      }
+      
+      // Add remaining text
+      if (lastIndex < textStr.length) {
+        contentDiv.appendChild(document.createTextNode(textStr.substring(lastIndex)));
+      }
+      
+      // If no matches, just add the text
+      if (contentDiv.childNodes.length === 0) {
+        contentDiv.textContent = textStr;
+      }
+      
+      card.appendChild(header);
+      card.appendChild(contentDiv);
+      results.appendChild(card);
     }
 
     showReplies(replies, tone = 'Friendly') {
@@ -965,18 +1021,23 @@
               card.remove();
             });
             
-            const sendBtn = document.createElement('button');
-            sendBtn.className = 'inboxpilot-reply-btn inboxpilot-reply-btn-send';
-            const sendIcon = document.createElement('span');
-            sendIcon.textContent = '✈️';
-            sendBtn.appendChild(sendIcon);
-            sendBtn.appendChild(document.createTextNode(' Send Reply'));
-            sendBtn.addEventListener('click', () => {
+            const useBtn = document.createElement('button');
+            useBtn.className = 'inboxpilot-reply-btn inboxpilot-reply-btn-send';
+            const useIcon = document.createElement('span');
+            useIcon.textContent = '✓';
+            useBtn.appendChild(useIcon);
+            useBtn.appendChild(document.createTextNode(' Use This Reply'));
+            useBtn.addEventListener('click', () => {
               this.insertReplyIntoGmail(reply);
+              // Close the card after inserting
+              setTimeout(() => {
+                card.style.opacity = '0.5';
+                card.style.pointerEvents = 'none';
+              }, 300);
             });
             
             actions.appendChild(editBtn);
-            actions.appendChild(sendBtn);
+            actions.appendChild(useBtn);
             
             card.appendChild(header);
             card.appendChild(contentDiv);
@@ -1169,22 +1230,81 @@
       }
     }
 
-    insertReplyIntoGmail(text) {
+    openGmailReplyWindow(callback) {
+      // Try multiple selectors to find reply button
       const replyButton = document.querySelector('[data-tooltip="Reply"]') || 
                          document.querySelector('[aria-label*="Reply"]') ||
-                         document.querySelector('[aria-label*="reply"]');
+                         document.querySelector('[aria-label*="reply"]') ||
+                         document.querySelector('[data-tooltip*="Reply"]') ||
+                         document.querySelector('div[role="button"][aria-label*="Reply"]');
+      
       if (replyButton) {
         replyButton.click();
-        setTimeout(() => {
+        
+        // Wait for reply window to open
+        const checkReplyWindow = (attempts = 0) => {
           const replyBody = document.querySelector('[contenteditable="true"][g_editable="true"]') ||
-                           document.querySelector('[contenteditable="true"]');
+                           document.querySelector('[role="dialog"] [contenteditable="true"]') ||
+                           document.querySelector('[contenteditable="true"][aria-label*="Message Body"]');
+          
           if (replyBody) {
-            replyBody.innerText = text;
-            replyBody.dispatchEvent(new Event('input', { bubbles: true }));
+            // Reply window is open
+            if (callback) callback();
+          } else if (attempts < 10) {
+            // Try again after a short delay
+            setTimeout(() => checkReplyWindow(attempts + 1), 200);
+          } else {
+            // Timeout - still call callback
+            if (callback) callback();
           }
-        }, 500);
+        };
+        
+        checkReplyWindow();
       } else {
         this.showError('Please open the email to reply');
+        if (callback) callback();
+      }
+    }
+
+    insertReplyIntoGmail(text) {
+      // Find the reply compose body
+      const replyBody = document.querySelector('[role="dialog"] [contenteditable="true"][g_editable="true"]') ||
+                       document.querySelector('[role="dialog"] [contenteditable="true"]') ||
+                       document.querySelector('[contenteditable="true"][aria-label*="Message Body"]') ||
+                       document.querySelector('[contenteditable="true"][g_editable="true"]') ||
+                       document.querySelector('[contenteditable="true"]');
+      
+      if (replyBody) {
+        // Clear existing content
+        replyBody.textContent = '';
+        
+        // Insert text with proper line breaks
+        const lines = text.split('\n');
+        lines.forEach((line, index) => {
+          if (index > 0) {
+            replyBody.appendChild(document.createElement('br'));
+          }
+          replyBody.appendChild(document.createTextNode(line));
+        });
+        
+        // Trigger events for Gmail to recognize the change
+        replyBody.dispatchEvent(new Event('input', { bubbles: true }));
+        replyBody.dispatchEvent(new Event('change', { bubbles: true }));
+        replyBody.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+        
+        // Focus the reply body
+        replyBody.focus();
+        
+        // Scroll reply window into view
+        const replyWindow = replyBody.closest('[role="dialog"]');
+        if (replyWindow) {
+          replyWindow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      } else {
+        // If reply window not found, try to open it first
+        this.openGmailReplyWindow(() => {
+          setTimeout(() => this.insertReplyIntoGmail(text), 300);
+        });
       }
     }
 

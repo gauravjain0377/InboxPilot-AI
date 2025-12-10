@@ -90,9 +90,17 @@ export const rewrite = async (req: AuthRequest, res: Response, next: NextFunctio
     const { text, instruction } = req.body;
     if (!text || !instruction) throw new AppError('Text and instruction required', 400);
 
-    const user = await User.findById(req.user?.userId);
-    if (!user) throw new AppError('User not found', 404);
+    // Support both authenticated (with user) and unauthenticated (extension) requests
+    // If user is authenticated, we can save to database, but it's optional
+    if (req.user?.userId) {
+      const user = await User.findById(req.user.userId);
+      if (user) {
+        // User found - can save to database if needed
+        // For now, just generate the rewritten text
+      }
+    }
 
+    // Generate rewritten text (works with or without user)
     const rewritten = await aiService.rewriteText(text, instruction);
 
     res.json({ success: true, rewritten });

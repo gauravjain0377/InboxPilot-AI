@@ -1,8 +1,4 @@
 {
-  "/login/page": "app/login/page.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/settings/page": "app/settings/page.js",
-  "/inbox/page": "app/inbox/page.js",
-  "/compose/page": "app/compose/page.js",
-  "/auth/callback/page": "app/auth/callback/page.js"
+  "/login/page": "app/login/page.js"
 }
