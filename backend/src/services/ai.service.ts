@@ -16,7 +16,9 @@ export class AIService {
 
   private async generate(prompt: string): Promise<string> {
     try {
-      const model = this.gemini.getGenerativeModel({ model: 'gemini-pro' });
+      // Use gemini-1.5-flash (faster, free tier) or gemini-1.5-pro (more capable)
+      // gemini-pro is deprecated and no longer available
+      const model = this.gemini.getGenerativeModel({ model: 'gemini-1.5-flash' });
       const result = await model.generateContent(prompt);
       const response = await result.response;
       return response.text();

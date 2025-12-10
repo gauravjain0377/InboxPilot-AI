@@ -15,10 +15,35 @@ import calendarRoutes from './routes/calendar.routes.js';
 
 const app = express();
 
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5000'],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman, or Chrome extensions)
+    if (!origin) return callback(null, true);
+    
+    // Allow localhost origins
+    if (origin.startsWith('http://localhost') || origin.startsWith('https://localhost')) {
+      return callback(null, true);
+    }
+    
+    // Allow Chrome extension origins
+    if (origin.startsWith('chrome-extension://')) {
+      return callback(null, true);
+    }
+    
+    // Allow Gmail origin (for extension requests)
+    if (origin.includes('mail.google.com')) {
+      return callback(null, true);
+    }
+    
+    // Default: allow all origins for development
+    callback(null, true);
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

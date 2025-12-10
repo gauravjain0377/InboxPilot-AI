@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../middlewares/auth.js';
+import { optionalAuthenticate } from '../middlewares/auth.js';
 import {
   summarize,
   generateReply,
@@ -9,7 +9,8 @@ import {
 
 const router = Router();
 
-router.use(authenticate);
+// Use optional auth - allows extension to work without token when emailBody is provided
+router.use(optionalAuthenticate);
 
 router.post('/summarize', summarize);
 router.post('/reply', generateReply);

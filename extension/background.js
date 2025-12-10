@@ -11,24 +11,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     chrome.storage.local.set({ authToken: request.token }, () => {
       sendResponse({ success: true });
     });
-    return true;
+    return true; // Keep channel open for async response
   }
 
   if (request.type === 'INBOXPILOT_GET_TOKEN') {
     chrome.storage.local.get(['authToken'], (result) => {
       sendResponse({ token: result.authToken });
     });
-    return true;
+    return true; // Keep channel open for async response
   }
+  
+  // Return false if we don't handle the message
+  return false;
 });
 
-// Listen for tab updates to inject on Gmail
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url?.includes('mail.google.com')) {
-    chrome.scripting.executeScript({
-      target: { tabId },
-      files: ['contentScript.js'],
-    });
-  }
-});
+// Note: contentScript.js is automatically injected via manifest.json
+// No need to manually inject it here
 

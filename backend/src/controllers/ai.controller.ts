@@ -9,20 +9,33 @@ const aiService = new AIService();
 
 export const summarize = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { emailId } = req.body;
-    if (!emailId) throw new AppError('Email ID required', 400);
+    const { emailId, emailBody } = req.body;
+    
+    let emailContent: string;
+    
+    // Support both emailId (from database) and emailBody (from extension)
+    if (emailBody) {
+      emailContent = emailBody;
+    } else if (emailId && req.user?.userId) {
+      const user = await User.findById(req.user.userId);
+      if (!user) throw new AppError('User not found', 404);
 
-    const user = await User.findById(req.user?.userId);
-    if (!user) throw new AppError('User not found', 404);
+      const email = await Email.findOne({ _id: emailId, userId: user._id });
+      if (!email) throw new AppError('Email not found', 404);
+      
+      emailContent = email.body;
+      
+      const summary = await aiService.summarizeEmail(emailContent);
+      email.aiSummary = summary;
+      await email.save();
+      
+      res.json({ success: true, summary });
+      return;
+    } else {
+      throw new AppError('Email ID or email body required', 400);
+    }
 
-    const email = await Email.findOne({ _id: emailId, userId: user._id });
-    if (!email) throw new AppError('Email not found', 404);
-
-    const summary = await aiService.summarizeEmail(email.body);
-
-    email.aiSummary = summary;
-    await email.save();
-
+    const summary = await aiService.summarizeEmail(emailContent);
     res.json({ success: true, summary });
   } catch (error) {
     next(error);
@@ -31,25 +44,41 @@ export const summarize = async (req: AuthRequest, res: Response, next: NextFunct
 
 export const generateReply = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { emailId, tone } = req.body;
-    if (!emailId) throw new AppError('Email ID required', 400);
+    const { emailId, emailBody, tone } = req.body;
+    
+    let emailContent: string;
+    let user = null;
+    
+    // Support both emailId (from database) and emailBody (from extension)
+    if (emailBody) {
+      emailContent = emailBody;
+    } else if (emailId && req.user?.userId) {
+      user = await User.findById(req.user.userId);
+      if (!user) throw new AppError('User not found', 404);
 
-    const user = await User.findById(req.user?.userId);
-    if (!user) throw new AppError('User not found', 404);
+      const email = await Email.findOne({ _id: emailId, userId: user._id });
+      if (!email) throw new AppError('Email not found', 404);
+      
+      emailContent = email.body;
+      
+      const selectedTone = tone || user.preferences?.defaultTone || 'friendly';
+      const replies = await aiService.generateReply(emailContent, selectedTone);
 
-    const email = await Email.findOne({ _id: emailId, userId: user._id });
-    if (!email) throw new AppError('Email not found', 404);
+      email.aiSuggestions = replies.map((draft) => ({
+        tone: selectedTone,
+        draft,
+        generatedAt: new Date(),
+      }));
+      await email.save();
 
-    const selectedTone = tone || user.preferences?.defaultTone || 'friendly';
-    const replies = await aiService.generateReply(email.body, selectedTone);
+      res.json({ success: true, replies });
+      return;
+    } else {
+      throw new AppError('Email ID or email body required', 400);
+    }
 
-    email.aiSuggestions = replies.map((draft) => ({
-      tone: selectedTone,
-      draft,
-      generatedAt: new Date(),
-    }));
-    await email.save();
-
+    const selectedTone = tone || (user?.preferences?.defaultTone) || 'friendly';
+    const replies = await aiService.generateReply(emailContent, selectedTone);
     res.json({ success: true, replies });
   } catch (error) {
     next(error);
@@ -74,17 +103,26 @@ export const rewrite = async (req: AuthRequest, res: Response, next: NextFunctio
 
 export const generateFollowUp = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { emailId } = req.body;
-    if (!emailId) throw new AppError('Email ID required', 400);
+    const { emailId, emailBody } = req.body;
+    
+    let emailContent: string;
+    
+    // Support both emailId (from database) and emailBody (from extension)
+    if (emailBody) {
+      emailContent = emailBody;
+    } else if (emailId && req.user?.userId) {
+      const user = await User.findById(req.user.userId);
+      if (!user) throw new AppError('User not found', 404);
 
-    const user = await User.findById(req.user?.userId);
-    if (!user) throw new AppError('User not found', 404);
+      const email = await Email.findOne({ _id: emailId, userId: user._id });
+      if (!email) throw new AppError('Email not found', 404);
+      
+      emailContent = email.body;
+    } else {
+      throw new AppError('Email ID or email body required', 400);
+    }
 
-    const email = await Email.findOne({ _id: emailId, userId: user._id });
-    if (!email) throw new AppError('Email not found', 404);
-
-    const followUp = await aiService.generateFollowUp(email.body);
-
+    const followUp = await aiService.generateFollowUp(emailContent);
     res.json({ success: true, followUp });
   } catch (error) {
     next(error);

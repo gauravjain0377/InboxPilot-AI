@@ -20,6 +20,25 @@ async function handleMessage(data) {
       const emailContent = extractEmailContent();
       window.postMessage({ type: 'INBOXPILOT_EMAIL_CONTENT', content: emailContent }, '*');
       break;
+    case 'INBOXPILOT_GET_TOKEN':
+      // Get token from background script via message passing
+      // Content scripts can't access chrome.storage directly, must use message passing
+      chrome.runtime.sendMessage({ type: 'INBOXPILOT_GET_TOKEN' }, (response) => {
+        const token = response?.token || null;
+        // Store in localStorage for direct access by injected script
+        if (token) {
+          try {
+            localStorage.setItem('inboxpilot_authToken', token);
+          } catch (e) {
+            console.warn('InboxPilot: Could not store token in localStorage:', e);
+          }
+        }
+        window.postMessage({ 
+          type: 'INBOXPILOT_TOKEN_RESPONSE', 
+          token: token 
+        }, '*');
+      });
+      break;
     case 'INBOXPILOT_INJECT_UI':
       // UI injection is handled by injectedUI.js
       break;
