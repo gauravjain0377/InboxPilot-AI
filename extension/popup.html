@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 300px;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    h1 {
+      font-size: 18px;
+      margin: 0 0 16px 0;
+      color: #4f46e5;
+    }
+    .status {
+      padding: 12px;
+      background: #f0f4ff;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    .button {
+      width: 100%;
+      padding: 10px;
+      background: #4f46e5;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .button:hover {
+      background: #6366f1;
+    }
+    .button.secondary {
+      background: #f8fafc;
+      color: #334155;
+      border: 1px solid #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+  <h1>InboxPilot AI</h1>
+  <div class="status" id="status">Ready to use in Gmail</div>
+  <button class="button" id="openGmail">Open Gmail</button>
+  <button class="button secondary" id="settings">Settings</button>
+  <script src="popup.js"></script>
+</body>
+</html>
+

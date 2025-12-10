@@ -1,0 +1,98 @@
+import { Request, Response, NextFunction } from 'express';
+import { google } from 'googleapis';
+import jwt from 'jsonwebtoken';
+import { config } from '../config/env.js';
+import { config } from '../config/env.js';
+import { User } from '../models/User.js';
+import { encrypt } from '../utils/encrypt.js';
+import { AppError } from '../utils/errorHandler.js';
+import { logger } from '../utils/logger.js';
+
+export const googleAuth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { code } = req.body;
+
+    if (!code) {
+      throw new AppError('Authorization code required', 400);
+    }
+
+    const oauth2Client = new google.auth.OAuth2(
+      config.google.clientId,
+      config.google.clientSecret,
+      config.google.redirectUri
+    );
+
+    const { tokens } = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
+
+    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+    const userInfo = await oauth2.userinfo.get();
+
+    if (!userInfo.data.email || !userInfo.data.id) {
+      throw new AppError('Failed to get user info', 400);
+    }
+
+    let user = await User.findOne({ email: userInfo.data.email });
+
+    if (user) {
+      user.accessToken = encrypt(tokens.access_token || '');
+      user.refreshToken = encrypt(tokens.refresh_token || '');
+      user.tokenExpiry = tokens.expiry_date ? new Date(tokens.expiry_date) : undefined;
+      await user.save();
+    } else {
+      user = await User.create({
+        email: userInfo.data.email,
+        name: userInfo.data.name || '',
+        picture: userInfo.data.picture,
+        googleId: userInfo.data.id,
+        accessToken: encrypt(tokens.access_token || ''),
+        refreshToken: encrypt(tokens.refresh_token || ''),
+        tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
+      });
+    }
+
+    const token = jwt.sign(
+      { userId: user._id.toString(), email: user.email },
+      config.security.jwtSecret,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+      },
+    });
+  } catch (error) {
+    logger.error('Google auth error:', error);
+    next(error);
+  }
+};
+
+export const getAuthUrl = (req: Request, res: Response): void => {
+  const oauth2Client = new google.auth.OAuth2(
+    config.google.clientId,
+    config.google.clientSecret,
+    config.google.redirectUri
+  );
+
+  const url = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: [
+      'https://www.googleapis.com/auth/gmail.readonly',
+      'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/gmail.modify',
+      'https://www.googleapis.com/auth/calendar.readonly',
+      'https://www.googleapis.com/auth/calendar.events',
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/userinfo.profile',
+    ],
+  });
+
+  res.json({ success: true, url });
+};
+

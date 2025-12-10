@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 16px;
+      background: #f8fafc;
+    }
+    .header {
+      background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+      color: white;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .header h2 {
+      font-size: 18px;
+    }
+    .button {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 8px;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .button:hover {
+      background: #4f46e5;
+      color: white;
+      border-color: #4f46e5;
+    }
+    .result {
+      margin-top: 16px;
+      padding: 12px;
+      background: white;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      font-size: 13px;
+      line-height: 1.6;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>InboxPilot AI</h2>
+  </div>
+
+  <button class="button" onclick="handleSummarize()">📝 Summarize Email</button>
+  <button class="button" onclick="handleReply()">✍️ Generate Reply</button>
+  <button class="button" onclick="handleFollowUp()">⏰ Follow-up</button>
+  <button class="button" onclick="handleMeeting()">📅 Meeting Times</button>
+  <button class="button" onclick="handleExplain()">💡 Explain Simply</button>
+
+  <div id="result"></div>
+
+  <script>
+    function showLoading() {
+      document.getElementById('result').innerHTML = '<div class="loading">Loading...</div>';
+    }
+
+    function showResult(text) {
+      document.getElementById('result').innerHTML = '<div class="result">' + text + '</div>';
+    }
+
+    function showError(error) {
+      document.getElementById('result').innerHTML = '<div class="result" style="color: #ef4444;">Error: ' + error + '</div>';
+    }
+
+    function getCurrentEmail() {
+      return new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          .getCurrentMessage();
+      });
+    }
+
+    async function handleSummarize() {
+      showLoading();
+      try {
+        const email = await getCurrentEmail();
+        if (!email) {
+          showError('No email selected');
+          return;
+        }
+        google.script.run
+          .withSuccessHandler((result) => showResult(result.summary || result))
+          .withFailureHandler((error) => showError(error))
+          .summarizeEmail(email.body);
+      } catch (error) {
+        showError(error);
+      }
+    }
+
+    async function handleReply() {
+      showLoading();
+      try {
+        const email = await getCurrentEmail();
+        if (!email) {
+          showError('No email selected');
+          return;
+        }
+        google.script.run
+          .withSuccessHandler((result) => {
+            const replies = result.replies || result;
+            const html = Array.isArray(replies)
+              ? replies.map(r => '<div style="margin-bottom: 12px; padding: 8px; background: #f8fafc; border-radius: 4px;">' + r + '</div>').join('')
+              : '<div>' + replies + '</div>';
+            showResult(html);
+          })
+          .withFailureHandler((error) => showError(error))
+          .generateReply(email.body, 'friendly');
+      } catch (error) {
+        showError(error);
+      }
+    }
+
+    async function handleFollowUp() {
+      showLoading();
+      try {
+        const email = await getCurrentEmail();
+        if (!email) {
+          showError('No email selected');
+          return;
+        }
+        google.script.run
+          .withSuccessHandler((result) => showResult(result.followUp || result))
+          .withFailureHandler((error) => showError(error))
+          .generateFollowUp(email.body);
+      } catch (error) {
+        showError(error);
+      }
+    }
+
+    async function handleMeeting() {
+      showLoading();
+      try {
+        const email = await getCurrentEmail();
+        if (!email) {
+          showError('No email selected');
+          return;
+        }
+        google.script.run
+          .withSuccessHandler((result) => showResult(JSON.stringify(result, null, 2)))
+          .withFailureHandler((error) => showError(error))
+          .suggestMeetingTimes(email.body);
+      } catch (error) {
+        showError(error);
+      }
+    }
+
+    async function handleExplain() {
+      showLoading();
+      try {
+        const email = await getCurrentEmail();
+        if (!email) {
+          showError('No email selected');
+          return;
+        }
+        google.script.run
+          .withSuccessHandler((result) => showResult(result.rewritten || result))
+          .withFailureHandler((error) => showError(error))
+          .rewriteText(email.body, 'Explain this email in simple, easy-to-understand words');
+      } catch (error) {
+        showError(error);
+      }
+    }
+  </script>
+</body>
+</html>
+
