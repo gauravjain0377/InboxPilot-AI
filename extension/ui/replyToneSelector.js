@@ -86,3 +86,13 @@ class ReplyToneSelector {
   }
 }
 
+// Ensure it's available globally
+try {
+  if (typeof window !== 'undefined') {
+    window.ReplyToneSelector = ReplyToneSelector;
+  }
+  console.log('InboxPilot: ReplyToneSelector class defined and registered');
+} catch (error) {
+  console.error('InboxPilot: Error registering ReplyToneSelector:', error);
+}
+

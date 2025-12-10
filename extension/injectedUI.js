@@ -7,22 +7,41 @@
 
   // Wait for all dependencies to be loaded
   function waitForDependencies(callback, attempts = 0) {
-    const maxAttempts = 50; // 5 seconds max wait
+    const maxAttempts = 100; // 10 seconds max wait (increased from 5)
     
-    // Check if all required classes are available (they're defined at top level, so they're global)
-    const allLoaded = typeof APIService !== 'undefined' &&
-                     typeof EmailExtractor !== 'undefined' &&
-                     typeof InlineResultDisplay !== 'undefined' &&
-                     typeof ReplyToneSelector !== 'undefined' &&
-                     typeof ActionHandlers !== 'undefined' &&
-                     typeof ComposeToolbar !== 'undefined' &&
-                     typeof EmailActions !== 'undefined' &&
-                     typeof EmailListFeatures !== 'undefined' &&
-                     typeof DOMHelpers !== 'undefined';
+    // Check if all required classes are available (check both global and window scope)
+    const allLoaded = (typeof APIService !== 'undefined' || typeof window.APIService !== 'undefined') &&
+                     (typeof EmailExtractor !== 'undefined' || typeof window.EmailExtractor !== 'undefined') &&
+                     (typeof InlineResultDisplay !== 'undefined' || typeof window.InlineResultDisplay !== 'undefined') &&
+                     (typeof ReplyToneSelector !== 'undefined' || typeof window.ReplyToneSelector !== 'undefined') &&
+                     (typeof ActionHandlers !== 'undefined' || typeof window.ActionHandlers !== 'undefined') &&
+                     (typeof ComposeToolbar !== 'undefined' || typeof window.ComposeToolbar !== 'undefined') &&
+                     (typeof EmailActions !== 'undefined' || typeof window.EmailActions !== 'undefined') &&
+                     (typeof EmailListFeatures !== 'undefined' || typeof window.EmailListFeatures !== 'undefined') &&
+                     (typeof DOMHelpers !== 'undefined' || typeof window.DOMHelpers !== 'undefined');
     
     if (allLoaded) {
+      console.log('InboxPilot: All dependencies loaded successfully');
       callback();
     } else if (attempts < maxAttempts) {
+      // Log missing dependencies every 10 attempts
+      if (attempts % 10 === 0) {
+        const missing = [];
+        if (typeof APIService === 'undefined' && typeof window.APIService === 'undefined') missing.push('APIService');
+        if (typeof EmailExtractor === 'undefined' && typeof window.EmailExtractor === 'undefined') missing.push('EmailExtractor');
+        if (typeof InlineResultDisplay === 'undefined' && typeof window.InlineResultDisplay === 'undefined') missing.push('InlineResultDisplay');
+        if (typeof ReplyToneSelector === 'undefined' && typeof window.ReplyToneSelector === 'undefined') missing.push('ReplyToneSelector');
+        if (typeof ActionHandlers === 'undefined' && typeof window.ActionHandlers === 'undefined') missing.push('ActionHandlers');
+        if (typeof ComposeToolbar === 'undefined' && typeof window.ComposeToolbar === 'undefined') missing.push('ComposeToolbar');
+        if (typeof EmailActions === 'undefined' && typeof window.EmailActions === 'undefined') missing.push('EmailActions');
+        if (typeof EmailListFeatures === 'undefined' && typeof window.EmailListFeatures === 'undefined') missing.push('EmailListFeatures');
+        if (typeof DOMHelpers === 'undefined' && typeof window.DOMHelpers === 'undefined') missing.push('DOMHelpers');
+        console.log('InboxPilot: Waiting for dependencies...', missing, 'Attempt:', attempts);
+        console.log('InboxPilot: Checking window scope:', {
+          InlineResultDisplay: typeof window.InlineResultDisplay,
+          ReplyToneSelector: typeof window.ReplyToneSelector
+        });
+      }
       setTimeout(() => waitForDependencies(callback, attempts + 1), 100);
     } else {
       const missing = [];
@@ -35,7 +54,18 @@
       if (typeof EmailActions === 'undefined') missing.push('EmailActions');
       if (typeof EmailListFeatures === 'undefined') missing.push('EmailListFeatures');
       if (typeof DOMHelpers === 'undefined') missing.push('DOMHelpers');
-      console.error('InboxPilot: Failed to load dependencies:', missing);
+      console.error('InboxPilot: Failed to load dependencies after', maxAttempts, 'attempts:', missing);
+      console.error('InboxPilot: Available classes:', {
+        APIService: typeof APIService,
+        EmailExtractor: typeof EmailExtractor,
+        InlineResultDisplay: typeof InlineResultDisplay,
+        ReplyToneSelector: typeof ReplyToneSelector,
+        ActionHandlers: typeof ActionHandlers,
+        ComposeToolbar: typeof ComposeToolbar,
+        EmailActions: typeof EmailActions,
+        EmailListFeatures: typeof EmailListFeatures,
+        DOMHelpers: typeof DOMHelpers
+      });
     }
   }
 

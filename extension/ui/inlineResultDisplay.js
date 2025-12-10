@@ -118,3 +118,13 @@ class InlineResultDisplay {
   }
 }
 
+// Ensure it's available globally
+try {
+  if (typeof window !== 'undefined') {
+    window.InlineResultDisplay = InlineResultDisplay;
+  }
+  console.log('InboxPilot: InlineResultDisplay class defined and registered');
+} catch (error) {
+  console.error('InboxPilot: Error registering InlineResultDisplay:', error);
+}
+

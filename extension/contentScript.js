@@ -34,15 +34,15 @@ function injectScripts(attempts = 0) {
             console.log('InboxPilot: Checking for classes:', {
               APIService: typeof APIService,
               EmailExtractor: typeof EmailExtractor,
-              SidebarUI: typeof SidebarUI,
-              ResultDisplay: typeof ResultDisplay,
+              InlineResultDisplay: typeof InlineResultDisplay,
+              ReplyToneSelector: typeof ReplyToneSelector,
               ActionHandlers: typeof ActionHandlers,
               ComposeToolbar: typeof ComposeToolbar,
               EmailActions: typeof EmailActions,
               EmailListFeatures: typeof EmailListFeatures,
               DOMHelpers: typeof DOMHelpers
             });
-          }, 100);
+          }, 200);
           return; // All scripts loaded
         }
 
@@ -66,23 +66,44 @@ function injectScripts(attempts = 0) {
         
         script.onload = function() {
           console.log('InboxPilot: Loaded script:', scripts[currentIndex]);
-          // Don't remove immediately - wait a bit to ensure class definitions are available
+          
+          // Check if the class was defined (for specific scripts)
+          if (scripts[currentIndex].includes('inlineResultDisplay')) {
+            setTimeout(() => {
+              console.log('InboxPilot: InlineResultDisplay available?', typeof InlineResultDisplay);
+            }, 50);
+          }
+          if (scripts[currentIndex].includes('replyToneSelector')) {
+            setTimeout(() => {
+              console.log('InboxPilot: ReplyToneSelector available?', typeof ReplyToneSelector);
+            }, 50);
+          }
+          
+          // Wait a bit longer to ensure class definitions are available
           setTimeout(() => {
             try {
               this.remove();
             } catch (e) {
               // Ignore errors when removing script
             }
-          }, 50);
+          }, 150);
           currentIndex++;
           loadNext(); // Load next script
         };
         
-        script.onerror = function() {
+        script.onerror = function(error) {
           console.error('InboxPilot: Failed to load script:', scriptUrl);
+          console.error('InboxPilot: Script path:', scripts[currentIndex]);
+          console.error('InboxPilot: Error details:', error);
+          console.error('InboxPilot: Make sure the file exists in manifest.json web_accessible_resources');
           currentIndex++;
           loadNext(); // Continue even if one fails
         };
+        
+        // Add error event listener
+        script.addEventListener('error', function(e) {
+          console.error('InboxPilot: Script error event for:', scripts[currentIndex], e);
+        }, true);
         
         try {
           (document.head || document.documentElement).appendChild(script);
@@ -115,12 +136,83 @@ function isExtensionContextValid() {
   }
 }
 
-// Start injection when script loads
+// Auto-redirect to Gmail inbox if on promotional/landing page
+let redirectAttempts = 0;
+const MAX_REDIRECT_ATTEMPTS = 2;
+
+function ensureGmailInbox() {
+  // Prevent infinite redirect loops
+  if (redirectAttempts >= MAX_REDIRECT_ATTEMPTS) {
+    return;
+  }
+  
+  const currentUrl = window.location.href;
+  
+  // Check if we're on a promotional page by looking for specific text
+  const hasPromoText = document.body && (
+    document.body.textContent.includes('Gmail is better on the app') ||
+    document.body.textContent.includes('Secure, fast & organized email')
+  );
+  
+  // Check URL patterns - promotional pages often have /mail/mu/mp/ or similar
+  const isPromoUrl = currentUrl.includes('/mail/mu/mp/') || 
+                    currentUrl.includes('/mail/mp/');
+  
+  // Check if we're in a proper inbox view
+  const isInboxUrl = currentUrl.includes('/mail/u/') || 
+                    currentUrl.includes('/mail/#inbox');
+  
+  // Only redirect if we're definitely on promotional page
+  if ((hasPromoText || isPromoUrl) && !isInboxUrl) {
+    redirectAttempts++;
+    
+    // Try to find and click the inbox link if available
+    const allLinks = document.querySelectorAll('a[href]');
+    for (let link of allLinks) {
+      const href = link.getAttribute('href') || link.href;
+      if (href && (href.includes('/mail/u/') || href.includes('/mail/#inbox'))) {
+        console.log('InboxPilot: Found inbox link, redirecting...');
+        window.location.href = href.startsWith('http') ? href : new URL(href, window.location.origin).href;
+        return;
+      }
+    }
+    
+    // Fallback: construct inbox URL directly
+    if (currentUrl.includes('mail.google.com')) {
+      const baseUrl = currentUrl.split('/mail/')[0];
+      const inboxUrl = baseUrl + '/mail/u/0/#inbox';
+      if (currentUrl !== inboxUrl) {
+        console.log('InboxPilot: Redirecting to inbox:', inboxUrl);
+        window.location.href = inboxUrl;
+        return;
+      }
+    }
+  } else {
+    // Reset counter if we're in a good state
+    redirectAttempts = 0;
+  }
+}
+
+// Run redirect check immediately and on DOM ready
+ensureGmailInbox();
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => injectScripts());
+  document.addEventListener('DOMContentLoaded', () => {
+    ensureGmailInbox();
+    injectScripts();
+  });
 } else {
+  setTimeout(ensureGmailInbox, 500); // Small delay to let page settle
   injectScripts();
 }
+
+// Also watch for URL changes that might redirect away from inbox
+let lastCheckedUrl = location.href;
+setInterval(() => {
+  if (location.href !== lastCheckedUrl) {
+    lastCheckedUrl = location.href;
+    setTimeout(ensureGmailInbox, 1000);
+  }
+}, 1000);
 
 // Listen for extension reload/unload
 if (typeof chrome !== 'undefined' && chrome.runtime) {
