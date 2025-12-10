@@ -14,6 +14,7 @@ class ResultDisplay {
     }
     
     results.style.display = 'block';
+    results.style.visibility = 'visible';
     results.textContent = '';
     
     const textStr = typeof text === 'string' ? text : String(text || '');

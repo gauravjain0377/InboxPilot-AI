@@ -12,8 +12,8 @@
     // Check if all required classes are available (they're defined at top level, so they're global)
     const allLoaded = typeof APIService !== 'undefined' &&
                      typeof EmailExtractor !== 'undefined' &&
-                     typeof SidebarUI !== 'undefined' &&
-                     typeof ResultDisplay !== 'undefined' &&
+                     typeof InlineResultDisplay !== 'undefined' &&
+                     typeof ReplyToneSelector !== 'undefined' &&
                      typeof ActionHandlers !== 'undefined' &&
                      typeof ComposeToolbar !== 'undefined' &&
                      typeof EmailActions !== 'undefined' &&
@@ -28,8 +28,8 @@
       const missing = [];
       if (typeof APIService === 'undefined') missing.push('APIService');
       if (typeof EmailExtractor === 'undefined') missing.push('EmailExtractor');
-      if (typeof SidebarUI === 'undefined') missing.push('SidebarUI');
-      if (typeof ResultDisplay === 'undefined') missing.push('ResultDisplay');
+      if (typeof InlineResultDisplay === 'undefined') missing.push('InlineResultDisplay');
+      if (typeof ReplyToneSelector === 'undefined') missing.push('ReplyToneSelector');
       if (typeof ActionHandlers === 'undefined') missing.push('ActionHandlers');
       if (typeof ComposeToolbar === 'undefined') missing.push('ComposeToolbar');
       if (typeof EmailActions === 'undefined') missing.push('EmailActions');
@@ -44,18 +44,20 @@
     // Initialize components
     const apiService = new APIService('http://localhost:5000/api');
     const emailExtractor = new EmailExtractor();
-    const sidebar = new SidebarUI('inboxpilot-panel');
-    const resultDisplay = new ResultDisplay(sidebar);
-    const actionHandlers = new ActionHandlers(apiService, emailExtractor, resultDisplay, DOMHelpers);
+    const inlineResultDisplay = new InlineResultDisplay();
+    const actionHandlers = new ActionHandlers(apiService, emailExtractor, inlineResultDisplay, DOMHelpers);
+    const replyToneSelector = new ReplyToneSelector((emailBody, tone, replyWindow) => {
+      return actionHandlers.handleReplyWithTone(emailBody, tone, replyWindow);
+    });
     const composeToolbar = new ComposeToolbar((action, composeBox) => {
       actionHandlers.handleComposeAction(action, composeBox);
     });
     const emailActions = new EmailActions((action) => {
-      actionHandlers.handleAction(action.replace('-email', ''), sidebar);
+      actionHandlers.handleAction(action);
     });
     const emailListFeatures = new EmailListFeatures({
       onRowClick: (row) => {
-        window.updateSidebarWithEmail(row);
+        // No sidebar, so nothing to do
       },
       onQuickReply: (row) => {
         actionHandlers.quickReply(row);
@@ -78,7 +80,6 @@
         this.isInitialized = true;
 
         this.waitForGmail(() => {
-          this.setupSidebar();
           this.components.composeToolbar.inject();
           this.components.emailActions.inject();
           this.components.emailListFeatures.inject();
@@ -103,36 +104,22 @@
         checkGmail();
       }
 
-      setupSidebar() {
-        const panel = this.components.sidebar.create();
-        if (!panel) return;
-
-        // Setup close button
-        const closeBtn = panel.querySelector('.inboxpilot-close');
-        if (closeBtn) {
-          closeBtn.addEventListener('click', () => {
-            panel.classList.toggle('collapsed');
-          });
-        }
-
-        // Setup action buttons
-        panel.querySelectorAll('.inboxpilot-btn').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            const actionBtn = e.target.closest('.inboxpilot-btn');
-            if (actionBtn && actionBtn.dataset.action) {
-              this.components.actionHandlers.handleAction(actionBtn.dataset.action, this.components.sidebar);
-            }
-          });
-        });
-      }
-
       observeGmailChanges() {
-        const observer = new MutationObserver(() => {
-          if (this.components.sidebar.panel && this.components.sidebar.panel.style.display !== 'none') {
-            this.components.sidebar.panel.style.display = 'block';
+        // Watch for navigation changes
+        let lastUrl = location.href;
+        const urlObserver = new MutationObserver(() => {
+          const url = location.href;
+          if (url !== lastUrl) {
+            lastUrl = url;
+            // Re-inject components on navigation
+            setTimeout(() => {
+              this.components.composeToolbar.inject();
+              this.components.emailActions.inject();
+              this.components.emailListFeatures.inject();
+            }, 1000);
           }
         });
-        observer.observe(document.body, { childList: true, subtree: true });
+        urlObserver.observe(document, { subtree: true, childList: true });
       }
     }
 
@@ -141,26 +128,16 @@
     window.inboxPilotComponents = {
       apiService,
       emailExtractor,
-      sidebar,
-      resultDisplay,
+      inlineResultDisplay,
       actionHandlers,
+      replyToneSelector,
       composeToolbar,
       emailActions,
       emailListFeatures
     };
-
-    // Define updateSidebarWithEmail function
-    window.updateSidebarWithEmail = function(row) {
-      const components = window.inboxPilotComponents;
-      if (!components) return;
-      
-      const subject = row.querySelector('td[class*="bog"]')?.textContent || '';
-      const sender = row.querySelector('span[email]')?.getAttribute('email') || '';
-      const snippet = row.querySelector('span[class*="bog"]')?.textContent || '';
-      
-      const labels = components.emailExtractor.detectLabels(subject, snippet);
-      components.sidebar.updateEmailInfo(subject, sender, snippet, labels);
-    };
+    
+    // Make replyToneSelector globally available
+    window.replyToneSelector = replyToneSelector;
 
     // Initialize when DOM is ready
     function initInboxPilot() {

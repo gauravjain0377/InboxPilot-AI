@@ -14,6 +14,8 @@ class SidebarUI {
 
       const panel = document.createElement('div');
       panel.id = this.panelId;
+      panel.style.display = 'block';
+      panel.style.visibility = 'visible';
 
       const header = this.createHeader();
       const content = this.createContent();
@@ -26,13 +28,53 @@ class SidebarUI {
         return null;
       }
 
+      // Ensure panel is always visible and on top
       document.body.appendChild(panel);
       this.panel = panel;
+      
+      // Create floating toggle button
+      this.createToggleButton();
+      
+      // Force display
+      setTimeout(() => {
+        if (this.panel) {
+          this.panel.style.display = 'flex';
+          this.panel.style.visibility = 'visible';
+        }
+      }, 100);
+      
       return panel;
     } catch (error) {
       console.error('InboxPilot: Error creating sidebar panel:', error);
       return null;
     }
+  }
+
+  createToggleButton() {
+    // Remove existing toggle if any
+    const existing = document.getElementById('inboxpilot-toggle');
+    if (existing) existing.remove();
+    
+    const toggle = document.createElement('button');
+    toggle.id = 'inboxpilot-toggle';
+    toggle.className = 'inboxpilot-toggle-btn';
+    toggle.setAttribute('title', 'Toggle InboxPilot AI Sidebar');
+    toggle.setAttribute('type', 'button');
+    toggle.innerHTML = '✨';
+    
+    toggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (this.panel) {
+        this.panel.classList.toggle('collapsed');
+        const closeBtn = this.panel.querySelector('.inboxpilot-close');
+        if (closeBtn) {
+          closeBtn.textContent = this.panel.classList.contains('collapsed') ? '☰' : '×';
+        }
+      }
+    });
+    
+    document.body.appendChild(toggle);
   }
 
   createHeader() {
@@ -61,7 +103,8 @@ class SidebarUI {
     
     const closeBtn = document.createElement('button');
     closeBtn.className = 'inboxpilot-close';
-    closeBtn.setAttribute('title', 'Close');
+    closeBtn.setAttribute('title', 'Toggle Sidebar');
+    closeBtn.setAttribute('type', 'button');
     closeBtn.textContent = '×';
     
     header.appendChild(logo);
@@ -115,10 +158,11 @@ class SidebarUI {
       { action: 'explain', icon: '💡', text: 'Explain' }
     ];
     
-    actionsList.forEach(item => {
+      actionsList.forEach(item => {
       const btn = document.createElement('button');
       btn.className = 'inboxpilot-btn';
       btn.setAttribute('data-action', item.action);
+      btn.setAttribute('type', 'button');
       const iconSpan = document.createElement('span');
       iconSpan.className = 'icon';
       iconSpan.textContent = item.icon;
@@ -135,7 +179,14 @@ class SidebarUI {
   showLoading(show) {
     if (this.panel) {
       const loading = this.panel.querySelector('.inboxpilot-loading');
-      if (loading) loading.style.display = show ? 'flex' : 'none';
+      if (loading) {
+        loading.style.display = show ? 'flex' : 'none';
+        if (show) {
+          // Ensure panel is visible when loading
+          this.panel.style.display = 'flex';
+          this.panel.style.visibility = 'visible';
+        }
+      }
     }
   }
 
@@ -143,6 +194,7 @@ class SidebarUI {
     const emailInfo = this.panel?.querySelector('#inboxpilot-email-info');
     if (emailInfo) {
       emailInfo.textContent = '';
+      emailInfo.style.display = 'block';
       
       const preview = document.createElement('div');
       preview.className = 'email-preview';
@@ -164,33 +216,39 @@ class SidebarUI {
         preview.appendChild(labelsDiv);
       }
       
-      const fromDiv = document.createElement('div');
-      fromDiv.className = 'email-from';
-      fromDiv.style.fontSize = '13px';
-      fromDiv.style.color = '#202124';
-      fromDiv.style.marginBottom = '4px';
-      fromDiv.appendChild(document.createTextNode('From: '));
-      const fromStrong = document.createElement('strong');
-      fromStrong.textContent = sender;
-      fromDiv.appendChild(fromStrong);
+      if (sender) {
+        const fromDiv = document.createElement('div');
+        fromDiv.className = 'email-from';
+        fromDiv.style.fontSize = '13px';
+        fromDiv.style.color = '#202124';
+        fromDiv.style.marginBottom = '4px';
+        fromDiv.appendChild(document.createTextNode('From: '));
+        const fromStrong = document.createElement('strong');
+        fromStrong.textContent = sender;
+        fromDiv.appendChild(fromStrong);
+        preview.appendChild(fromDiv);
+      }
       
-      const subjectDiv = document.createElement('div');
-      subjectDiv.className = 'email-subject';
-      subjectDiv.style.fontSize = '15px';
-      subjectDiv.style.fontWeight = '600';
-      subjectDiv.style.color = '#202124';
-      subjectDiv.style.marginBottom = '8px';
-      subjectDiv.textContent = subject;
+      if (subject) {
+        const subjectDiv = document.createElement('div');
+        subjectDiv.className = 'email-subject';
+        subjectDiv.style.fontSize = '15px';
+        subjectDiv.style.fontWeight = '600';
+        subjectDiv.style.color = '#202124';
+        subjectDiv.style.marginBottom = '8px';
+        subjectDiv.textContent = subject;
+        preview.appendChild(subjectDiv);
+      }
       
-      const snippetDiv = document.createElement('div');
-      snippetDiv.className = 'email-snippet';
-      snippetDiv.style.fontSize = '13px';
-      snippetDiv.style.color = '#5f6368';
-      snippetDiv.textContent = snippet.substring(0, 100) + (snippet.length > 100 ? '...' : '');
+      if (snippet) {
+        const snippetDiv = document.createElement('div');
+        snippetDiv.className = 'email-snippet';
+        snippetDiv.style.fontSize = '13px';
+        snippetDiv.style.color = '#5f6368';
+        snippetDiv.textContent = snippet.substring(0, 100) + (snippet.length > 100 ? '...' : '');
+        preview.appendChild(snippetDiv);
+      }
       
-      preview.appendChild(fromDiv);
-      preview.appendChild(subjectDiv);
-      preview.appendChild(snippetDiv);
       emailInfo.appendChild(preview);
     }
   }

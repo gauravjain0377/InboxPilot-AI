@@ -46,11 +46,15 @@ class EmailListFeatures {
 
       const controls = document.createElement('div');
       controls.className = 'inboxpilot-email-controls';
+      controls.style.display = 'flex';
+      controls.style.gap = '4px';
+      controls.style.alignItems = 'center';
       
       const quickReplyBtn = document.createElement('button');
       quickReplyBtn.className = 'inboxpilot-quick-reply';
       quickReplyBtn.setAttribute('data-action', 'quick-reply');
       quickReplyBtn.setAttribute('title', 'AI Reply');
+      quickReplyBtn.setAttribute('type', 'button');
       const quickReplySpan = document.createElement('span');
       quickReplySpan.textContent = '✍️';
       quickReplyBtn.appendChild(quickReplySpan);
@@ -66,6 +70,7 @@ class EmailListFeatures {
         btn.className = 'inboxpilot-priority';
         btn.setAttribute('data-priority', p.priority);
         btn.setAttribute('title', p.title);
+        btn.setAttribute('type', 'button');
         const span = document.createElement('span');
         span.textContent = p.icon;
         btn.appendChild(span);
@@ -74,9 +79,20 @@ class EmailListFeatures {
       
       controls.insertBefore(quickReplyBtn, controls.firstChild);
 
-      const actionsCell = row.querySelector('td:last-child');
+      // Try to find the best cell to insert controls
+      const actionsCell = row.querySelector('td:last-child') ||
+                         row.querySelector('td[style*="text-align"]') ||
+                         row.querySelector('td:has(button)') ||
+                         row.lastElementChild;
+      
       if (actionsCell && !actionsCell.querySelector('.inboxpilot-email-controls')) {
-        actionsCell.appendChild(controls);
+        // Create a wrapper if needed
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'inline-flex';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.gap = '4px';
+        wrapper.appendChild(controls);
+        actionsCell.appendChild(wrapper);
       }
 
       row.addEventListener('click', (e) => {
@@ -88,6 +104,7 @@ class EmailListFeatures {
       });
 
       quickReplyBtn.addEventListener('click', (e) => {
+        e.preventDefault();
         e.stopPropagation();
         if (this.actionHandlers.onQuickReply) {
           this.actionHandlers.onQuickReply(row);
@@ -96,6 +113,7 @@ class EmailListFeatures {
 
       controls.querySelectorAll('.inboxpilot-priority').forEach(btn => {
         btn.addEventListener('click', (e) => {
+          e.preventDefault();
           e.stopPropagation();
           if (btn.dataset.priority && this.actionHandlers.onSetPriority) {
             this.actionHandlers.onSetPriority(row, btn.dataset.priority);

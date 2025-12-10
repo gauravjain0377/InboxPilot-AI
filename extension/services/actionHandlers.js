@@ -9,80 +9,129 @@ class ActionHandlers {
     this.domHelpers = domHelpers;
   }
 
-  async handleAction(action, sidebar) {
+  async handleAction(action) {
     const emailContent = this.extractor.getCurrentEmailContent();
     if (!emailContent.body || emailContent.body.trim().length === 0) {
-      this.display.showError('No email content found. Please open an email first.');
+      this.display.showError(action, 'No email content found. Please open an email first.');
       return;
     }
 
-    sidebar.showLoading(true);
-    sidebar.clearResults();
+    this.display.showLoading(action, true);
 
     try {
       let result;
       switch (action) {
-        case 'summarize':
+        case 'summarize-email':
           result = await this.api.call('/ai/summarize', { emailBody: emailContent.body });
           const summaryText = result?.summary || result?.text || (typeof result === 'string' ? result : (result ? JSON.stringify(result) : ''));
           if (summaryText && summaryText.trim().length > 0) {
-            this.display.showResult(summaryText, 'AI Summary');
+            this.display.showResult(action, summaryText, 'AI Summary');
           } else {
-            this.display.showError('No summary generated. Response: ' + JSON.stringify(result));
+            this.display.showError(action, 'No summary generated.');
           }
           break;
-        case 'reply':
+        case 'reply-email':
+          // Open Gmail reply window and show tone selector there
           this.domHelpers.openGmailReplyWindow(() => {
-            this.display.showToneSelector((selectedTone) => {
-              this.handleReplyWithTone(emailContent.body, selectedTone);
-            });
+            const replyWindow = document.querySelector('[role="dialog"]');
+            if (replyWindow && window.replyToneSelector) {
+              window.replyToneSelector.showInReplyWindow(replyWindow, emailContent.body);
+            }
           });
-          break;
-        case 'followup':
+          this.display.showLoading(action, false);
+          return; // Don't show loading for reply as it opens in reply window
+        case 'followup-email':
           result = await this.api.call('/ai/followup', { emailBody: emailContent.body });
           const followUpText = result?.followUp || result?.text || (typeof result === 'string' ? result : (result ? JSON.stringify(result) : ''));
           if (followUpText && followUpText.trim().length > 0) {
-            this.display.showResult(followUpText, 'Follow-up Draft');
+            this.display.showResult(action, followUpText, 'Follow-up Draft');
           } else {
-            this.display.showError('No follow-up generated. Response: ' + JSON.stringify(result));
+            this.display.showError(action, 'No follow-up generated.');
           }
           break;
-        case 'meeting':
+        case 'meeting-email':
           result = await this.api.call('/calendar/suggest', { emailBody: emailContent.body });
           if (result) {
-            this.display.showMeetingSuggestions(result);
+            let meetingText = '';
+            if (result.hasMeeting) {
+              meetingText = 'Meeting detected.\n\n';
+              if (result.suggestedTimes && result.suggestedTimes.length > 0) {
+                meetingText += 'Suggested times:\n';
+                result.suggestedTimes.forEach(slot => {
+                  const start = new Date(slot.start || slot);
+                  meetingText += `- ${start.toLocaleString()}\n`;
+                });
+              }
+              if (result.attendees && result.attendees.length > 0) {
+                meetingText += `\nAttendees: ${result.attendees.join(', ')}`;
+              }
+            } else {
+              meetingText = result.message || 'No meeting request found in this email.';
+            }
+            this.display.showResult(action, meetingText, 'Meeting Suggestions');
           } else {
-            this.display.showError('No meeting suggestions generated');
+            this.display.showError(action, 'No meeting suggestions generated');
           }
           break;
-        case 'explain':
+        case 'explain-email':
           result = await this.api.call('/ai/rewrite', {
             text: emailContent.body,
             instruction: 'Explain this email in simple, easy-to-understand words'
           });
           const explainText = result.rewritten || result.text || (typeof result === 'string' ? result : JSON.stringify(result));
           if (explainText) {
-            this.display.showResult(explainText, 'Simple Explanation');
+            this.display.showResult(action, explainText, 'Simple Explanation');
           } else {
-            this.display.showError('No explanation generated');
+            this.display.showError(action, 'No explanation generated');
           }
           break;
       }
     } catch (error) {
       console.error('InboxPilot: Action error:', error);
-      const errorMsg = error.message || 'Action failed. Check if backend is running at http://localhost:5000';
-      this.display.showError(errorMsg);
+      let errorMsg = error.message || 'Action failed.';
+      
+      // Provide helpful error messages
+      if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
+        errorMsg = 'Cannot connect to backend server. Please ensure the backend is running at http://localhost:5000';
+      } else if (errorMsg.includes('401') || errorMsg.includes('403')) {
+        errorMsg = 'Authentication failed. Please log in again.';
+      } else if (errorMsg.includes('500')) {
+        errorMsg = 'Server error. Please try again later.';
+      }
+      
+      this.display.showError(action, errorMsg);
     } finally {
-      sidebar.showLoading(false);
+      this.display.showLoading(action, false);
+    }
+  }
+
+  async handleReplyWithTone(emailBody, tone, replyWindow) {
+    try {
+      const result = await this.api.call('/ai/reply', { emailBody, tone });
+      const replies = result.replies || (result.reply ? [result.reply] : [result.text || result]);
+      
+      const firstReply = Array.isArray(replies) ? replies[0] : replies;
+      if (firstReply) {
+        this.domHelpers.insertReplyIntoGmail(firstReply);
+      } else {
+        throw new Error('No reply generated');
+      }
+    } catch (error) {
+      throw new Error('Failed to generate reply: ' + error.message);
     }
   }
 
   async handleComposeAction(action, composeBox) {
-    const composeBody = composeBox.querySelector('[contenteditable="true"]');
-    const currentText = composeBody?.innerText || '';
+    // Find compose body with multiple selectors
+    const composeBody = composeBox.querySelector('[contenteditable="true"][g_editable="true"]') ||
+                       composeBox.querySelector('[contenteditable="true"]') ||
+                       composeBox.querySelector('[role="textbox"]') ||
+                       composeBox.querySelector('.Am.Al.editable');
+    const currentText = composeBody?.innerText?.trim() || composeBody?.textContent?.trim() || '';
 
     if (!currentText && action !== 'generate') {
-      this.display.showError('Please write something first');
+      // Show error in compose window if possible
+      console.warn('Please write something in the compose box first');
       return;
     }
 
@@ -128,27 +177,15 @@ class ActionHandlers {
           break;
       }
     } catch (error) {
-      this.display.showError(error.message);
+      console.error('InboxPilot: Compose action error:', error);
+      let errorMsg = error.message || 'Action failed.';
+      if (errorMsg.includes('Failed to fetch')) {
+        errorMsg = 'Cannot connect to backend. Make sure the server is running.';
+      }
+      this.display.showError(errorMsg);
     }
   }
 
-  async handleReplyWithTone(emailBody, tone) {
-    try {
-      const result = await this.api.call('/ai/reply', { emailBody, tone });
-      const toneLabel = tone.charAt(0).toUpperCase() + tone.slice(1);
-      const replies = result.replies || (result.reply ? [result.reply] : [result.text || result]);
-      
-      const firstReply = Array.isArray(replies) ? replies[0] : replies;
-      if (firstReply) {
-        this.domHelpers.insertReplyIntoGmail(firstReply);
-        this.display.showReplies(replies, toneLabel);
-      } else {
-        this.display.showError('No reply generated');
-      }
-    } catch (error) {
-      this.display.showError('Failed to generate reply: ' + error.message);
-    }
-  }
 
   async quickReply(row) {
     const emailContent = this.extractor.extractEmailContent(row);
@@ -162,7 +199,7 @@ class ActionHandlers {
       const replies = result.replies || [result];
       this.domHelpers.insertReplyIntoGmail(replies[0]);
     } catch (error) {
-      this.display.showError('Failed to generate reply');
+      console.error('Quick reply error:', error);
     }
   }
 
@@ -175,9 +212,8 @@ class ActionHandlers {
         priority
       });
       row.classList.add(`priority-${priority}`);
-      this.display.showSuccess(`Priority set to ${priority}`);
     } catch (error) {
-      this.display.showError('Failed to set priority');
+      console.error('Set priority error:', error);
     }
   }
 }
