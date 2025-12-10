@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import { google } from 'googleapis';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/env.js';
-import { config } from '../config/env.js';
 import { User } from '../models/User.js';
 import { encrypt } from '../utils/encrypt.js';
 import { AppError } from '../utils/errorHandler.js';
@@ -94,5 +93,64 @@ export const getAuthUrl = (req: Request, res: Response): void => {
   });
 
   res.json({ success: true, url });
+};
+
+export const handleCallback = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { code } = req.query;
+
+    if (!code || typeof code !== 'string') {
+      return res.redirect(`${config.server.frontendUrl}/login?error=no_code`);
+    }
+
+    const oauth2Client = new google.auth.OAuth2(
+      config.google.clientId,
+      config.google.clientSecret,
+      config.google.redirectUri
+    );
+
+    const { tokens } = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
+
+    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+    const userInfo = await oauth2.userinfo.get();
+
+    if (!userInfo.data.email || !userInfo.data.id) {
+      return res.redirect(`${config.server.frontendUrl}/login?error=auth_failed`);
+    }
+
+    let user = await User.findOne({ email: userInfo.data.email });
+
+    if (user) {
+      user.accessToken = encrypt(tokens.access_token || '');
+      user.refreshToken = encrypt(tokens.refresh_token || '');
+      user.tokenExpiry = tokens.expiry_date ? new Date(tokens.expiry_date) : undefined;
+      await user.save();
+    } else {
+      user = await User.create({
+        email: userInfo.data.email,
+        name: userInfo.data.name || '',
+        picture: userInfo.data.picture,
+        googleId: userInfo.data.id,
+        accessToken: encrypt(tokens.access_token || ''),
+        refreshToken: encrypt(tokens.refresh_token || ''),
+        tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
+      });
+    }
+
+    const token = jwt.sign(
+      { userId: user._id.toString(), email: user.email },
+      config.security.jwtSecret,
+      { expiresIn: '7d' }
+    );
+
+    // Redirect to frontend with token
+    const frontendUrl = config.server.frontendUrl;
+    res.redirect(`${frontendUrl}/auth/callback?token=${token}&email=${encodeURIComponent(user.email)}`);
+  } catch (error) {
+    logger.error('OAuth callback error:', error);
+    const frontendUrl = config.server.frontendUrl;
+    res.redirect(`${frontendUrl}/login?error=callback_failed`);
+  }
 };
 

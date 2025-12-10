@@ -30,11 +30,12 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
+    // Check for error in URL
     const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-
-    if (code) {
-      handleAuthCallback(code);
+    const error = urlParams.get('error');
+    if (error) {
+      console.error('Login error:', error);
+      setLoading(false);
     }
   }, []);
 

@@ -1,231 +1,436 @@
-/* InboxPilot AI Sidebar Panel */
+/* InboxPilot AI - Gmail Integration Styles */
+
+/* Sidebar Panel */
 #inboxpilot-panel {
   position: fixed;
   right: 20px;
   top: 80px;
-  width: 350px;
-  max-height: 600px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  width: 380px;
+  max-height: 70vh;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   z-index: 10000;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  border: 1px solid #e0e0e0;
+  transition: all 0.3s ease;
+}
+
+#inboxpilot-panel.collapsed {
+  width: 60px;
+  overflow: hidden;
 }
 
 .inboxpilot-header {
   background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
   color: white;
-  padding: 16px;
+  padding: 16px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
 }
 
-.inboxpilot-header h3 {
+.inboxpilot-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.inboxpilot-logo h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
+  letter-spacing: -0.5px;
 }
 
 .inboxpilot-close {
-  background: none;
+  background: rgba(255, 255, 255, 0.2);
   border: none;
   color: white;
   font-size: 24px;
   cursor: pointer;
-  padding: 0;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: background 0.2s;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: all 0.2s;
+  line-height: 1;
 }
 
 .inboxpilot-close:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
 }
 
 .inboxpilot-content {
-  padding: 16px;
+  padding: 20px;
   overflow-y: auto;
   flex: 1;
+  background: #fafafa;
+}
+
+.inboxpilot-email-info {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid #e0e0e0;
+}
+
+.email-preview {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.email-from, .email-subject {
+  margin-bottom: 8px;
+  color: #202124;
+}
+
+.email-snippet {
+  color: #5f6368;
+  font-size: 12px;
+  margin-top: 8px;
 }
 
 .inboxpilot-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 16px;
+  gap: 10px;
+  margin-bottom: 16px;
 }
 
 .inboxpilot-btn {
-  padding: 10px 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  padding: 12px 16px;
+  background: white;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 13px;
+  font-weight: 500;
   transition: all 0.2s;
   text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #202124;
 }
 
 .inboxpilot-btn:hover {
-  background: #4f46e5;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
   color: white;
   border-color: #4f46e5;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.inboxpilot-btn .icon {
+  font-size: 16px;
 }
 
 .inboxpilot-loading {
-  text-align: center;
-  padding: 20px;
-  color: #64748b;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: #5f6368;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #4f46e5;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .inboxpilot-results {
   margin-top: 16px;
-  padding: 12px;
-  background: #f8fafc;
-  border-radius: 8px;
-  max-height: 300px;
+  max-height: 400px;
   overflow-y: auto;
 }
 
-.inboxpilot-result {
-  line-height: 1.6;
-  color: #334155;
+.inboxpilot-result-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #e0e0e0;
+  margin-bottom: 12px;
+}
+
+.result-title {
+  font-weight: 600;
+  color: #4f46e5;
+  margin-bottom: 12px;
   font-size: 14px;
 }
 
-.inboxpilot-reply {
-  padding: 12px;
-  margin-bottom: 8px;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
+.result-content {
+  line-height: 1.7;
+  color: #202124;
   font-size: 13px;
-  line-height: 1.5;
+  margin-bottom: 12px;
 }
 
-.inboxpilot-reply:hover {
+.result-copy {
+  background: #f1f5f9;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #4f46e5;
+  font-weight: 500;
+}
+
+.result-copy:hover {
+  background: #e2e8f0;
+}
+
+.inboxpilot-reply-card {
+  background: white;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: all 0.2s;
+}
+
+.inboxpilot-reply-card:hover {
   border-color: #4f46e5;
-  background: #f0f4ff;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.1);
   transform: translateX(4px);
 }
 
-.inboxpilot-error {
-  color: #ef4444;
-  padding: 12px;
-  background: #fef2f2;
-  border-radius: 6px;
+.reply-content {
+  line-height: 1.7;
+  color: #202124;
   font-size: 13px;
+  margin-bottom: 12px;
+  white-space: pre-wrap;
+}
+
+.reply-use {
+  width: 100%;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reply-use:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.inboxpilot-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.inboxpilot-success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Email List Controls */
+.inboxpilot-email-controls {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+tr[role="row"]:hover .inboxpilot-email-controls {
+  opacity: 1;
+}
+
+.inboxpilot-quick-reply,
+.inboxpilot-priority {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inboxpilot-quick-reply:hover {
+  background: #4f46e5;
+  color: white;
+  border-color: #4f46e5;
+}
+
+.inboxpilot-priority:hover {
+  transform: scale(1.1);
+}
+
+tr.priority-high {
+  border-left: 3px solid #dc2626;
+}
+
+tr.priority-medium {
+  border-left: 3px solid #f59e0b;
+}
+
+tr.priority-low {
+  border-left: 3px solid #10b981;
 }
 
 /* Compose Toolbar */
 .inboxpilot-compose-toolbar {
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-bottom: 2px solid #e2e8f0;
   padding: 12px 16px;
-  margin-bottom: 8px;
-  border-radius: 8px 8px 0 0;
+  margin: 0;
+  border-radius: 0;
 }
 
 .inboxpilot-toolbar-content {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
 .inboxpilot-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  color: #475569;
-  margin-right: 4px;
+  color: #4f46e5;
+  margin-right: 8px;
+}
+
+.inboxpilot-toolbar-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .inboxpilot-toolbar-btn {
-  padding: 6px 12px;
+  padding: 8px 14px;
   background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 12px;
+  font-weight: 500;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #202124;
 }
 
 .inboxpilot-toolbar-btn:hover {
   background: #4f46e5;
   color: white;
   border-color: #4f46e5;
+  transform: translateY(-1px);
+}
+
+.inboxpilot-toolbar-btn.primary {
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  color: white;
+  border-color: #4f46e5;
 }
 
 .inboxpilot-tone-select {
-  padding: 6px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  padding: 8px 12px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
   font-size: 12px;
   background: white;
   cursor: pointer;
+  color: #202124;
+  font-weight: 500;
+}
+
+.inboxpilot-tone-select:focus {
+  outline: none;
+  border-color: #4f46e5;
 }
 
 /* Email Actions Bar */
 .inboxpilot-email-actions {
   display: flex;
-  gap: 8px;
-  padding: 12px 0;
-  margin-top: 8px;
-  border-top: 1px solid #e2e8f0;
+  gap: 10px;
+  padding: 16px 0;
+  margin-top: 12px;
+  border-top: 1px solid #e0e0e0;
   flex-wrap: wrap;
 }
 
 .inboxpilot-action-btn {
-  padding: 8px 14px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  padding: 10px 16px;
+  background: white;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #202124;
 }
 
 .inboxpilot-action-btn:hover {
-  background: #4f46e5;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
   color: white;
   border-color: #4f46e5;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  #inboxpilot-panel {
-    background: #1e293b;
-    color: #f1f5f9;
-  }
-
-  .inboxpilot-content {
-    background: #1e293b;
-  }
-
-  .inboxpilot-btn {
-    background: #334155;
-    border-color: #475569;
-    color: #f1f5f9;
-  }
-
-  .inboxpilot-results {
-    background: #334155;
-  }
-
-  .inboxpilot-result {
-    color: #f1f5f9;
-  }
+/* Scrollbar */
+.inboxpilot-content::-webkit-scrollbar,
+.inboxpilot-results::-webkit-scrollbar {
+  width: 6px;
 }
 
+.inboxpilot-content::-webkit-scrollbar-track,
+.inboxpilot-results::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.inboxpilot-content::-webkit-scrollbar-thumb,
+.inboxpilot-results::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.inboxpilot-content::-webkit-scrollbar-thumb:hover,
+.inboxpilot-results::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

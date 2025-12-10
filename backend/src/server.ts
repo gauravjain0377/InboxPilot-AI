@@ -33,6 +33,20 @@ app.get('/health', (req, res) => {
   res.json({ success: true, message: 'InboxPilot API is running' });
 });
 
+app.get('/', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'InboxPilot AI Backend API',
+    version: '1.0.0',
+    endpoints: {
+      auth: '/api/auth',
+      gmail: '/api/gmail',
+      ai: '/api/ai',
+      calendar: '/api/calendar'
+    }
+  });
+});
+
 app.use(errorHandler);
 
 const startServer = async () => {
