@@ -6,6 +6,7 @@ import { User } from '../models/User.js';
 import { encrypt } from '../utils/encrypt.js';
 import { AppError } from '../utils/errorHandler.js';
 import { logger } from '../utils/logger.js';
+import { AuthRequest } from '../middlewares/auth.js';
 
 export const googleAuth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -190,6 +191,63 @@ export const handleCallback = async (req: Request, res: Response, next: NextFunc
     logger.error('OAuth callback error:', error);
     const frontendUrl = config.server.frontendUrl;
     res.redirect(`${frontendUrl}/login?error=callback_failed`);
+  }
+};
+
+// Return basic user info (used by dashboard and extension to verify token)
+export const getMe = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const user = await User.findById(req.user?.userId);
+    if (!user) throw new AppError('User not found', 404);
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        extensionConnected: user.extensionConnected || false,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Mark that the browser extension is connected for this user
+export const connectExtension = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const user = await User.findById(req.user?.userId);
+    if (!user) throw new AppError('User not found', 404);
+
+    user.extensionConnected = true;
+    await user.save();
+
+    res.json({
+      success: true,
+      extensionConnected: true,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Mark that the browser extension is disconnected for this user
+export const disconnectExtension = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const user = await User.findById(req.user?.userId);
+    if (!user) throw new AppError('User not found', 404);
+
+    user.extensionConnected = false;
+    await user.save();
+
+    res.json({
+      success: true,
+      extensionConnected: false,
+    });
+  } catch (error) {
+    next(error);
   }
 };
 

@@ -8,11 +8,12 @@ export interface IUser extends Document {
   accessToken: string;
   refreshToken: string;
   tokenExpiry?: Date;
-    preferences?: {
-      defaultTone: 'formal' | 'friendly' | 'assertive' | 'short' | 'negative' | 'concise';
-      signature?: string;
-      autoLabel: boolean;
-    };
+  preferences?: {
+    defaultTone: 'formal' | 'friendly' | 'assertive' | 'short' | 'negative' | 'concise';
+    signature?: string;
+    autoLabel: boolean;
+  };
+  extensionConnected?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,6 +32,7 @@ const UserSchema = new Schema<IUser>(
       signature: String,
       autoLabel: { type: Boolean, default: true },
     },
+    extensionConnected: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

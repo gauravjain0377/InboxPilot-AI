@@ -87,38 +87,99 @@ class EmailExtractor {
     const labels = [];
     const text = (subject + ' ' + snippet + ' ' + from).toLowerCase();
 
-    // Finance / billing
-    if (text.match(/\b(invoice|payment|bill|receipt|finance|financial|accounting|billing|payment due|amount|price|cost|fee|tax)\b/)) {
-      labels.push({ text: 'Finance', class: 'finance' });
+    const addLabel = (textLabel, cssClass) => {
+      if (!labels.find(l => l.class === cssClass)) {
+        labels.push({ text: textLabel, class: cssClass });
+      }
+    };
+
+    // 1) Category-style labels (roughly 20+ possible types)
+    if (/(invoice|payment|bill|receipt|statement|balance|emi|sip|mutual fund|brokerage|gst|tax)/.test(text) ||
+        /(groww|zerodha|upstox|hdfc|icici|sbi|axis bank|bank of)/.test(text)) {
+      addLabel('Finance', 'finance');
     }
 
-    // Scheduling / meetings
-    if (text.match(/\b(meeting|schedule|calendar|appointment|call|conference|reschedule|zoom|google meet|teams)\b/)) {
-      labels.push({ text: 'Scheduling', class: 'scheduling' });
+    if (/(meeting|schedule|calendar|appointment|invite|zoom|google meet|teams call|reschedule)/.test(text)) {
+      addLabel('Scheduling', 'scheduling');
     }
 
-    // Marketing / newsletters / promotions
-    if (text.match(/\b(marketing|newsletter|campaign|promo|promotion|offer|sale|discount|webinar|update from our team)\b/)) {
-      labels.push({ text: 'Marketing', class: 'marketing' });
+    if (/(newsletter|digest|roundup|weekly update|product update|changelog)/.test(text)) {
+      addLabel('Newsletter', 'newsletter');
     }
 
-    // Social / community platforms (based mainly on sender/domain keywords)
-    if (text.match(/\b(linkedin|twitter|x\.com|facebook|instagram|youtube|github|community|slack|discord)\b/)) {
-      labels.push({ text: 'Social', class: 'social' });
+    if (/(offer|sale|discount|deal|coupon|promo|promotion|black friday|cyber monday)/.test(text)) {
+      addLabel('Promo', 'promo');
     }
 
-    // Priority heuristics
-    if (text.match(/\b(urgent|asap|immediately|important|priority|high priority|critical|action required|respond today)\b/)) {
-      labels.push({ text: 'High Priority', class: 'high-priority' });
-    } else if (text.match(/\b(reminder|follow up|follow-up|nudge|update)\b/)) {
-      labels.push({ text: 'Medium Priority', class: 'medium-priority' });
-    } else if (text.match(/\b(newsletter|digest|roundup|summary|update)\b/)) {
-      labels.push({ text: 'Low Priority', class: 'low-priority' });
+    if (/(marketing|campaign|leads|growth|crm|mailchimp|hubspot)/.test(text)) {
+      addLabel('Marketing', 'marketing');
     }
 
-    // Reply needed
-    if (text.includes('?') || text.match(/\b(rsvp|please reply|please respond|let us know|confirm your attendance)\b/)) {
-      labels.push({ text: 'Reply Needed', class: 'reply-needed' });
+    if (/(linkedin|twitter|x\.com|facebook|instagram|youtube|github|slack|discord|community)/.test(text)) {
+      addLabel('Social', 'social');
+    }
+
+    if (/(google cloud|aws|azure|gcp|kubernetes|docker|devops|api key|token|error log)/.test(text)) {
+      addLabel('Dev & Tools', 'devtools');
+    }
+
+    if (/(flight|hotel|boarding pass|check-in|itinerary|air india|make my trip|booking\.com|ola|uber)/.test(text)) {
+      addLabel('Travel', 'travel');
+    }
+
+    if (/(order|delivery|shipped|tracking number|invoice for your order|amazon|flipkart)/.test(text)) {
+      addLabel('Orders', 'orders');
+    }
+
+    if (/(job|hiring|recruiter|interview|application|career|opening)/.test(text)) {
+      addLabel('Jobs', 'jobs');
+    }
+
+    if (/(webinar|workshop|summit|conference|meetup|event)/.test(text)) {
+      addLabel('Events', 'events');
+    }
+
+    if (/(course|class|lesson|tutorial|academy|learning|university|college)/.test(text)) {
+      addLabel('Education', 'education');
+    }
+
+    if (/(subscription|plan|renewal|auto-debit|trial expiring|expires on)/.test(text)) {
+      addLabel('Subscription', 'subscription');
+    }
+
+    if (/(security alert|suspicious|unusual activity|password reset|otp|verification code)/.test(text)) {
+      addLabel('Security', 'security');
+    }
+
+    if (/(feedback|survey|rate us|review)/.test(text)) {
+      addLabel('Feedback', 'feedback');
+    }
+
+    if (/(welcome|thanks for signing up|getting started)/.test(text)) {
+      addLabel('Onboarding', 'onboarding');
+    }
+
+    if (/(newsletter|digest)/.test(text)) {
+      addLabel('Updates', 'updates');
+    }
+
+    // 2) Priority heuristics (always assign at least one)
+    if (/(urgent|asap|immediately|important|high priority|critical|action required|respond today)/.test(text)) {
+      addLabel('High Priority', 'high-priority');
+    } else if (/(reminder|follow up|follow-up|nudge|pending)/.test(text)) {
+      addLabel('Medium Priority', 'medium-priority');
+    } else if (/(newsletter|digest|roundup|summary|update)/.test(text)) {
+      addLabel('Low Priority', 'low-priority');
+    }
+
+    // 3) Reply needed
+    if (text.includes('?') || /(rsvp|please reply|please respond|let us know|confirm your attendance)/.test(text)) {
+      addLabel('Reply Needed', 'reply-needed');
+    }
+
+    // 4) Fallback – ensure every email gets at least one label
+    if (labels.length === 0) {
+      addLabel('General', 'general');
     }
 
     return labels;

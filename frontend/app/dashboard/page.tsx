@@ -6,18 +6,20 @@ import { useUserStore } from '@/store/userStore';
 import api from '@/lib/axios';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  Mail, 
-  Sparkles, 
-  Clock, 
-  TrendingUp, 
-  Settings, 
-  BarChart3, 
-  User, 
+import {
+  Mail,
+  Sparkles,
+  Clock,
+  TrendingUp,
+  Settings,
+  BarChart3,
+  User,
   Calendar,
   Activity,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  Users,
+  MessageCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -50,10 +52,57 @@ interface DashboardStats {
   };
 }
 
+interface AttentionDaySummary {
+  date: string;
+  total: number;
+  high: number;
+  medium: number;
+  low: number;
+  estimatedMinutes: number;
+}
+
+interface AttentionOverview {
+  today: AttentionDaySummary;
+  days: AttentionDaySummary[];
+}
+
+interface DailyDigestItem {
+  id: string;
+  gmailId: string;
+  subject: string;
+  from: string;
+  date: string;
+  snippet: string;
+  priority?: string;
+  category?: string;
+  hasAiSuggestion: boolean;
+  hasSummary: boolean;
+}
+
+interface RelationshipSummary {
+  contact: string;
+  totalEmails: number;
+  lastInteractionAt: string;
+  lastSubject?: string;
+  lastCategory?: string;
+}
+
+interface CommunicationInsights {
+  totalSent: number;
+  totalReceived: number;
+  avgReplyLengthWords: number;
+  medianResponseMinutes: number | null;
+  aiReplyRate: number;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { user, logout } = useUserStore();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [attention, setAttention] = useState<AttentionOverview | null>(null);
+  const [digest, setDigest] = useState<DailyDigestItem[]>([]);
+  const [relationships, setRelationships] = useState<RelationshipSummary[]>([]);
+  const [communication, setCommunication] = useState<CommunicationInsights | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -68,10 +117,21 @@ export default function DashboardPage() {
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const { data } = await api.get('/analytics/dashboard');
-      setStats(data.stats);
+      const [dashboardRes, attentionRes, digestRes, relationshipsRes, communicationRes] = await Promise.all([
+        api.get('/analytics/dashboard'),
+        api.get('/analytics/attention'),
+        api.get('/analytics/daily-digest'),
+        api.get('/analytics/relationships'),
+        api.get('/analytics/communication'),
+      ]);
+
+      setStats(dashboardRes.data.stats);
+      setAttention(attentionRes.data.attention ?? null);
+      setDigest(digestRes.data.items ?? []);
+      setRelationships(relationshipsRes.data?.relationships?.topContacts ?? []);
+      setCommunication(communicationRes.data?.communication ?? null);
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
     }
@@ -396,6 +456,259 @@ export default function DashboardPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Attention & Focus + Daily Digest */}
+            <div className="grid gap-6 lg:grid-cols-2 mb-8">
+              <Card className="border border-slate-200 bg-white shadow-sm">
+                <CardHeader className="border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-slate-700" />
+                    <CardTitle className="text-base font-semibold text-slate-900">
+                      Attention Budget (Next 7 Days)
+                    </CardTitle>
+                  </div>
+                  <CardDescription className="text-xs sm:text-sm text-slate-500">
+                    Estimated time to process unread emails
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  {attention ? (
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">
+                          Today&apos;s load
+                        </p>
+                        <p className="text-2xl font-semibold text-slate-900">
+                          {formatTime(attention.today.estimatedMinutes)}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {attention.today.high} high • {attention.today.medium} medium •{' '}
+                          {attention.today.low} low priority emails
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        {attention.days.slice(0, 7).map((day) => (
+                          <div key={day.date} className="flex items-center justify-between text-xs">
+                            <span className="text-slate-600">
+                              {new Date(day.date).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                            </span>
+                            <div className="flex-1 mx-3 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                              <div
+                                className="h-1.5 rounded-full bg-slate-900"
+                                style={{
+                                  width: `${Math.min(100, (day.estimatedMinutes / Math.max(30, attention.today.estimatedMinutes || 30)) * 100)}%`,
+                                }}
+                              ></div>
+                            </div>
+                            <span className="text-slate-700">
+                              {day.estimatedMinutes} min
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500">No unread emails to plan for.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border border-slate-200 bg-white shadow-sm">
+                <CardHeader className="border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-slate-700" />
+                    <CardTitle className="text-base font-semibold text-slate-900">
+                      Today&apos;s Briefing
+                    </CardTitle>
+                  </div>
+                  <CardDescription className="text-xs sm:text-sm text-slate-500">
+                    Top emails that deserve your attention
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  {digest.length > 0 ? (
+                    <div className="space-y-3">
+                      {digest.map((item) => (
+                        <div key={item.id} className="flex flex-col gap-1 border-b border-slate-100 pb-3 last:border-b-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-slate-900 truncate">
+                                {item.subject}
+                              </p>
+                              <p className="text-xs text-slate-500 truncate">
+                                {item.from}
+                              </p>
+                            </div>
+                            <span className="text-xs text-slate-500 whitespace-nowrap">
+                              {new Date(item.date).toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
+                            {item.priority && (
+                              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                                {item.priority.charAt(0).toUpperCase() + item.priority.slice(1)} priority
+                              </span>
+                            )}
+                            {item.category && (
+                              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                                {item.category}
+                              </span>
+                            )}
+                            {item.hasAiSuggestion && (
+                              <span className="px-2 py-0.5 rounded-full bg-slate-900 text-white">
+                                AI draft ready
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between mt-1">
+                            <p className="text-xs text-slate-500 line-clamp-1">
+                              {item.snippet}
+                            </p>
+                            <Link
+                              href={`https://mail.google.com/mail/u/0/#all/${item.gmailId}`}
+                              target="_blank"
+                              className="text-xs text-slate-900 font-medium ml-2 whitespace-nowrap"
+                            >
+                              Open
+                            </Link>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500">
+                      No high‑impact emails detected for today.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Relationships & Communication */}
+            <div className="grid gap-6 lg:grid-cols-2 mb-8">
+              <Card className="border border-slate-200 bg-white shadow-sm">
+                <CardHeader className="border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-slate-700" />
+                    <CardTitle className="text-base font-semibold text-slate-900">
+                      Relationship Radar
+                    </CardTitle>
+                  </div>
+                  <CardDescription className="text-xs sm:text-sm text-slate-500">
+                    People you&apos;re talking to the most
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  {relationships.length > 0 ? (
+                    <div className="space-y-3">
+                      {relationships.slice(0, 10).map((rel) => (
+                        <div key={rel.contact} className="flex items-center justify-between text-sm">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-slate-900 truncate max-w-[180px]">
+                              {rel.contact}
+                            </span>
+                            {rel.lastSubject && (
+                              <span className="text-xs text-slate-500 truncate max-w-[220px]">
+                                {rel.lastSubject}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-slate-500">
+                              {new Date(rel.lastInteractionAt).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                            </p>
+                            <p className="text-xs text-slate-500">{rel.totalEmails} emails</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500">
+                      We&apos;ll populate your relationship map as emails arrive.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border border-slate-200 bg-white shadow-sm">
+                <CardHeader className="border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-slate-700" />
+                    <CardTitle className="text-base font-semibold text-slate-900">
+                      Communication Coach
+                    </CardTitle>
+                  </div>
+                  <CardDescription className="text-xs sm:text-sm text-slate-500">
+                    How you write and respond over time
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  {communication ? (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <p className="text-xs uppercase tracking-wide text-slate-500">
+                          Sent vs received
+                        </p>
+                        <p className="text-xl font-semibold text-slate-900">
+                          {communication.totalSent} / {communication.totalReceived}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Emails you sent vs emails received (last 90 days)
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs uppercase tracking-wide text-slate-500">
+                          Typical response time
+                        </p>
+                        <p className="text-xl font-semibold text-slate-900">
+                          {communication.medianResponseMinutes != null
+                            ? `${communication.medianResponseMinutes} min`
+                            : '—'}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Median time to reply in a thread
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs uppercase tracking-wide text-slate-500">
+                          Average reply length
+                        </p>
+                        <p className="text-xl font-semibold text-slate-900">
+                          {communication.avgReplyLengthWords} words
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Good target is 60–120 words for clear replies
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs uppercase tracking-wide text-slate-500">
+                          AI assist rate
+                        </p>
+                        <p className="text-xl font-semibold text-slate-900">
+                          {Math.round((communication.aiReplyRate || 0) * 100)}%
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Percent of replies generated with InboxPilot
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500">
+                      Start replying to emails and we&apos;ll analyze your style.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Gmail Integration Status */}
             <Card className="border border-slate-200 bg-white shadow-sm">

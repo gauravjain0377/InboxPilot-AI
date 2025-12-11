@@ -5,6 +5,19 @@
 (function() {
   'use strict';
 
+  function getCurrentGmailEmail() {
+    try {
+      const accountNode = document.querySelector('a[aria-label*="@"]') || document.querySelector('a[aria-label*="Google Account"]');
+      if (!accountNode) return null;
+      const label = accountNode.getAttribute('aria-label') || '';
+      const match = label.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+      return match ? match[0].toLowerCase() : null;
+    } catch (e) {
+      console.warn('InboxPilot: Could not detect Gmail account email:', e);
+      return null;
+    }
+  }
+
   // Wait for all dependencies to be loaded
   function waitForDependencies(callback, attempts = 0) {
     const maxAttempts = 100; // 10 seconds max wait (increased from 5)
@@ -71,39 +84,67 @@
 
   // Initialize components after dependencies are loaded
   function initializeComponents() {
-    // Initialize components
     const apiService = new APIService('http://localhost:5000/api');
-    const emailExtractor = new EmailExtractor();
-    const inlineResultDisplay = new InlineResultDisplay();
-    const actionHandlers = new ActionHandlers(apiService, emailExtractor, inlineResultDisplay, DOMHelpers);
-    const replyToneSelector = new ReplyToneSelector(
-      (emailBody, tone, replyWindow, userContext, token) => {
-        return actionHandlers.handleReplyWithTone(emailBody, tone, replyWindow, userContext, token);
-      },
-      apiService
-    );
-    // Auto-inject reply tone selector (it has its own inject method now)
-    // It will automatically detect reply windows and inject the component
-    // The inject() is called in the constructor, so it's already active
-    const composeToolbar = new ComposeToolbar((action, composeBox) => {
-      actionHandlers.handleComposeAction(action, composeBox);
-    });
-    const emailActions = new EmailActions((action) => {
-      actionHandlers.handleAction(action);
-    });
-    const emailListFeatures = new EmailListFeatures({
-      onRowClick: (row) => {
-        // No sidebar, so nothing to do
-      },
-      onQuickReply: (row) => {
-        actionHandlers.quickReply(row);
-      },
-      onSetPriority: (row, priority) => {
-        actionHandlers.setPriority(row, priority);
-      }
-    });
 
-    class InboxPilotUI {
+    // Gate everything on valid token + connected user + matching Gmail account
+    (async () => {
+      try {
+        const token = await apiService.getAuthToken();
+        if (!token) {
+          console.log('InboxPilot: No auth token found, not injecting UI');
+          return;
+        }
+
+        let me;
+        try {
+          me = await apiService.call('/auth/me', {});
+        } catch (e) {
+          console.warn('InboxPilot: /auth/me failed, not injecting UI:', e?.message || e);
+          return;
+        }
+
+        const backendEmail = me?.user?.email?.toLowerCase?.() || null;
+        const extensionConnected = !!me?.user?.extensionConnected;
+        if (!backendEmail || !extensionConnected) {
+          console.log('InboxPilot: Extension not connected for this user, skipping UI injection');
+          return;
+        }
+
+        const gmailEmail = (getCurrentGmailEmail() || '').toLowerCase();
+        if (gmailEmail && gmailEmail !== backendEmail) {
+          console.log('InboxPilot: Gmail account does not match connected InboxPilot account, skipping UI injection');
+          return;
+        }
+
+        // Initialize components only after passing all checks
+        const emailExtractor = new EmailExtractor();
+        const inlineResultDisplay = new InlineResultDisplay();
+        const actionHandlers = new ActionHandlers(apiService, emailExtractor, inlineResultDisplay, DOMHelpers);
+        const replyToneSelector = new ReplyToneSelector(
+          (emailBody, tone, replyWindow, userContext, tokenValue) => {
+            return actionHandlers.handleReplyWithTone(emailBody, tone, replyWindow, userContext, tokenValue);
+          },
+          apiService
+        );
+        const composeToolbar = new ComposeToolbar((action, composeBox) => {
+          actionHandlers.handleComposeAction(action, composeBox);
+        });
+        const emailActions = new EmailActions((action) => {
+          actionHandlers.handleAction(action);
+        });
+        const emailListFeatures = new EmailListFeatures({
+          onRowClick: (row) => {
+            // No sidebar, so nothing to do
+          },
+          onQuickReply: (row) => {
+            actionHandlers.quickReply(row);
+          },
+          onSetPriority: (row, priority) => {
+            actionHandlers.setPriority(row, priority);
+          }
+        });
+
+        class InboxPilotUI {
       constructor(components) {
         this.components = components;
         this.isInitialized = false;
@@ -157,45 +198,48 @@
         });
         urlObserver.observe(document, { subtree: true, childList: true });
       }
-    }
-
-
-    // Store components globally
-    window.inboxPilotComponents = {
-      apiService,
-      emailExtractor,
-      inlineResultDisplay,
-      actionHandlers,
-      replyToneSelector,
-      composeToolbar,
-      emailActions,
-      emailListFeatures
-    };
-    
-    // Make replyToneSelector globally available
-    window.replyToneSelector = replyToneSelector;
-    
-    // Also make composeToolbar globally available for manual injection if needed
-    window.composeToolbar = composeToolbar;
-
-    // Initialize when DOM is ready
-    function initInboxPilot() {
-      try {
-        if (document.body && document.querySelector('[role="main"]')) {
-          new InboxPilotUI(window.inboxPilotComponents);
-        } else {
-          setTimeout(initInboxPilot, 500);
         }
-      } catch (error) {
-        console.error('InboxPilot: Initialization error:', error);
-      }
-    }
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initInboxPilot);
-    } else {
-      initInboxPilot();
-    }
+        // Store components globally
+        window.inboxPilotComponents = {
+          apiService,
+          emailExtractor,
+          inlineResultDisplay,
+          actionHandlers,
+          replyToneSelector,
+          composeToolbar,
+          emailActions,
+          emailListFeatures
+        };
+        
+        // Make replyToneSelector globally available
+        window.replyToneSelector = replyToneSelector;
+        
+        // Also make composeToolbar globally available for manual injection if needed
+        window.composeToolbar = composeToolbar;
+
+        // Initialize when DOM is ready
+        function initInboxPilot() {
+          try {
+            if (document.body && document.querySelector('[role="main"]')) {
+              new InboxPilotUI(window.inboxPilotComponents);
+            } else {
+              setTimeout(initInboxPilot, 500);
+            }
+          } catch (error) {
+            console.error('InboxPilot: Initialization error:', error);
+          }
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initInboxPilot);
+        } else {
+          initInboxPilot();
+        }
+      } catch (err) {
+        console.error('InboxPilot: Error during initialization gating:', err);
+      }
+    })();
   }
 
   // Wait for dependencies before initializing

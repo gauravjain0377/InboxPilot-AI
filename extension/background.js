@@ -8,15 +8,27 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   try {
     if (request.type === 'INBOXPILOT_AUTH') {
-      // Store auth token
-      chrome.storage.local.set({ authToken: request.token }, () => {
-        if (chrome.runtime.lastError) {
-          console.error('InboxPilot: Error storing token:', chrome.runtime.lastError);
-          sendResponse({ success: false, error: chrome.runtime.lastError.message });
-        } else {
-          sendResponse({ success: true });
-        }
-      });
+      // Store or clear auth token
+      const value = request.token && request.token.trim().length > 0 ? request.token : null;
+      if (value) {
+        chrome.storage.local.set({ authToken: value }, () => {
+          if (chrome.runtime.lastError) {
+            console.error('InboxPilot: Error storing token:', chrome.runtime.lastError);
+            sendResponse({ success: false, error: chrome.runtime.lastError.message });
+          } else {
+            sendResponse({ success: true });
+          }
+        });
+      } else {
+        chrome.storage.local.remove('authToken', () => {
+          if (chrome.runtime.lastError) {
+            console.error('InboxPilot: Error clearing token:', chrome.runtime.lastError);
+            sendResponse({ success: false, error: chrome.runtime.lastError.message });
+          } else {
+            sendResponse({ success: true });
+          }
+        });
+      }
       return true; // Keep channel open for async response
     }
 

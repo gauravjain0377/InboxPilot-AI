@@ -7,15 +7,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, Settings as SettingsIcon, Sparkles } from 'lucide-react';
+import { ArrowLeft, Save, Settings as SettingsIcon, Sparkles, Copy } from 'lucide-react';
 import api from '@/lib/axios';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user } = useUserStore();
+  const { user, token } = useUserStore();
   const [defaultTone, setDefaultTone] = useState<'formal' | 'friendly' | 'assertive' | 'short'>('friendly');
   const [signature, setSignature] = useState('');
   const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -121,6 +122,59 @@ export default function SettingsPage() {
                   This signature will be added to all AI-generated emails
                 </p>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* API Token for Extension */}
+          <Card className="border border-slate-200 bg-white shadow-sm">
+            <CardHeader className="bg-slate-50 border-b border-slate-200">
+              <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
+                <SettingsIcon className="h-4 w-4 text-slate-600" />
+                Extension API Token
+              </CardTitle>
+              <CardDescription className="text-sm text-slate-500">
+                Use this token once in the Chrome extension popup to connect InboxPilot to your Gmail.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-6">
+              {token ? (
+                <>
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Current token</p>
+                      <p className="text-xs font-mono text-slate-800 truncate">
+                        {token}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(token);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 1500);
+                        } catch (e) {
+                          console.error('Failed to copy token:', e);
+                        }
+                      }}
+                      className="shrink-0"
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      {copied ? 'Copied' : 'Copy token'}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Open the InboxPilot extension → paste this token into the &quot;Connect InboxPilot&quot; field →
+                    click <span className="font-semibold">Connect</span>.
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-slate-500">
+                  No token found. Please log in again on this device to generate a fresh token.
+                </p>
+              )}
             </CardContent>
           </Card>
 

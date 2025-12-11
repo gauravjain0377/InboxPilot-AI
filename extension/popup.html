@@ -43,9 +43,27 @@
 </head>
 <body>
   <h1>InboxPilot AI</h1>
-  <div class="status" id="status">Ready to use in Gmail</div>
+  <div class="status" id="status">Check backend & connect your Gmail account.</div>
+  
   <button class="button" id="openGmail">Open Gmail</button>
-  <button class="button secondary" id="settings">Settings</button>
+  <button class="button secondary" id="settings">Open Dashboard</button>
+  
+  <div style="margin-top: 16px;">
+    <div style="font-size: 14px; font-weight: 500; margin-bottom: 4px;">Connect Gmail account</div>
+    <p style="font-size: 12px; color: #64748b; margin-bottom: 6px;">
+      1. In the web app, sign in with Google and copy your API token from the settings page.
+      <br />
+      2. Paste it below to enable InboxPilot in this browser.
+    </p>
+    <input
+      id="tokenInput"
+      type="text"
+      placeholder="Paste your API token here"
+      style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 13px; margin-bottom: 8px;"
+    />
+    <button class="button" id="connectBtn">Connect InboxPilot</button>
+    <button class="button secondary" id="disconnectBtn">Disconnect</button>
+  </div>
   <script src="popup.js"></script>
 </body>
 </html>
