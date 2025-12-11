@@ -64,40 +64,35 @@ class ActionHandlers {
           // Open Gmail reply window and show tone selector there
           // Don't show loading popup - component will appear in reply window
           this.domHelpers.openGmailReplyWindow(() => {
-            // Wait for reply window to be fully ready
+            // Wait for reply area to be fully ready
             const tryInject = (attempts = 0) => {
-              // Find reply window - try multiple selectors
-              const replyWindow = document.querySelector('[role="dialog"]') ||
-                                document.querySelector('.aYF') ||
-                                document.querySelector('.nH.if') ||
-                                document.querySelector('.aYF.aZ6');
-              
-              if (replyWindow) {
-                // Check if reply body exists
-                const replyBody = replyWindow.querySelector('[contenteditable="true"][g_editable="true"]') ||
-                                replyWindow.querySelector('[contenteditable="true"]') ||
-                                replyWindow.querySelector('[role="textbox"]');
-                
-                if (replyBody && window.replyToneSelector) {
-                  try {
-                    window.replyToneSelector.showInReplyWindow(replyWindow, emailContent.body);
-                    console.log('InboxPilot: AI Quick Reply component injected successfully');
-                  } catch (error) {
-                    console.error('InboxPilot: Error showing reply tone selector:', error);
-                    if (attempts < 8) {
-                      setTimeout(() => tryInject(attempts + 1), 300);
-                    }
+              // Find reply body - works for both inline and dialog replies
+              const replyBody =
+                document.querySelector('[role="dialog"] [contenteditable="true"][g_editable="true"]') ||
+                document.querySelector('[role="dialog"] [contenteditable="true"]') ||
+                document.querySelector('[contenteditable="true"][g_editable="true"][aria-label*="Message Body"]') ||
+                document.querySelector('[contenteditable="true"][aria-label*="Message Body"]') ||
+                document.querySelector('[contenteditable="true"][g_editable="true"]') ||
+                document.querySelector('[contenteditable="true"][aria-label*="Reply"]');
+
+              if (replyBody && window.replyToneSelector) {
+                try {
+                  // Use the closest dialog as container if available, otherwise the parent element
+                  const replyContainer = replyBody.closest('[role="dialog"]') || replyBody.parentElement;
+                  window.replyToneSelector.showInReplyWindow(replyContainer, emailContent.body);
+                  console.log('InboxPilot: AI Quick Reply component injected successfully');
+                } catch (error) {
+                  console.error('InboxPilot: Error showing reply tone selector:', error);
+                  if (attempts < 8) {
+                    setTimeout(() => tryInject(attempts + 1), 300);
                   }
-                } else if (attempts < 15) {
-                  // Reply window exists but body not ready yet
-                  setTimeout(() => tryInject(attempts + 1), 200);
                 }
               } else if (attempts < 15) {
-                // Reply window not found yet, keep trying
+                // Reply body not ready yet, keep trying
                 setTimeout(() => tryInject(attempts + 1), 200);
               }
             };
-            
+
             // Start trying to inject after a short delay
             setTimeout(() => tryInject(), 300);
           });

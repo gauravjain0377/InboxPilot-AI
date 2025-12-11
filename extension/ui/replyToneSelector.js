@@ -6,84 +6,6 @@ class ReplyToneSelector {
   constructor(actionHandler, apiService) {
     this.actionHandler = actionHandler;
     this.apiService = apiService;
-    this.observer = null;
-    this.inject();
-  }
-
-  inject() {
-    console.log('InboxPilot: ReplyToneSelector inject() called');
-    
-    // Watch for reply windows to appear
-    this.observer = new MutationObserver(() => {
-      this.checkAndInjectReplyWindow();
-    });
-    this.observer.observe(document.body, { childList: true, subtree: true });
-    
-    // Initial check
-    setTimeout(() => {
-      this.checkAndInjectReplyWindow();
-    }, 1000);
-  }
-
-  checkAndInjectReplyWindow() {
-    // Find reply windows (dialogs with reply body)
-    const dialogs = document.querySelectorAll('[role="dialog"]');
-    
-    dialogs.forEach(dialog => {
-      // Skip if already has our component
-      if (dialog.querySelector('.inboxpilot-ai-quick-reply')) {
-        return;
-      }
-      
-      // Check if it's a reply/compose window (has editable body)
-      const hasReplyBody = dialog.querySelector('[contenteditable="true"][g_editable="true"]') ||
-                          dialog.querySelector('[contenteditable="true"]') ||
-                          dialog.querySelector('[role="textbox"]');
-      
-      if (!hasReplyBody) {
-        return; // Not a compose/reply window
-      }
-      
-      // Check for indicators that it's a reply (not new compose)
-      const hasQuotedText = dialog.querySelector('.gmail_quote') ||
-                           dialog.querySelector('[data-smartmail="gmail_quote"]') ||
-                           dialog.textContent.includes('On ') ||
-                           dialog.textContent.includes('wrote:');
-      
-      // Check if it has a "To" field that's pre-filled (reply) vs empty (new compose)
-      const toField = dialog.querySelector('input[aria-label*="To"]') ||
-                     dialog.querySelector('[aria-label*="To"]') ||
-                     dialog.querySelector('.wO input');
-      const toFieldValue = toField?.value || toField?.textContent || '';
-      const hasPrefilledTo = toFieldValue.trim().length > 0;
-      
-      // Check for subject box
-      const hasSubjectBox = dialog.querySelector('[name="subjectbox"]') ||
-                           dialog.querySelector('input[name="subjectbox"]');
-      
-      // It's a reply window if:
-      // 1. Has quoted text (definitely a reply), OR
-      // 2. Has pre-filled To field AND no subject box (classic reply), OR
-      // 3. Has reply body, pre-filled To, and quoted text indicators
-      const isReplyWindow = hasQuotedText || 
-                           (hasPrefilledTo && !hasSubjectBox) ||
-                           (hasReplyBody && hasPrefilledTo && (dialog.textContent.includes('Re:') || dialog.textContent.includes('Fwd:')));
-      
-      if (isReplyWindow) {
-        // Try to get email content from the original email being replied to
-        const quotedText = dialog.querySelector('.gmail_quote')?.textContent || 
-                         dialog.querySelector('[data-smartmail="gmail_quote"]')?.textContent || '';
-        const emailBody = quotedText || 'Email content';
-        
-        console.log('InboxPilot: Found reply window, injecting AI Quick Reply', {
-          hasQuotedText: !!hasQuotedText,
-          hasPrefilledTo,
-          hasSubjectBox: !!hasSubjectBox,
-          dialogText: dialog.textContent.substring(0, 100)
-        });
-        this.showInReplyWindow(dialog, emailBody);
-      }
-    });
   }
 
   showInReplyWindow(replyWindow, emailBody) {
@@ -104,14 +26,33 @@ class ReplyToneSelector {
     container.className = 'inboxpilot-ai-quick-reply';
     // Ensure it's visible
     container.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important;';
-    
-    // Title
+
+    // Header with title + close button
+    const header = document.createElement('div');
+    header.className = 'inboxpilot-ai-quick-reply-header';
+    header.style.cssText = 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;';
+
     const title = document.createElement('div');
     title.className = 'inboxpilot-ai-quick-reply-title';
     const titleIcon = document.createElement('span');
     titleIcon.textContent = '✨';
     title.appendChild(titleIcon);
     title.appendChild(document.createTextNode(' AI Quick Reply'));
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'inboxpilot-ai-quick-reply-close';
+    closeBtn.type = 'button';
+    closeBtn.textContent = '×';
+    closeBtn.title = 'Close';
+    closeBtn.style.cssText = 'border: none; background: transparent; cursor: pointer; font-size: 18px; padding: 0 4px; line-height: 1; color: #5f6368;';
+    closeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      container.remove();
+    });
+
+    header.appendChild(title);
+    header.appendChild(closeBtn);
     
     // Tone buttons container
     const buttonsContainer = document.createElement('div');
