@@ -194,22 +194,16 @@ class ReplyToneSelector {
     // Try multiple strategies to find where to insert the component
     let inserted = false;
     
-    // Strategy 1: Find "Help me write" section and insert after it
-    const helpMeWrite = replyWindow.querySelector('[aria-label*="Help me write"]')?.closest('div')?.parentElement;
-    if (helpMeWrite && helpMeWrite.parentElement) {
-      const parent = helpMeWrite.parentElement;
-      if (helpMeWrite.nextSibling) {
-        parent.insertBefore(container, helpMeWrite.nextSibling);
-        inserted = true;
-        console.log('InboxPilot: Inserted after Help me write');
-      } else {
-        parent.appendChild(container);
-        inserted = true;
-        console.log('InboxPilot: Appended after Help me write');
-      }
+    // Strategy 1 (PRIMARY): place AI assistant just ABOVE the Send bar,
+    // so the user writes in the native Gmail box and AI sits near the bottom.
+    const sendBar = replyWindow.querySelector('.btC');
+    if (sendBar && sendBar.parentElement) {
+      sendBar.parentElement.insertBefore(container, sendBar);
+      inserted = true;
+      console.log('InboxPilot: Inserted AI Quick Reply above Send bar (primary)');
     }
     
-    // Strategy 2: Find reply body and insert before it
+    // Strategy 2: place AI assistant AFTER the reply body (still below where user types)
     if (!inserted) {
       const replyBody = replyWindow.querySelector('[contenteditable="true"][g_editable="true"]') ||
                        replyWindow.querySelector('[contenteditable="true"]') ||
@@ -217,13 +211,33 @@ class ReplyToneSelector {
       
       if (replyBody && replyBody.parentElement) {
         const parent = replyBody.parentElement;
-        parent.insertBefore(container, replyBody);
+        if (replyBody.nextSibling) {
+          parent.insertBefore(container, replyBody.nextSibling);
+        } else {
+          parent.appendChild(container);
+        }
         inserted = true;
-        console.log('InboxPilot: Inserted before reply body');
+        console.log('InboxPilot: Inserted AI Quick Reply after reply body (fallback)');
       }
     }
     
-    // Strategy 3: Find compose area container
+    // Strategy 3: If Gmail's "Help me write" block exists but neither of the above worked,
+    // keep our component close to it.
+    if (!inserted) {
+      const helpMeWrite = replyWindow.querySelector('[aria-label*="Help me write"]')?.closest('div')?.parentElement;
+      if (helpMeWrite && helpMeWrite.parentElement) {
+        const parent = helpMeWrite.parentElement;
+        if (helpMeWrite.nextSibling) {
+          parent.insertBefore(container, helpMeWrite.nextSibling);
+        } else {
+          parent.appendChild(container);
+        }
+        inserted = true;
+        console.log('InboxPilot: Inserted AI Quick Reply after Help me write (secondary fallback)');
+      }
+    }
+    
+    // Strategy 4: Find compose area container
     if (!inserted) {
       const composeArea = replyWindow.querySelector('.Am') ||
                          replyWindow.querySelector('.aO') ||
@@ -457,18 +471,25 @@ class ReplyToneSelector {
     // Insert the card
     const quickReply = replyWindow.querySelector('.inboxpilot-ai-quick-reply');
     if (quickReply && quickReply.nextSibling) {
+      // Place draft card directly after the quick-reply bar (which itself is below the reply text)
       quickReply.parentElement.insertBefore(card, quickReply.nextSibling);
     } else if (quickReply) {
       quickReply.parentElement.appendChild(card);
     } else {
-      // Find a good place to insert
+      // If quick-reply is gone, fall back to placing the draft AFTER the reply body
       const replyBody = replyWindow.querySelector('[contenteditable="true"][g_editable="true"]') ||
                        replyWindow.querySelector('[contenteditable="true"]') ||
                        replyWindow.querySelector('[role="textbox"]');
       if (replyBody && replyBody.parentElement) {
-        replyBody.parentElement.insertBefore(card, replyBody);
+        const parent = replyBody.parentElement;
+        if (replyBody.nextSibling) {
+          parent.insertBefore(card, replyBody.nextSibling);
+        } else {
+          parent.appendChild(card);
+        }
       } else {
-        replyWindow.insertBefore(card, replyWindow.firstChild);
+        // Last resort: append at the end of the reply window so it never covers the text
+        replyWindow.appendChild(card);
       }
     }
   }

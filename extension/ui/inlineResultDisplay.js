@@ -4,6 +4,22 @@
 class InlineResultDisplay {
   constructor() {
     this.currentResults = new Map(); // action -> result element
+
+    // Global click handler to close inline result when header is clicked
+    document.addEventListener('click', (event) => {
+      const header = event.target.closest('.inboxpilot-inline-header');
+      if (!header) return;
+      const container = header.closest('.inboxpilot-inline-result');
+      if (!container) return;
+      try {
+        container.remove();
+        console.log('InboxPilot: Inline result closed via header click');
+      } catch (e) {
+        if (container.parentNode) {
+          container.parentNode.removeChild(container);
+        }
+      }
+    });
   }
 
   showResult(action, text, title = 'AI Result') {
@@ -28,6 +44,9 @@ class InlineResultDisplay {
     console.log('InboxPilot: InlineResultDisplay.showResult called:', { action, text: text ? text.substring(0, 100) + '...' : 'null', title });
     console.log('InboxPilot: Text type:', typeof text);
     console.log('InboxPilot: Text length:', text ? text.length : 0);
+    
+    // Ensure headers have close buttons (safety net in case of legacy DOM)
+    this._ensureInlineCloseButtons();
     
     // Validate text input
     if (!text || (typeof text === 'string' && text.trim().length === 0)) {
@@ -80,6 +99,10 @@ class InlineResultDisplay {
     }
     
     this._insertResult(actionsBar, action, text, title);
+
+    // As a safety net, ensure all inline headers have a close button
+    // even if another path created them without one.
+    this._ensureInlineCloseButtons();
   }
 
   _insertResult(actionsBar, action, text, title) {
@@ -298,6 +321,43 @@ class InlineResultDisplay {
     
     // Now insert it using the shared insertion method
     this._insertResultAlternativeWithContainer(resultContainer, action);
+
+    // Safety net for close button
+    this._ensureInlineCloseButtons();
+  }
+
+  _ensureInlineCloseButtons() {
+    try {
+      const headers = document.querySelectorAll('.inboxpilot-inline-result .inboxpilot-inline-header');
+      headers.forEach((header) => {
+        if (header.querySelector('.inboxpilot-inline-close')) return;
+
+        const container = header.closest('.inboxpilot-inline-result');
+        const action = container?.getAttribute('data-action') || 'unknown';
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'inboxpilot-inline-close';
+        closeBtn.type = 'button';
+        closeBtn.textContent = '×';
+        closeBtn.title = 'Close';
+        closeBtn.setAttribute('aria-label', 'Close');
+        closeBtn.style.cssText =
+          'display: block !important; visibility: visible !important; opacity: 1 !important; cursor: pointer !important;';
+
+        closeBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('InboxPilot: Close button (fallback) clicked for action:', action);
+          if (container && container.parentNode) {
+            container.parentNode.removeChild(container);
+          }
+        });
+
+        header.appendChild(closeBtn);
+      });
+    } catch (err) {
+      console.error('InboxPilot: Error ensuring inline close buttons:', err);
+    }
   }
 
   showError(action, message) {
