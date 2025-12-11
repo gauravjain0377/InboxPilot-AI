@@ -9,8 +9,7 @@ export interface IEmail extends Document {
   cc?: string[];
   bcc?: string[];
   subject: string;
-  body: string;
-  snippet: string;
+  snippet?: string;
   date: Date;
   labels: string[];
   priority: 'low' | 'medium' | 'high';
@@ -37,8 +36,8 @@ const EmailSchema = new Schema<IEmail>(
     cc: [String],
     bcc: [String],
     subject: { type: String, required: true },
-    body: { type: String, required: true },
-    snippet: String,
+
+    snippet: { type: String },
     date: { type: Date, required: true },
     labels: [String],
     priority: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },

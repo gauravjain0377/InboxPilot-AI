@@ -149,9 +149,10 @@ export const getAttentionOverview = async (req: AuthRequest, res: Response, next
 
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    // Look back 6 days plus today (last 7 days)
+    const startOfRange = new Date(startOfToday.getTime());
+    startOfRange.setDate(startOfToday.getDate() - 6);
     const endOfRange = new Date(startOfToday.getTime());
-    // Look ahead 7 days (including today)
-    endOfRange.setDate(endOfRange.getDate() + 7);
 
     const dailyMap: Record<string, AttentionDaySummary> = {};
 
@@ -159,7 +160,7 @@ export const getAttentionOverview = async (req: AuthRequest, res: Response, next
       const unreadEmails = await Email.find({
         userId: user._id,
         isRead: false,
-        date: { $gte: startOfToday, $lte: endOfRange }
+        date: { $gte: startOfRange, $lte: endOfRange }
       }).select('date priority snippet').lean();
 
       const readingWordsPerMinute = 180; // rough average reading speed
@@ -200,8 +201,8 @@ export const getAttentionOverview = async (req: AuthRequest, res: Response, next
     // Ensure we always return 7 days (today + next 6 days)
     const days: AttentionDaySummary[] = [];
     for (let i = 0; i < 7; i++) {
-      const d = new Date(startOfToday.getTime());
-      d.setDate(startOfToday.getDate() + i);
+      const d = new Date(startOfRange.getTime());
+      d.setDate(startOfRange.getDate() + i);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const existing = dailyMap[key];
       if (existing) {
@@ -398,7 +399,7 @@ export const getCommunicationInsights = async (req: AuthRequest, res: Response, 
 
     try {
       const [sentEmails, receivedEmails, usageAgg] = await Promise.all([
-        Email.find({ userId: user._id, from: user.email }).select('date body threadId').lean(),
+        Email.find({ userId: user._id, from: user.email }).select('date snippet threadId').lean(),
         Email.find({ userId: user._id, from: { $ne: user.email } }).select('date threadId').lean(),
         AIUsage.aggregate([
           { $match: { userId: user._id, action: 'reply' } },
@@ -409,10 +410,10 @@ export const getCommunicationInsights = async (req: AuthRequest, res: Response, 
       totalSent = sentEmails.length;
       totalReceived = receivedEmails.length;
 
-      // Average reply length (words)
+      // Approximate average reply length (words) from snippets (we don't store full bodies)
       for (const email of sentEmails) {
-        const body = (email as any).body || '';
-        const words = typeof body === 'string' ? body.trim().split(/\s+/).length : 0;
+        const snippet = (email as any).snippet || '';
+        const words = typeof snippet === 'string' ? snippet.trim().split(/\s+/).length : 0;
         totalWordsSent += words;
       }
 

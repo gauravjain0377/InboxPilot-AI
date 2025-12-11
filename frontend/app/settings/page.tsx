@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUserStore } from '@/store/userStore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Save, Settings as SettingsIcon, Sparkles, Copy } from 'lucide-react';
 import api from '@/lib/axios';
+import { useUserStore } from '@/store/userStore';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -125,54 +125,62 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* API Token for Extension */}
+          {/* Chrome Extension Connection */}
           <Card className="border border-slate-200 bg-white shadow-sm">
             <CardHeader className="bg-slate-50 border-b border-slate-200">
               <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
                 <SettingsIcon className="h-4 w-4 text-slate-600" />
-                Extension API Token
+                Chrome Extension
               </CardTitle>
               <CardDescription className="text-sm text-slate-500">
-                Use this token once in the Chrome extension popup to connect InboxPilot to your Gmail.
+                One-click connect your InboxPilot Chrome extension to this account. No tokens or copy-paste needed.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3 pt-6">
+            <CardContent className="space-y-4 pt-6">
               {token ? (
                 <>
-                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Current token</p>
-                      <p className="text-xs font-mono text-slate-800 truncate">
-                        {token}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(token);
-                          setCopied(true);
-                          setTimeout(() => setCopied(false), 1500);
-                        } catch (e) {
-                          console.error('Failed to copy token:', e);
-                        }
-                      }}
-                      className="shrink-0"
-                    >
-                      <Copy className="h-4 w-4 mr-2" />
-                      {copied ? 'Copied' : 'Copy token'}
-                    </Button>
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-sm font-medium text-slate-900 mb-1">
+                      Connect InboxPilot inside Gmail
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Make sure the InboxPilot Chrome extension is installed, then click the button below.
+                      We&apos;ll securely send your login token to the extension and mark this Gmail account as connected.
+                    </p>
                   </div>
+                  <Button
+                    type="button"
+                    className="bg-slate-900 hover:bg-slate-800 text-white w-full"
+                    onClick={() => {
+                      try {
+                        const extensionId = process.env.NEXT_PUBLIC_CHROME_EXTENSION_ID;
+                        if (!extensionId) {
+                          alert(
+                            'Chrome extension ID is not configured.\n\nSet NEXT_PUBLIC_CHROME_EXTENSION_ID in your frontend environment to enable one-click connect.'
+                          );
+                          return;
+                        }
+
+                        const encodedToken = encodeURIComponent(token);
+                        const url = `chrome-extension://${extensionId}/popup.html?token=${encodedToken}`;
+                        window.open(url, '_blank');
+                      } catch (err) {
+                        console.error('Error opening extension:', err);
+                        alert('Unable to open the Chrome extension. Please make sure it is installed.');
+                      }
+                    }}
+                  >
+                    Connect Chrome Extension
+                  </Button>
                   <p className="text-xs text-slate-500">
-                    Open the InboxPilot extension → paste this token into the &quot;Connect InboxPilot&quot; field →
-                    click <span className="font-semibold">Connect</span>.
+                    A small popup window will open from the extension. After a moment, InboxPilot will be enabled
+                    inside your Gmail for this account.
                   </p>
                 </>
               ) : (
                 <p className="text-sm text-slate-500">
-                  No token found. Please log in again on this device to generate a fresh token.
+                  No login token found. Please sign in again to InboxPilot on this browser, then come back here to
+                  connect the extension.
                 </p>
               )}
             </CardContent>

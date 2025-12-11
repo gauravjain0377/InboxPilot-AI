@@ -56,7 +56,6 @@ export const getMessages = async (req: AuthRequest, res: Response, next: NextFun
           cc: emailData.cc,
           bcc: emailData.bcc,
           subject: emailData.subject,
-          body: emailData.body,
           snippet: emailData.snippet,
           date: emailData.date,
           labels: emailData.labels,

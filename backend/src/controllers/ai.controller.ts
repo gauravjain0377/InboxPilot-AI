@@ -4,9 +4,11 @@ import { AIService } from '../services/ai.service.js';
 import { User } from '../models/User.js';
 import { Email } from '../models/Email.js';
 import { AIUsage } from '../models/AIUsage.js';
+import { GmailService } from '../services/gmail.service.js';
 import { AppError } from '../utils/errorHandler.js';
 
 const aiService = new AIService();
+const gmailService = new GmailService();
 
 export const verifyAPIKey = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -49,7 +51,9 @@ export const summarize = async (req: AuthRequest, res: Response, next: NextFunct
       emailDoc = await Email.findOne({ _id: emailId, userId: user._id });
       if (!emailDoc) throw new AppError('Email not found', 404);
 
-      emailContent = emailDoc.body;
+      // Fetch full content from Gmail API on demand (we don't store bodies)
+      const fullMessage = await gmailService.getMessage(user, emailDoc.gmailId);
+      emailContent = fullMessage.body || fullMessage.snippet || '';
     }
 
     const summary = await aiService.summarizeEmail(emailContent);
@@ -105,8 +109,9 @@ export const generateReply = async (req: AuthRequest, res: Response, next: NextF
 
       emailDoc = await Email.findOne({ _id: emailId, userId: user._id });
       if (!emailDoc) throw new AppError('Email not found', 404);
-      
-      emailContent = emailDoc.body;
+
+      const fullMessage = await gmailService.getMessage(user, emailDoc.gmailId);
+      emailContent = fullMessage.body || fullMessage.snippet || '';
     }
 
     // If user context is provided, prepend it to the email content for better context
@@ -199,8 +204,9 @@ export const generateFollowUp = async (req: AuthRequest, res: Response, next: Ne
 
       emailDoc = await Email.findOne({ _id: emailId, userId: user._id });
       if (!emailDoc) throw new AppError('Email not found', 404);
-      
-      emailContent = emailDoc.body;
+
+      const fullMessage = await gmailService.getMessage(user, emailDoc.gmailId);
+      emailContent = fullMessage.body || fullMessage.snippet || '';
     }
 
     const followUp = await aiService.generateFollowUp(emailContent);
