@@ -133,6 +133,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
           picture: user.picture,
           createdAt: user.createdAt,
           preferences: user.preferences,
+          extensionConnected: user.extensionConnected || false,
         }
       }
     });

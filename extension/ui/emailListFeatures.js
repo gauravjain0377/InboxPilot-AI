@@ -17,11 +17,29 @@ class EmailListFeatures {
 
       const processRows = () => {
         try {
-          const emailRows = document.querySelectorAll('tr[role="row"]:not([data-inboxpilot-processed])');
+          // Find all email rows, including those that might have lost their markers after navigation
+          const emailRows = document.querySelectorAll('tr[role="row"]');
           emailRows.forEach(row => {
             try {
-              row.setAttribute('data-inboxpilot-processed', 'true');
-              this.enhanceEmailRow(row);
+              // Only process if not already processed OR if it doesn't have our UI elements
+              const hasControls = row.querySelector('.inboxpilot-email-controls');
+              const hasLabels = row.querySelector('.inboxpilot-email-labels');
+              const isProcessed = row.hasAttribute('data-inboxpilot-processed');
+              
+              if (!isProcessed || (!hasControls && !hasLabels)) {
+                // Clear old markers if row was processed but UI is missing (navigation reset)
+                if (isProcessed && !hasControls && !hasLabels) {
+                  row.removeAttribute('data-inboxpilot-processed');
+                  // Also remove any stale UI fragments
+                  const oldControls = row.querySelector('.inboxpilot-email-controls');
+                  const oldLabels = row.querySelector('.inboxpilot-email-labels');
+                  if (oldControls) oldControls.remove();
+                  if (oldLabels) oldLabels.remove();
+                }
+                
+                row.setAttribute('data-inboxpilot-processed', 'true');
+                this.enhanceEmailRow(row);
+              }
             } catch (error) {
               console.error('InboxPilot: Error processing email row:', error);
             }

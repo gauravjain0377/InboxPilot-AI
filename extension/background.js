@@ -44,6 +44,73 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true; // Keep channel open for async response
     }
 
+    if (request.type === 'INBOXPILOT_GET_PENDING_TOKEN') {
+      // Check if Settings page stored a token in localStorage
+      // We'll try to read it via content script injection on Settings page
+      chrome.tabs.query({ url: ['http://localhost:3000/*', 'http://127.0.0.1:3000/*', 'https://*/*'] }, async (tabs) => {
+        try {
+          // Find Settings page tab
+          const settingsTab = tabs.find(tab => tab.url && tab.url.includes('/settings'));
+          
+          if (settingsTab && chrome.scripting) {
+            // Inject script to read localStorage
+            try {
+              const results = await chrome.scripting.executeScript({
+                target: { tabId: settingsTab.id },
+                func: () => {
+                  const key = 'inboxpilot_pending_connection_token';
+                  const token = localStorage.getItem(key);
+                  const timestamp = localStorage.getItem(key + '_timestamp');
+                  return { token, timestamp };
+                }
+              });
+              
+              if (results && results[0] && results[0].result) {
+                const { token, timestamp } = results[0].result;
+                sendResponse({ token: token || null, timestamp: timestamp || null });
+                return;
+              }
+            } catch (e) {
+              console.warn('InboxPilot: Could not read pending token from Settings page:', e);
+            }
+          }
+        } catch (e) {
+          console.warn('InboxPilot: Error finding Settings page tab:', e);
+        }
+        
+        sendResponse({ token: null, timestamp: null });
+      });
+      return true; // Keep channel open for async response
+    }
+
+    if (request.type === 'INBOXPILOT_CLEAR_PENDING_TOKEN') {
+      // Clear pending token from Settings page localStorage
+      chrome.tabs.query({ url: ['http://localhost:3000/*', 'http://127.0.0.1:3000/*', 'https://*/*'] }, async (tabs) => {
+        try {
+          const settingsTab = tabs.find(tab => tab.url && tab.url.includes('/settings'));
+          
+          if (settingsTab && chrome.scripting) {
+            try {
+              await chrome.scripting.executeScript({
+                target: { tabId: settingsTab.id },
+                func: () => {
+                  localStorage.removeItem('inboxpilot_pending_connection_token');
+                  localStorage.removeItem('inboxpilot_pending_connection_token_timestamp');
+                }
+              });
+            } catch (e) {
+              console.warn('InboxPilot: Could not clear pending token:', e);
+            }
+          }
+        } catch (e) {
+          // Ignore
+        }
+        
+        sendResponse({ success: true });
+      });
+      return true; // Keep channel open for async response
+    }
+
     if (request.type === 'INBOXPILOT_API_CALL') {
       // Handle API calls from injected scripts
       // This allows the background script to make fetch calls to localhost

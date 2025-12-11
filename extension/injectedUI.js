@@ -182,21 +182,71 @@
       }
 
       observeGmailChanges() {
-        // Watch for navigation changes
+        // Watch for navigation changes - use multiple methods for reliability
         let lastUrl = location.href;
+        
+        // Method 1: Listen to navigation messages from contentScript
+        window.addEventListener('message', (event) => {
+          if (event.data && event.data.type === 'INBOXPILOT_NAVIGATION') {
+            console.log('InboxPilot: Navigation detected, re-injecting components');
+            this.reinjectComponents();
+          }
+        });
+        
+        // Method 2: Watch URL changes directly
         const urlObserver = new MutationObserver(() => {
           const url = location.href;
           if (url !== lastUrl) {
             lastUrl = url;
-            // Re-inject components on navigation
-            setTimeout(() => {
-              this.components.composeToolbar.inject();
-              this.components.emailActions.inject();
-              this.components.emailListFeatures.inject();
-            }, 1000);
+            console.log('InboxPilot: URL changed, re-injecting components');
+            this.reinjectComponents();
           }
         });
         urlObserver.observe(document, { subtree: true, childList: true });
+        
+        // Method 3: Also listen to popstate (back/forward) and hashchange
+        window.addEventListener('popstate', () => {
+          console.log('InboxPilot: Popstate event, re-injecting components');
+          setTimeout(() => this.reinjectComponents(), 500);
+        });
+        window.addEventListener('hashchange', () => {
+          console.log('InboxPilot: Hash change, re-injecting components');
+          setTimeout(() => this.reinjectComponents(), 500);
+        });
+        
+        // Method 4: Watch for Gmail's tab switching (Primary/Promotions/Social tabs)
+        const mainArea = document.querySelector('[role="main"]');
+        if (mainArea) {
+          const tabObserver = new MutationObserver(() => {
+            // Check if email list container was replaced (common on tab switch)
+            const emailList = document.querySelector('div[role="main"] > div > div[role="tabpanel"]');
+            if (emailList) {
+              console.log('InboxPilot: Email list changed, re-injecting components');
+              setTimeout(() => this.reinjectComponents(), 300);
+            }
+          });
+          tabObserver.observe(mainArea, { childList: true, subtree: true });
+        }
+      }
+      
+      reinjectComponents() {
+        // Clear processed markers so rows are re-processed
+        try {
+          document.querySelectorAll('[data-inboxpilot-processed]').forEach(el => {
+            el.removeAttribute('data-inboxpilot-processed');
+          });
+        } catch (e) {
+          console.warn('InboxPilot: Error clearing processed markers:', e);
+        }
+        
+        // Re-inject all components
+        try {
+          this.components.composeToolbar.inject();
+          this.components.emailActions.inject();
+          this.components.emailListFeatures.inject();
+        } catch (e) {
+          console.error('InboxPilot: Error re-injecting components:', e);
+        }
       }
         }
 

@@ -115,6 +115,18 @@ export default function DashboardPage() {
     fetchStats();
   }, [user, router]);
 
+  // Refresh stats when window regains focus (user might have connected extension in another tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) {
+        fetchStats();
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user]);
+
   const fetchStats = async () => {
     try {
       setLoading(true);
@@ -774,11 +786,22 @@ export default function DashboardPage() {
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        // Just send user to settings; actual connect is done via extension popup
                         window.location.href = '/settings';
                       }}
+                      className="mr-2"
                     >
                       Settings
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        fetchStats();
+                      }}
+                      title="Refresh connection status"
+                    >
+                      Refresh
                     </Button>
                   </div>
                 )}

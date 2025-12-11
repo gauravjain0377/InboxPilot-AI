@@ -148,33 +148,74 @@ export default function SettingsPage() {
                       We&apos;ll securely send your login token to the extension and mark this Gmail account as connected.
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    className="bg-slate-900 hover:bg-slate-800 text-white w-full"
-                    onClick={() => {
-                      try {
-                        const extensionId = process.env.NEXT_PUBLIC_CHROME_EXTENSION_ID;
-                        if (!extensionId) {
+                  <div className="space-y-3">
+                    <Button
+                      type="button"
+                      className="bg-slate-900 hover:bg-slate-800 text-white w-full"
+                      onClick={async () => {
+                        try {
+                          // Store token in localStorage for extension to pick up
+                          const storageKey = 'inboxpilot_pending_connection_token';
+                          localStorage.setItem(storageKey, token);
+                          localStorage.setItem(storageKey + '_timestamp', Date.now().toString());
+                          
+                          // Try to send message to extension background (if content script is listening)
+                          window.postMessage({
+                            type: 'INBOXPILOT_CONNECT_REQUEST',
+                            token: token
+                          }, '*');
+                          
                           alert(
-                            'Chrome extension ID is not configured.\n\nSet NEXT_PUBLIC_CHROME_EXTENSION_ID in your frontend environment to enable one-click connect.'
+                            'Token saved! Now:\n\n' +
+                            '1. Click the InboxPilot extension icon in your browser toolbar\n' +
+                            '2. The extension will auto-detect and connect\n' +
+                            '3. If auto-connect doesn\'t work, paste the token shown below into the extension popup'
                           );
-                          return;
+                        } catch (err) {
+                          console.error('Error saving connection token:', err);
+                          alert('Unable to save connection token. Please try again.');
                         }
-
-                        const encodedToken = encodeURIComponent(token);
-                        const url = `chrome-extension://${extensionId}/popup.html?token=${encodedToken}`;
-                        window.open(url, '_blank');
-                      } catch (err) {
-                        console.error('Error opening extension:', err);
-                        alert('Unable to open the Chrome extension. Please make sure it is installed.');
-                      }
-                    }}
-                  >
-                    Connect Chrome Extension
-                  </Button>
+                      }}
+                    >
+                      Connect Chrome Extension
+                    </Button>
+                    
+                    {/* Fallback: Show token for manual copy-paste if auto-connect fails */}
+                    <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                      <p className="text-xs font-medium text-amber-900 mb-2">
+                        Fallback (if auto-connect doesn't work):
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={token}
+                          className="flex-1 text-xs font-mono bg-white border border-amber-300 rounded px-2 py-1"
+                          onClick={(e) => e.currentTarget.select()}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            navigator.clipboard.writeText(token);
+                            setCopied(true);
+                            setTimeout(() => setCopied(false), 2000);
+                          }}
+                          className="shrink-0"
+                        >
+                          <Copy className="h-3 w-3 mr-1" />
+                          {copied ? 'Copied' : 'Copy'}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-amber-700 mt-2">
+                        Paste this token into the extension popup's "Token" field and click "Connect".
+                      </p>
+                    </div>
+                  </div>
                   <p className="text-xs text-slate-500">
-                    A small popup window will open from the extension. After a moment, InboxPilot will be enabled
-                    inside your Gmail for this account.
+                    Click "Connect Chrome Extension" above, then open the extension icon. 
+                    It will automatically detect your saved token and connect.
                   </p>
                 </>
               ) : (
