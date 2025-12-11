@@ -12,6 +12,7 @@ import authRoutes from './routes/auth.routes.js';
 import gmailRoutes from './routes/gmail.routes.js';
 import aiRoutes from './routes/ai.routes.js';
 import calendarRoutes from './routes/calendar.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
 
 const app = express();
 
@@ -53,6 +54,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/gmail', gmailRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/calendar', calendarRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ success: true, message: 'InboxPilot API is running' });
@@ -67,7 +69,8 @@ app.get('/', (req, res) => {
       auth: '/api/auth',
       gmail: '/api/gmail',
       ai: '/api/ai',
-      calendar: '/api/calendar'
+      calendar: '/api/calendar',
+      analytics: '/api/analytics'
     }
   });
 });
