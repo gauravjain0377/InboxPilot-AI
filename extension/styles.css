@@ -473,12 +473,20 @@ tr.priority-low {
 
 /* Inline Result Display */
 .inboxpilot-inline-result {
-  background: #ffffff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  margin: 12px 0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  background: #ffffff !important;
+  border: 1px solid #e0e0e0 !important;
+  border-radius: 8px !important;
+  margin: 12px 0 !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  overflow: visible !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative !important;
+  width: auto !important;
+  min-width: 300px !important;
+  max-width: 100% !important;
+  z-index: 1000 !important;
 }
 
 .inboxpilot-inline-result.inboxpilot-inline-error {
@@ -487,12 +495,13 @@ tr.priority-low {
 }
 
 .inboxpilot-inline-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e0e0e0;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 12px 16px !important;
+  background: #f8f9fa !important;
+  border-bottom: 1px solid #e0e0e0 !important;
+  visibility: visible !important;
 }
 
 .inboxpilot-inline-title {
@@ -519,12 +528,15 @@ tr.priority-low {
 }
 
 .inboxpilot-inline-content {
-  padding: 16px;
-  font-size: 14px;
-  line-height: 1.6;
-  color: #202124;
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  padding: 16px !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  color: #202124 !important;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  display: block !important;
+  visibility: visible !important;
+  min-height: 50px !important;
 }
 
 /* Reply Tone Selector in Gmail Reply Window */

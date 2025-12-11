@@ -7,6 +7,23 @@ import { AppError } from '../utils/errorHandler.js';
 
 const aiService = new AIService();
 
+export const verifyAPIKey = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const verification = await aiService.verifyAPIKey();
+    res.json({
+      success: verification.valid,
+      valid: verification.valid,
+      availableModels: verification.availableModels,
+      error: verification.error,
+      message: verification.valid 
+        ? `API key is valid. Available models: ${verification.availableModels.join(', ') || 'default free tier models'}`
+        : `API key verification failed: ${verification.error}`
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const summarize = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { emailId, emailBody } = req.body;

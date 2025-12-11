@@ -24,11 +24,16 @@ class ActionHandlers {
         case 'summarize-email':
           result = await this.api.call('/ai/summarize', { emailBody: emailContent.body });
           console.log('InboxPilot: Summarize result received:', result);
+          console.log('InboxPilot: Result type:', typeof result);
+          console.log('InboxPilot: Result keys:', result ? Object.keys(result) : 'null');
           // Handle nested response structure: { success: true, summary: "..." } or just { summary: "..." }
           const summaryText = result?.summary || result?.data?.summary || result?.text || result?.data?.text || (typeof result === 'string' ? result : (result ? JSON.stringify(result) : ''));
           console.log('InboxPilot: Extracted summary text:', summaryText);
+          console.log('InboxPilot: Summary text length:', summaryText ? summaryText.length : 0);
           if (summaryText && summaryText.trim().length > 0) {
+            console.log('InboxPilot: Calling display.showResult with:', { action, textLength: summaryText.length, title: 'AI Summary' });
             this.display.showResult(action, summaryText, 'AI Summary');
+            console.log('InboxPilot: display.showResult called successfully');
           } else {
             console.error('InboxPilot: No summary text found in result:', result);
             this.display.showError(action, 'No summary generated.');
@@ -47,11 +52,16 @@ class ActionHandlers {
         case 'followup-email':
           result = await this.api.call('/ai/followup', { emailBody: emailContent.body });
           console.log('InboxPilot: Follow-up result received:', result);
+          console.log('InboxPilot: Result type:', typeof result);
+          console.log('InboxPilot: Result keys:', result ? Object.keys(result) : 'null');
           // Handle nested response structure: { success: true, followUp: "..." } or just { followUp: "..." }
           const followUpText = result?.followUp || result?.data?.followUp || result?.text || result?.data?.text || (typeof result === 'string' ? result : (result ? JSON.stringify(result) : ''));
           console.log('InboxPilot: Extracted follow-up text:', followUpText);
+          console.log('InboxPilot: Follow-up text length:', followUpText ? followUpText.length : 0);
           if (followUpText && followUpText.trim().length > 0) {
+            console.log('InboxPilot: Calling display.showResult with:', { action, textLength: followUpText.length, title: 'Follow-up Draft' });
             this.display.showResult(action, followUpText, 'Follow-up Draft');
+            console.log('InboxPilot: display.showResult called successfully');
           } else {
             console.error('InboxPilot: No follow-up text found in result:', result);
             this.display.showError(action, 'No follow-up generated.');

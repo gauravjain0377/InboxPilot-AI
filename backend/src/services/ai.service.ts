@@ -21,14 +21,65 @@ export class AIService {
       // Basic validation - Gemini API keys usually start with "AIza"
       if (!config.ai.geminiKey.startsWith('AIza')) {
         logger.warn('Gemini API key format looks unusual. Please verify your API key is correct.');
+        logger.warn('Valid Gemini API keys start with "AIza". Get a free key at https://makersuite.google.com/app/apikey');
       }
       
       this.gemini = new GoogleGenerativeAI(config.ai.geminiKey);
       this.geminiInitialized = true;
       logger.info('Gemini AI service initialized (using @google/generative-ai SDK)');
+      
+      // Verify API key asynchronously (don't block initialization)
+      this.verifyAPIKey().then(result => {
+        if (result.valid) {
+          logger.info(`Gemini API key verified. Available models: ${result.availableModels.join(', ') || 'default free tier models'}`);
+        } else {
+          logger.warn(`Gemini API key verification failed: ${result.error}`);
+          logger.warn('Please verify your API key at https://makersuite.google.com/app/apikey');
+        }
+      }).catch(err => {
+        logger.warn('Could not verify Gemini API key on startup:', err.message);
+      });
     } catch (error: any) {
       this.initializationError = error.message || 'Failed to initialize Gemini AI service';
       logger.error('Gemini AI service initialization error:', error);
+    }
+  }
+
+  async verifyAPIKey(): Promise<{ valid: boolean; availableModels: string[]; error?: string }> {
+    if (!this.gemini || !config.ai.geminiKey) {
+      return { valid: false, availableModels: [], error: 'Gemini API key not configured' };
+    }
+
+    try {
+      // Use direct API call to list models and verify key
+      const apiKey = config.ai.geminiKey;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+      const response = await fetch(url);
+      
+      if (response.ok) {
+        const data = await response.json() as any;
+        const modelNames = (data?.models || [])
+          .map((m: any) => m.name?.replace('models/', '') || m.name)
+          .filter((name: string) => name && name.includes('gemini'));
+        
+        logger.info('Available Gemini models:', modelNames);
+        this.cachedModels = modelNames;
+        return { valid: true, availableModels: modelNames };
+      } else {
+        const errorText = await response.text();
+        return { 
+          valid: false, 
+          availableModels: [], 
+          error: `API key verification failed: ${response.status} ${errorText}` 
+        };
+      }
+    } catch (error: any) {
+      logger.error('API key verification error:', error);
+      return { 
+        valid: false, 
+        availableModels: [], 
+        error: error.message || 'Failed to verify API key' 
+      };
     }
   }
 
@@ -43,20 +94,9 @@ export class AIService {
     }
 
     try {
-      // Use direct API call to list models (SDK doesn't have this method)
-      const apiKey = config.ai.geminiKey;
-      const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-      const response = await fetch(url);
-      
-      if (response.ok) {
-        const data = await response.json() as any;
-        const modelNames = (data?.models || [])
-          .map((m: any) => m.name?.replace('models/', '') || m.name)
-          .filter((name: string) => name && name.includes('gemini'));
-        
-        logger.info('Available Gemini models:', modelNames);
-        this.cachedModels = modelNames;
-        return modelNames;
+      const verification = await this.verifyAPIKey();
+      if (verification.valid) {
+        return verification.availableModels;
       }
     } catch (error: any) {
       logger.warn('Could not list available models, will use defaults:', error.message);
@@ -72,38 +112,37 @@ export class AIService {
       throw new Error(this.initializationError || 'Gemini AI service not initialized. Please check your GEMINI_API_KEY in backend/.env file');
     }
 
-    // First, try to get list of available models
-    const availableModels = await this.listAvailableModels();
-    
-    // Try free tier models - prioritize models that are actually available
-    // If we got available models, use those; otherwise try common free tier names
-    let modelsToTry: string[] = [];
-    
-    if (availableModels.length > 0) {
-      // Filter for free tier models (pro or flash)
-      modelsToTry = availableModels.filter(m => 
-        m.includes('gemini') && (m.includes('pro') || m.includes('flash'))
-      );
-    }
-    
-    // Fallback to common free tier model names if no models found
-    if (modelsToTry.length === 0) {
-      modelsToTry = [
-        'gemini-pro',           // Most common free tier model
-        'gemini-1.5-flash',     // Flash model (faster, free tier)
-        'gemini-1.0-pro',       // Alternative naming
-      ];
-    }
-
-    let lastError: any = null;
-
     if (!this.gemini) {
       throw new Error(this.initializationError || 'Gemini AI service not initialized');
     }
 
+    // Free tier models only - try in order of preference
+    // These are the official free tier model names from Google
+    // Try to get available models first, but don't wait if it fails
+    let modelsToTry = [
+      'gemini-1.5-flash',        // Primary free tier model (fastest)
+      'gemini-1.5-flash-8b',     // Faster variant (if available)
+      'gemini-1.5-pro',          // Free tier pro model (slower but more capable)
+      'gemini-pro',              // Legacy free tier model
+    ];
+
+    // If we have cached models, prioritize those
+    if (this.cachedModels && this.cachedModels.length > 0) {
+      // Filter to only free tier models we know about
+      const availableFreeTier = this.cachedModels.filter(m => 
+        m.includes('flash') || m.includes('pro')
+      );
+      if (availableFreeTier.length > 0) {
+        modelsToTry = [...availableFreeTier, ...modelsToTry.filter(m => !availableFreeTier.includes(m))];
+      }
+    }
+
+    let lastError: any = null;
+    const errors: string[] = [];
+
     for (const modelName of modelsToTry) {
       try {
-        logger.info(`Attempting to use model: ${modelName}`);
+        logger.info(`Trying Gemini model: ${modelName}`);
         
         // Use SDK to generate content
         const model = this.gemini.getGenerativeModel({ model: modelName });
@@ -120,45 +159,72 @@ export class AIService {
       } catch (error: any) {
         lastError = error;
         const errorMsg = error?.message || String(error);
-        logger.warn(`Failed to use model ${modelName}:`, errorMsg);
+        const errorDetails = error?.errorDetails || error?.status || '';
+        errors.push(`${modelName}: ${errorMsg}${errorDetails ? ` (${errorDetails})` : ''}`);
         
-        // If it's a 404, try next model
-        if (errorMsg.includes('404') || errorMsg.includes('not found') || errorMsg.includes('NotFound')) {
+        logger.warn(`Model ${modelName} failed:`, errorMsg);
+        
+        // If it's a 404 or model not found, try next model
+        if (errorMsg.includes('404') || 
+            errorMsg.includes('not found') || 
+            errorMsg.includes('NotFound') ||
+            errorMsg.includes('Model') && errorMsg.includes('not found')) {
           continue;
         }
         
         // If it's authentication/authorization, don't try other models
-        if (errorMsg.includes('401') || errorMsg.includes('403') || errorMsg.includes('Authentication') || errorMsg.includes('API key')) {
+        if (errorMsg.includes('401') || 
+            errorMsg.includes('403') || 
+            errorMsg.includes('Authentication') || 
+            errorMsg.includes('API key') ||
+            errorMsg.includes('PERMISSION_DENIED') ||
+            errorMsg.includes('INVALID_ARGUMENT') && errorMsg.includes('API key')) {
+          logger.error('Authentication error detected, stopping model attempts');
           break;
         }
+        
+        // For quota/rate limit errors, try next model (might be model-specific)
+        if (errorMsg.includes('quota') || errorMsg.includes('429') || errorMsg.includes('rate limit')) {
+          logger.warn(`Rate limit on ${modelName}, trying next model`);
+          continue;
+        }
+        
+        // For other errors, log and try next model
+        continue;
       }
     }
 
-    // If all models failed, provide helpful error message
-    logger.error('AI generation error (Gemini): All models failed', lastError);
-    
+    // If all models failed, provide detailed error message
     const errorMsg = lastError?.message || String(lastError) || 'Unknown error';
+    logger.error('All Gemini models failed. Errors:', errors);
     
     // Check if it's an API key issue
-    if (errorMsg.includes('API key') || errorMsg.includes('401') || errorMsg.includes('403') || errorMsg.includes('Authentication') || errorMsg.includes('Invalid')) {
-      throw new Error(`AI generation failed: Invalid or missing Gemini API key. Please check your GEMINI_API_KEY in backend/.env file and ensure it's valid.`);
+    if (errorMsg.includes('API key') || 
+        errorMsg.includes('401') || 
+        errorMsg.includes('403') || 
+        errorMsg.includes('Authentication') || 
+        errorMsg.includes('Invalid') ||
+        errorMsg.includes('PERMISSION_DENIED')) {
+      throw new Error(`AI generation failed: Invalid or missing Gemini API key. Please check your GEMINI_API_KEY in backend/.env file. Get a free API key at https://makersuite.google.com/app/apikey`);
     }
     
     // Check if it's a quota issue
     if (errorMsg.includes('quota') || errorMsg.includes('429') || errorMsg.includes('rate limit')) {
-      throw new Error(`AI generation failed: Free tier quota exceeded or rate limited. Please check your Gemini API usage limits.`);
+      throw new Error(`AI generation failed: Free tier quota exceeded or rate limited. Please check your Gemini API usage limits at https://makersuite.google.com/app/apikey`);
     }
     
-    // Check if models are not found
-    if (errorMsg.includes('404') || errorMsg.includes('not found')) {
-      throw new Error(`AI generation failed: No available models found. Your API key might not have access to free tier models. Please verify your Gemini API key at https://makersuite.google.com/app/apikey and ensure the Generative Language API is enabled.`);
+    // Check if models are not found - provide specific instructions
+    if (errorMsg.includes('404') || errorMsg.includes('not found') || errors.some(e => e.includes('404'))) {
+      throw new Error(`AI generation failed: No free tier models available. Please verify:\n1. Your Gemini API key is valid (get one at https://makersuite.google.com/app/apikey)\n2. The Generative Language API is enabled in Google Cloud Console\n3. Your API key has access to free tier models\n\nErrors: ${errors.join('; ')}`);
     }
     
-    throw new Error(`AI generation failed: ${errorMsg}. Please check your Gemini API key configuration.`);
+    throw new Error(`AI generation failed: ${errorMsg}\n\nTried models: ${modelsToTry.join(', ')}\nErrors: ${errors.join('; ')}\n\nPlease verify your GEMINI_API_KEY in backend/.env is correct and get a free API key at https://makersuite.google.com/app/apikey`);
   }
 
   async summarizeEmail(emailBody: string): Promise<string> {
-    const prompt = `Summarize the following email in 2-3 sentences:\n\n${emailBody}`;
+    // Truncate email body if too long for faster processing
+    const truncatedBody = emailBody.length > 2000 ? emailBody.substring(0, 2000) + '...' : emailBody;
+    const prompt = `Summarize this email in 2-3 sentences:\n\n${truncatedBody}`;
     return this.generate(prompt);
   }
 
@@ -170,19 +236,13 @@ export class AIService {
       short: 'Write a brief, concise reply (2-3 sentences)',
     };
 
-    const prompt = `${toneInstructions[tone]}. Original email:\n\n${originalEmail}\n\nGenerate a reply:`;
+    // Truncate email body if too long for faster processing
+    const truncatedBody = originalEmail.length > 2000 ? originalEmail.substring(0, 2000) + '...' : originalEmail;
+    const prompt = `${toneInstructions[tone]}. Email:\n\n${truncatedBody}\n\nReply:`;
 
+    // Generate only one reply for speed (user can regenerate if needed)
     const reply = await this.generate(prompt);
-
-    const variations: string[] = [reply];
-
-    for (let i = 0; i < 2; i++) {
-      const variationPrompt = `${prompt}\n\nGenerate a different variation:`;
-      const variation = await this.generate(variationPrompt);
-      variations.push(variation);
-    }
-
-    return variations;
+    return [reply];
   }
 
   async rewriteText(text: string, instruction: string): Promise<string> {
@@ -191,7 +251,9 @@ export class AIService {
   }
 
   async generateFollowUp(originalEmail: string): Promise<string> {
-    const prompt = `Generate a polite follow-up email for this conversation:\n\n${originalEmail}`;
+    // Truncate email body if too long for faster processing
+    const truncatedBody = originalEmail.length > 2000 ? originalEmail.substring(0, 2000) + '...' : originalEmail;
+    const prompt = `Generate a polite follow-up email:\n\n${truncatedBody}`;
     return this.generate(prompt);
   }
 

@@ -5,6 +5,7 @@ import {
   generateReply,
   rewrite,
   generateFollowUp,
+  verifyAPIKey,
 } from '../controllers/ai.controller.js';
 
 const router = Router();
@@ -12,6 +13,7 @@ const router = Router();
 // Use optional auth - allows extension to work without token when emailBody is provided
 router.use(optionalAuthenticate);
 
+router.get('/verify-key', verifyAPIKey);
 router.post('/summarize', summarize);
 router.post('/reply', generateReply);
 router.post('/rewrite', rewrite);
