@@ -8,33 +8,63 @@ class ComposeToolbar {
   }
 
   inject() {
+    console.log('InboxPilot: ComposeToolbar inject() called');
+    
     // Initial injection attempt
     setTimeout(() => {
-      const composeBox = document.querySelector('[role="dialog"]');
-      if (composeBox && !composeBox.querySelector('.inboxpilot-compose-toolbar')) {
-        this.create(composeBox);
-      }
+      this.checkAndInject();
     }, 500);
     
     // Watch for compose window changes
     this.observer = new MutationObserver(() => {
-      const composeBox = document.querySelector('[role="dialog"]');
-      if (composeBox && !composeBox.querySelector('.inboxpilot-compose-toolbar')) {
-        // Check if it's actually a compose window (has subject or compose fields)
-        const hasComposeFields = composeBox.querySelector('[name="subjectbox"]') ||
-                                composeBox.querySelector('[contenteditable="true"]') ||
-                                composeBox.querySelector('[role="textbox"]');
-        if (hasComposeFields) {
-          this.create(composeBox);
-        }
-      }
+      this.checkAndInject();
     });
     this.observer.observe(document.body, { childList: true, subtree: true });
   }
 
+  checkAndInject() {
+    // Find all compose windows (dialogs)
+    const composeBoxes = document.querySelectorAll('[role="dialog"]');
+    
+    composeBoxes.forEach(composeBox => {
+      // Skip if already has toolbar
+      if (composeBox.querySelector('.inboxpilot-compose-toolbar')) {
+        return;
+      }
+      
+      // Check if it's actually a compose window (has compose body)
+      const hasComposeBody = composeBox.querySelector('[contenteditable="true"][g_editable="true"]') ||
+                            composeBox.querySelector('[contenteditable="true"]') ||
+                            composeBox.querySelector('[role="textbox"]');
+      
+      // Also check for To field or subject box
+      const hasToField = composeBox.querySelector('input[aria-label*="To"]') ||
+                        composeBox.querySelector('[aria-label*="To"]');
+      const hasSubjectBox = composeBox.querySelector('[name="subjectbox"]');
+      
+      // It's a compose window if it has compose body AND (To field OR subject box)
+      // This covers both new compose and reply windows
+      const isComposeWindow = hasComposeBody && (hasToField || hasSubjectBox);
+      
+      if (isComposeWindow) {
+        console.log('InboxPilot: Found compose window, injecting toolbar', {
+          hasComposeBody: !!hasComposeBody,
+          hasToField: !!hasToField,
+          hasSubjectBox: !!hasSubjectBox
+        });
+        this.create(composeBox);
+      }
+    });
+  }
+
   create(composeBox) {
     // Check if already exists
-    if (composeBox.querySelector('.inboxpilot-compose-toolbar')) return;
+    if (composeBox.querySelector('.inboxpilot-compose-toolbar')) {
+      console.log('InboxPilot: Compose toolbar already exists');
+      return;
+    }
+    
+    console.log('InboxPilot: Creating compose toolbar');
     
     const toolbar = document.createElement('div');
     toolbar.className = 'inboxpilot-compose-toolbar';
@@ -44,10 +74,22 @@ class ComposeToolbar {
     
     const label = document.createElement('span');
     label.className = 'inboxpilot-label';
-    label.textContent = '✨ AI Assistant';
+    const icon = document.createElement('span');
+    icon.textContent = '✨';
+    icon.style.marginRight = '4px';
+    label.appendChild(icon);
+    label.appendChild(document.createTextNode('AI Assistant'));
     
     const buttons = document.createElement('div');
     buttons.className = 'inboxpilot-toolbar-buttons';
+    
+    // Tone selector - simplified with better UI
+    const toneContainer = document.createElement('div');
+    toneContainer.className = 'inboxpilot-tone-container';
+    
+    const toneLabel = document.createElement('span');
+    toneLabel.className = 'inboxpilot-tone-label-text';
+    toneLabel.textContent = 'Tone:';
     
     const select = document.createElement('select');
     select.className = 'inboxpilot-tone-select';
@@ -66,14 +108,17 @@ class ComposeToolbar {
       if (opt.value === 'friendly') option.selected = true;
       select.appendChild(option);
     });
-    buttons.appendChild(select);
     
+    toneContainer.appendChild(toneLabel);
+    toneContainer.appendChild(select);
+    buttons.appendChild(toneContainer);
+    
+    // Simplified actions - removed redundant "Change Tone" since we have selector
     const toolbarActions = [
-      { action: 'enhance', icon: '✨', text: 'Enhance', title: 'Enhance with selected tone', primary: true },
-      { action: 'rewrite', icon: '✏️', text: 'Rewrite', title: 'Rewrite' },
-      { action: 'expand', icon: '📝', text: 'Expand', title: 'Expand' },
-      { action: 'shorten', icon: '✂️', text: 'Shorten', title: 'Shorten' },
-      { action: 'change-tone', icon: '🎨', text: 'Change Tone', title: 'Change Tone' }
+      { action: 'enhance', icon: '✨', text: 'Enhance', title: 'Enhance email with selected tone', primary: true },
+      { action: 'rewrite', icon: '✏️', text: 'Rewrite', title: 'Rewrite email' },
+      { action: 'expand', icon: '📝', text: 'Expand', title: 'Expand email' },
+      { action: 'shorten', icon: '✂️', text: 'Shorten', title: 'Shorten email' }
     ];
     
     toolbarActions.forEach(item => {
@@ -82,9 +127,18 @@ class ComposeToolbar {
       btn.setAttribute('data-action', item.action);
       btn.setAttribute('title', item.title);
       btn.setAttribute('type', 'button');
-      const span = document.createElement('span');
-      span.textContent = item.icon + ' ' + item.text;
-      btn.appendChild(span);
+      
+      // Create icon and text separately for better styling
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'inboxpilot-toolbar-icon';
+      iconSpan.textContent = item.icon;
+      
+      const textSpan = document.createElement('span');
+      textSpan.className = 'inboxpilot-toolbar-text';
+      textSpan.textContent = item.text;
+      
+      btn.appendChild(iconSpan);
+      btn.appendChild(textSpan);
       buttons.appendChild(btn);
     });
     
@@ -92,41 +146,136 @@ class ComposeToolbar {
     content.appendChild(buttons);
     toolbar.appendChild(content);
 
-    // Try multiple insertion points
-    const composeHeader = composeBox.querySelector('.gU') ||
-                         composeBox.querySelector('[name="subjectbox"]')?.parentElement ||
-                         composeBox.querySelector('.aZo') ||
-                         composeBox.querySelector('.aZq');
+    // Try multiple insertion points - prioritize visible areas
+    let inserted = false;
     
-    if (composeHeader) {
-      // Insert after header
-      if (composeHeader.nextSibling) {
-        composeHeader.parentNode.insertBefore(toolbar, composeHeader.nextSibling);
-      } else {
-        composeHeader.parentNode.appendChild(toolbar);
-      }
-    } else {
-      // Try to find compose body area
-      const composeBody = composeBox.querySelector('[contenteditable="true"]')?.parentElement ||
-                          composeBox.querySelector('.Am') ||
-                          composeBox.querySelector('[role="textbox"]')?.parentElement ||
-                          composeBox.querySelector('.aO');
+    // Strategy 1: Find compose body container and insert before it
+    const composeBody = composeBox.querySelector('[contenteditable="true"][g_editable="true"]')?.parentElement ||
+                       composeBox.querySelector('[contenteditable="true"]')?.parentElement ||
+                       composeBox.querySelector('[role="textbox"]')?.parentElement ||
+                       composeBox.querySelector('.Am') ||
+                       composeBox.querySelector('.aO') ||
+                       composeBox.querySelector('.aZ6');
+    
+    if (composeBody && composeBody.parentElement) {
+      const parent = composeBody.parentElement;
+      parent.insertBefore(toolbar, composeBody);
+      inserted = true;
+      console.log('InboxPilot: Inserted toolbar before compose body');
+    }
+    
+    // Strategy 2: Find "To" field container and insert after it
+    if (!inserted) {
+      const toFieldContainer = composeBox.querySelector('.wO')?.parentElement ||
+                              composeBox.querySelector('input[aria-label*="To"]')?.closest('div')?.parentElement;
       
-      if (composeBody) {
-        composeBody.insertBefore(toolbar, composeBody.firstChild);
-      } else {
-        // Last resort: insert at beginning of dialog
-        composeBox.insertBefore(toolbar, composeBox.firstChild);
+      if (toFieldContainer && toFieldContainer.parentElement) {
+        const parent = toFieldContainer.parentElement;
+        if (toFieldContainer.nextSibling) {
+          parent.insertBefore(toolbar, toFieldContainer.nextSibling);
+        } else {
+          parent.appendChild(toolbar);
+        }
+        inserted = true;
+        console.log('InboxPilot: Inserted toolbar after To field');
       }
     }
+    
+    // Strategy 3: Find subject box and insert after it
+    if (!inserted) {
+      const subjectBox = composeBox.querySelector('[name="subjectbox"]')?.parentElement ||
+                        composeBox.querySelector('input[name="subjectbox"]')?.parentElement;
+      
+      if (subjectBox && subjectBox.parentElement) {
+        const parent = subjectBox.parentElement;
+        if (subjectBox.nextSibling) {
+          parent.insertBefore(toolbar, subjectBox.nextSibling);
+        } else {
+          parent.appendChild(toolbar);
+        }
+        inserted = true;
+        console.log('InboxPilot: Inserted toolbar after subject box');
+      }
+    }
+    
+    // Strategy 4: Last resort - insert at beginning of dialog
+    if (!inserted) {
+      if (composeBox.firstChild) {
+        composeBox.insertBefore(toolbar, composeBox.firstChild);
+      } else {
+        composeBox.appendChild(toolbar);
+      }
+      console.log('InboxPilot: Inserted toolbar at beginning of dialog (fallback)');
+    }
+    
+    // Force visibility with highest priority
+    toolbar.style.cssText = 'display: flex !important; visibility: visible !important; opacity: 1 !important; position: relative !important; z-index: 1000 !important;';
+    
+    // Verify it's visible after a short delay
+    setTimeout(() => {
+      const rect = toolbar.getBoundingClientRect();
+      const computed = window.getComputedStyle(toolbar);
+      console.log('InboxPilot: Toolbar visibility check:', {
+        display: computed.display,
+        visibility: computed.visibility,
+        opacity: computed.opacity,
+        width: rect.width,
+        height: rect.height,
+        visible: rect.width > 0 && rect.height > 0
+      });
+      
+      if (rect.width === 0 || rect.height === 0) {
+        console.warn('InboxPilot: Toolbar not visible, trying alternative insertion');
+        // Try inserting directly into body as last resort
+        const composeBodyArea = composeBox.querySelector('[contenteditable="true"]');
+        if (composeBodyArea && composeBodyArea.parentElement) {
+          composeBodyArea.parentElement.insertBefore(toolbar, composeBodyArea);
+        }
+      }
+    }, 200);
 
+    // Store toolbar reference for loading states
+    this.currentToolbar = toolbar;
+    
     toolbar.querySelectorAll('.inboxpilot-toolbar-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
         const actionBtn = e.target.closest('.inboxpilot-toolbar-btn');
         if (actionBtn && actionBtn.dataset.action) {
-          this.actionHandler(actionBtn.dataset.action, composeBox);
+          // Show loading state
+          const originalText = actionBtn.querySelector('.inboxpilot-toolbar-text')?.textContent || '';
+          const originalIcon = actionBtn.querySelector('.inboxpilot-toolbar-icon')?.textContent || '';
+          
+          actionBtn.disabled = true;
+          actionBtn.classList.add('loading');
+          if (actionBtn.querySelector('.inboxpilot-toolbar-text')) {
+            actionBtn.querySelector('.inboxpilot-toolbar-text').textContent = 'Processing...';
+          }
+          
+          try {
+            // For enhance action, loading is handled in actionHandlers
+            // For other actions, show loading here
+            if (actionBtn.dataset.action !== 'enhance') {
+              await this.actionHandler(actionBtn.dataset.action, composeBox);
+            } else {
+              // Enhance handles its own loading
+              await this.actionHandler(actionBtn.dataset.action, composeBox);
+              // Loading will be removed in actionHandlers
+              return; // Don't remove loading here, it's handled in actionHandlers
+            }
+          } catch (error) {
+            console.error('InboxPilot: Compose action error:', error);
+          } finally {
+            // Remove loading state (only if not enhance action)
+            if (actionBtn.dataset.action !== 'enhance') {
+              actionBtn.disabled = false;
+              actionBtn.classList.remove('loading');
+              if (actionBtn.querySelector('.inboxpilot-toolbar-text')) {
+                actionBtn.querySelector('.inboxpilot-toolbar-text').textContent = originalText;
+              }
+            }
+          }
         }
       });
     });

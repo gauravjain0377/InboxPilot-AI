@@ -10,13 +10,34 @@ class ActionHandlers {
   }
 
   async handleAction(action) {
+    // Check if we're actually viewing an email, not in inbox list
+    const isEmailView = () => {
+      const emailBody = document.querySelector('.a3s') || 
+                       document.querySelector('[role="article"] .a3s');
+      const emailHeader = document.querySelector('h2.hP') || 
+                         document.querySelector('[data-thread-perm-id]');
+      if (!emailBody || !emailHeader) {
+        return false;
+      }
+      const bodyText = emailBody.textContent || emailBody.innerText || '';
+      return bodyText.trim().length >= 20;
+    };
+    
+    if (!isEmailView()) {
+      this.display.showError(action, 'Please open an email first to use this feature.');
+      return;
+    }
+    
     const emailContent = this.extractor.getCurrentEmailContent();
     if (!emailContent.body || emailContent.body.trim().length === 0) {
       this.display.showError(action, 'No email content found. Please open an email first.');
       return;
     }
 
-    this.display.showLoading(action, true);
+    // Don't show loading popup for reply-email - component appears in reply window
+    if (action !== 'reply-email') {
+      this.display.showLoading(action, true);
+    }
 
     try {
       let result;
@@ -41,13 +62,45 @@ class ActionHandlers {
           break;
         case 'reply-email':
           // Open Gmail reply window and show tone selector there
+          // Don't show loading popup - component will appear in reply window
           this.domHelpers.openGmailReplyWindow(() => {
-            const replyWindow = document.querySelector('[role="dialog"]');
-            if (replyWindow && window.replyToneSelector) {
-              window.replyToneSelector.showInReplyWindow(replyWindow, emailContent.body);
-            }
+            // Wait for reply window to be fully ready
+            const tryInject = (attempts = 0) => {
+              // Find reply window - try multiple selectors
+              const replyWindow = document.querySelector('[role="dialog"]') ||
+                                document.querySelector('.aYF') ||
+                                document.querySelector('.nH.if') ||
+                                document.querySelector('.aYF.aZ6');
+              
+              if (replyWindow) {
+                // Check if reply body exists
+                const replyBody = replyWindow.querySelector('[contenteditable="true"][g_editable="true"]') ||
+                                replyWindow.querySelector('[contenteditable="true"]') ||
+                                replyWindow.querySelector('[role="textbox"]');
+                
+                if (replyBody && window.replyToneSelector) {
+                  try {
+                    window.replyToneSelector.showInReplyWindow(replyWindow, emailContent.body);
+                    console.log('InboxPilot: AI Quick Reply component injected successfully');
+                  } catch (error) {
+                    console.error('InboxPilot: Error showing reply tone selector:', error);
+                    if (attempts < 8) {
+                      setTimeout(() => tryInject(attempts + 1), 300);
+                    }
+                  }
+                } else if (attempts < 15) {
+                  // Reply window exists but body not ready yet
+                  setTimeout(() => tryInject(attempts + 1), 200);
+                }
+              } else if (attempts < 15) {
+                // Reply window not found yet, keep trying
+                setTimeout(() => tryInject(attempts + 1), 200);
+              }
+            };
+            
+            // Start trying to inject after a short delay
+            setTimeout(() => tryInject(), 300);
           });
-          this.display.showLoading(action, false);
           return; // Don't show loading for reply as it opens in reply window
         case 'followup-email':
           result = await this.api.call('/ai/followup', { emailBody: emailContent.body });
@@ -119,7 +172,10 @@ class ActionHandlers {
       
       this.display.showError(action, errorMsg);
     } finally {
-      this.display.showLoading(action, false);
+      // Don't hide loading for reply-email as we never showed it
+      if (action !== 'reply-email') {
+        this.display.showLoading(action, false);
+      }
     }
   }
 
@@ -186,11 +242,107 @@ class ActionHandlers {
             console.warn('Please write something in the compose box first');
             return;
           }
-          result = await this.api.call('/ai/rewrite', {
-            text: currentText,
-            instruction: `Enhance and improve this email text while maintaining a ${toneLabel} tone. Make it more polished, clear, and professional while keeping the same meaning and intent.`
-          });
-          this.domHelpers.insertIntoCompose(composeBody, result.rewritten || result);
+          
+          // Extract recipient name from "To" field for personalization
+          // Try multiple selectors for Gmail's "To" field
+          const toField = composeBox.querySelector('[name="to"]') || 
+                         composeBox.querySelector('[aria-label*="To"]') ||
+                         composeBox.querySelector('input[aria-label*="To"]') ||
+                         composeBox.querySelector('.wO[aria-label*="To"]') ||
+                         composeBox.querySelector('[data-hovercard-id]')?.closest('[role="textbox"]')?.parentElement;
+          
+          let recipientName = '';
+          if (toField) {
+            let toValue = '';
+            // Try different ways to get the value
+            if (toField.value) {
+              toValue = toField.value;
+            } else if (toField.textContent) {
+              toValue = toField.textContent;
+            } else if (toField.innerText) {
+              toValue = toField.innerText;
+            } else {
+              // Try to find email chips in Gmail
+              const emailChips = composeBox.querySelectorAll('[data-hovercard-id]');
+              if (emailChips.length > 0) {
+                const firstChip = emailChips[0];
+                const emailText = firstChip.textContent || firstChip.getAttribute('data-hovercard-id') || '';
+                toValue = emailText;
+              }
+            }
+            
+            if (toValue) {
+              // Extract name from formats like:
+              // "John Doe <john@example.com>"
+              // "john@example.com"
+              // "John Doe" (just name)
+              const nameMatch = toValue.match(/^([^<]+?)\s*<|^([^@\s]+)\s*@|^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)$/);
+              if (nameMatch) {
+                recipientName = (nameMatch[1] || nameMatch[2] || nameMatch[3] || '').trim();
+                
+                // If it's just an email, extract first name from email address
+                if (!recipientName || recipientName.includes('@')) {
+                  const emailMatch = toValue.match(/([a-zA-Z0-9._-]+)@/);
+                  if (emailMatch) {
+                    const emailPart = emailMatch[1];
+                    // Extract first name (before dot or underscore)
+                    const firstName = emailPart.split(/[._-]/)[0];
+                    recipientName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+                  }
+                }
+              }
+            }
+          }
+          
+          console.log('InboxPilot: Extracted recipient name:', recipientName);
+          
+          // Show loading state on the enhance button
+          const enhanceBtn = composeBox.querySelector('[data-action="enhance"]');
+          const originalText = enhanceBtn?.querySelector('.inboxpilot-toolbar-text')?.textContent || 'Enhance';
+          if (enhanceBtn) {
+            enhanceBtn.disabled = true;
+            enhanceBtn.classList.add('loading');
+            const textElement = enhanceBtn.querySelector('.inboxpilot-toolbar-text');
+            if (textElement) {
+              textElement.textContent = 'Enhancing...';
+            }
+          }
+          
+          try {
+            // Build enhancement instruction - be very direct
+            let enhanceInstruction = `Enhance this email text to be more polished, clear, and professional while maintaining a ${toneLabel} tone. Keep the same meaning and intent.`;
+            if (recipientName) {
+              enhanceInstruction += ` Use the recipient's name "${recipientName}" if a greeting is needed.`;
+            }
+            enhanceInstruction += ` Return ONLY the enhanced email text, nothing else. No explanations, no markdown, no options. Just the improved email ready to send.`;
+            
+            result = await this.api.call('/ai/rewrite', {
+              text: currentText,
+              instruction: enhanceInstruction
+            });
+            
+            const enhancedText = result.rewritten || result.text || result;
+            // Clean up any remaining formatting
+            const cleanText = enhancedText.trim()
+              .replace(/^\*\*.*?\*\*\s*/gm, '') // Remove bold headers
+              .replace(/^>\s*/gm, '') // Remove quote markers
+              .replace(/\n{3,}/g, '\n\n') // Remove extra blank lines
+              .trim();
+            
+            this.domHelpers.insertIntoCompose(composeBody, cleanText);
+          } catch (error) {
+            console.error('Enhance error:', error);
+            alert('Failed to enhance email. Please try again.');
+          } finally {
+            if (enhanceBtn) {
+              enhanceBtn.disabled = false;
+              enhanceBtn.classList.remove('loading');
+              const textElement = enhanceBtn.querySelector('.inboxpilot-toolbar-text');
+              if (textElement) {
+                textElement.textContent = originalText;
+              }
+            }
+          }
           break;
         case 'rewrite':
           result = await this.api.call('/ai/rewrite', {
@@ -214,6 +366,8 @@ class ActionHandlers {
           this.domHelpers.insertIntoCompose(composeBody, result.rewritten || result);
           break;
         case 'change-tone':
+          // This is now handled by the tone selector + enhance button
+          // But keep for backward compatibility
           result = await this.api.call('/ai/rewrite', {
             text: currentText,
             instruction: `Rewrite this email in a ${toneLabel} tone while keeping the same content and meaning`

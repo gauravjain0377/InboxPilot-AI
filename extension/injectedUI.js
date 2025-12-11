@@ -82,6 +82,9 @@
       },
       apiService
     );
+    // Auto-inject reply tone selector (it has its own inject method now)
+    // It will automatically detect reply windows and inject the component
+    // The inject() is called in the constructor, so it's already active
     const composeToolbar = new ComposeToolbar((action, composeBox) => {
       actionHandlers.handleComposeAction(action, composeBox);
     });
@@ -171,6 +174,9 @@
     
     // Make replyToneSelector globally available
     window.replyToneSelector = replyToneSelector;
+    
+    // Also make composeToolbar globally available for manual injection if needed
+    window.composeToolbar = composeToolbar;
 
     // Initialize when DOM is ready
     function initInboxPilot() {

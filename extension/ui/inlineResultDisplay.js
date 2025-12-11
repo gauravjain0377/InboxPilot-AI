@@ -7,6 +7,24 @@ class InlineResultDisplay {
   }
 
   showResult(action, text, title = 'AI Result') {
+    // Check if we're in email view, not inbox list
+    const isEmailView = () => {
+      const emailBody = document.querySelector('.a3s') || 
+                       document.querySelector('[role="article"] .a3s');
+      const emailHeader = document.querySelector('h2.hP') || 
+                         document.querySelector('[data-thread-perm-id]');
+      if (!emailBody || !emailHeader) {
+        return false;
+      }
+      const bodyText = emailBody.textContent || emailBody.innerText || '';
+      return bodyText.trim().length >= 20;
+    };
+    
+    if (!isEmailView()) {
+      console.log('InboxPilot: Not in email view, skipping result display');
+      return;
+    }
+    
     console.log('InboxPilot: InlineResultDisplay.showResult called:', { action, text: text ? text.substring(0, 100) + '...' : 'null', title });
     console.log('InboxPilot: Text type:', typeof text);
     console.log('InboxPilot: Text length:', text ? text.length : 0);
@@ -88,6 +106,8 @@ class InlineResultDisplay {
     closeBtn.setAttribute('type', 'button');
     closeBtn.textContent = '×';
     closeBtn.setAttribute('title', 'Close');
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; cursor: pointer !important;';
     closeBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -255,6 +275,8 @@ class InlineResultDisplay {
     closeBtn.setAttribute('type', 'button');
     closeBtn.textContent = '×';
     closeBtn.setAttribute('title', 'Close');
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; cursor: pointer !important;';
     closeBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -279,6 +301,18 @@ class InlineResultDisplay {
   }
 
   showError(action, message) {
+    // Check if we're in email view
+    const isEmailView = () => {
+      const emailBody = document.querySelector('.a3s') || 
+                       document.querySelector('[role="article"] .a3s');
+      return emailBody && (emailBody.textContent || emailBody.innerText || '').trim().length >= 20;
+    };
+    
+    if (!isEmailView()) {
+      console.log('InboxPilot: Not in email view, skipping error display');
+      return;
+    }
+    
     const actionsBar = document.querySelector('.inboxpilot-email-actions');
     if (!actionsBar) return;
 
@@ -300,6 +334,8 @@ class InlineResultDisplay {
     closeBtn.setAttribute('type', 'button');
     closeBtn.textContent = '×';
     closeBtn.setAttribute('title', 'Close');
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; cursor: pointer !important;';
     closeBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -347,6 +383,18 @@ class InlineResultDisplay {
   }
 
   _showLoadingIndicator(action) {
+    // Check if we're in email view
+    const isEmailView = () => {
+      const emailBody = document.querySelector('.a3s') || 
+                       document.querySelector('[role="article"] .a3s');
+      return emailBody && (emailBody.textContent || emailBody.innerText || '').trim().length >= 20;
+    };
+    
+    if (!isEmailView()) {
+      console.log('InboxPilot: Not in email view, skipping loading indicator');
+      return;
+    }
+    
     // Remove any existing result first
     this.removeResult(action);
     

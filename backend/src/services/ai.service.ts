@@ -355,8 +355,48 @@ export class AIService {
   }
 
   async rewriteText(text: string, instruction: string): Promise<string> {
-    const prompt = `Rewrite the following text: ${instruction}\n\nText:\n${text}`;
-    return this.generate(prompt);
+    // For enhance operations, be more direct - just return the enhanced text without explanations
+    if (instruction.toLowerCase().includes('enhance') || instruction.toLowerCase().includes('improve')) {
+      const prompt = `Rewrite and enhance the following email text. ${instruction}\n\nReturn ONLY the enhanced email text, nothing else. No explanations, no options, no markdown formatting. Just the improved email text ready to send:\n\n${text}`;
+      const result = await this.generate(prompt);
+      // Clean up the result - remove any explanations or markdown
+      return this.cleanEnhancedText(result);
+    }
+    
+    const prompt = `Rewrite the following text: ${instruction}\n\nText:\n${text}\n\nReturn only the rewritten text, no explanations.`;
+    const result = await this.generate(prompt);
+    return this.cleanEnhancedText(result);
+  }
+
+  private cleanEnhancedText(text: string): string {
+    // Remove common AI explanation patterns
+    let cleaned = text.trim();
+    
+    // Remove markdown code blocks
+    cleaned = cleaned.replace(/```[\s\S]*?```/g, '');
+    
+    // Remove "Here are" or "Here is" patterns
+    cleaned = cleaned.replace(/^Here (are|is)[\s\S]*?(?=\n\n|$)/m, '');
+    
+    // Remove "Option 1", "Option 2" patterns
+    cleaned = cleaned.replace(/\*\*Option \d+[^*]*\*\*[\s\S]*?(?=\n\n|\*\*Option|\*Key|$)/g, '');
+    
+    // Remove "Key improvements" sections
+    cleaned = cleaned.replace(/\*\*Key improvements[\s\S]*$/m, '');
+    
+    // Remove "To choose" sections
+    cleaned = cleaned.replace(/\*\*To choose[\s\S]*$/m, '');
+    
+    // Remove quoted text markers
+    cleaned = cleaned.replace(/^>\s*/gm, '');
+    
+    // Remove extra blank lines
+    cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+    
+    // Remove leading/trailing whitespace from each line
+    cleaned = cleaned.split('\n').map(line => line.trim()).join('\n');
+    
+    return cleaned.trim();
   }
 
   async generateFollowUp(originalEmail: string): Promise<string> {

@@ -6,12 +6,95 @@ class ReplyToneSelector {
   constructor(actionHandler, apiService) {
     this.actionHandler = actionHandler;
     this.apiService = apiService;
+    this.observer = null;
+    this.inject();
+  }
+
+  inject() {
+    console.log('InboxPilot: ReplyToneSelector inject() called');
+    
+    // Watch for reply windows to appear
+    this.observer = new MutationObserver(() => {
+      this.checkAndInjectReplyWindow();
+    });
+    this.observer.observe(document.body, { childList: true, subtree: true });
+    
+    // Initial check
+    setTimeout(() => {
+      this.checkAndInjectReplyWindow();
+    }, 1000);
+  }
+
+  checkAndInjectReplyWindow() {
+    // Find reply windows (dialogs with reply body)
+    const dialogs = document.querySelectorAll('[role="dialog"]');
+    
+    dialogs.forEach(dialog => {
+      // Skip if already has our component
+      if (dialog.querySelector('.inboxpilot-ai-quick-reply')) {
+        return;
+      }
+      
+      // Check if it's a reply/compose window (has editable body)
+      const hasReplyBody = dialog.querySelector('[contenteditable="true"][g_editable="true"]') ||
+                          dialog.querySelector('[contenteditable="true"]') ||
+                          dialog.querySelector('[role="textbox"]');
+      
+      if (!hasReplyBody) {
+        return; // Not a compose/reply window
+      }
+      
+      // Check for indicators that it's a reply (not new compose)
+      const hasQuotedText = dialog.querySelector('.gmail_quote') ||
+                           dialog.querySelector('[data-smartmail="gmail_quote"]') ||
+                           dialog.textContent.includes('On ') ||
+                           dialog.textContent.includes('wrote:');
+      
+      // Check if it has a "To" field that's pre-filled (reply) vs empty (new compose)
+      const toField = dialog.querySelector('input[aria-label*="To"]') ||
+                     dialog.querySelector('[aria-label*="To"]') ||
+                     dialog.querySelector('.wO input');
+      const toFieldValue = toField?.value || toField?.textContent || '';
+      const hasPrefilledTo = toFieldValue.trim().length > 0;
+      
+      // Check for subject box
+      const hasSubjectBox = dialog.querySelector('[name="subjectbox"]') ||
+                           dialog.querySelector('input[name="subjectbox"]');
+      
+      // It's a reply window if:
+      // 1. Has quoted text (definitely a reply), OR
+      // 2. Has pre-filled To field AND no subject box (classic reply), OR
+      // 3. Has reply body, pre-filled To, and quoted text indicators
+      const isReplyWindow = hasQuotedText || 
+                           (hasPrefilledTo && !hasSubjectBox) ||
+                           (hasReplyBody && hasPrefilledTo && (dialog.textContent.includes('Re:') || dialog.textContent.includes('Fwd:')));
+      
+      if (isReplyWindow) {
+        // Try to get email content from the original email being replied to
+        const quotedText = dialog.querySelector('.gmail_quote')?.textContent || 
+                         dialog.querySelector('[data-smartmail="gmail_quote"]')?.textContent || '';
+        const emailBody = quotedText || 'Email content';
+        
+        console.log('InboxPilot: Found reply window, injecting AI Quick Reply', {
+          hasQuotedText: !!hasQuotedText,
+          hasPrefilledTo,
+          hasSubjectBox: !!hasSubjectBox,
+          dialogText: dialog.textContent.substring(0, 100)
+        });
+        this.showInReplyWindow(dialog, emailBody);
+      }
+    });
   }
 
   showInReplyWindow(replyWindow, emailBody) {
+    console.log('InboxPilot: showInReplyWindow called', { replyWindow: !!replyWindow, emailBody: emailBody?.substring(0, 50) });
+    
     // Remove existing selector if any
     const existing = replyWindow.querySelector('.inboxpilot-ai-quick-reply');
-    if (existing) existing.remove();
+    if (existing) {
+      console.log('InboxPilot: Removing existing component');
+      existing.remove();
+    }
 
     // Remove existing draft if any
     const existingDraft = replyWindow.querySelector('.inboxpilot-ai-draft-card');
@@ -19,11 +102,16 @@ class ReplyToneSelector {
 
     const container = document.createElement('div');
     container.className = 'inboxpilot-ai-quick-reply';
+    // Ensure it's visible
+    container.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important;';
     
     // Title
     const title = document.createElement('div');
     title.className = 'inboxpilot-ai-quick-reply-title';
-    title.textContent = 'AI Quick Reply';
+    const titleIcon = document.createElement('span');
+    titleIcon.textContent = '✨';
+    title.appendChild(titleIcon);
+    title.appendChild(document.createTextNode(' AI Quick Reply'));
     
     // Tone buttons container
     const buttonsContainer = document.createElement('div');
@@ -118,7 +206,11 @@ class ReplyToneSelector {
     
     inputContainer.appendChild(input);
     
-    // Add Generate button
+    // Add action buttons container
+    const actionButtons = document.createElement('div');
+    actionButtons.className = 'inboxpilot-ai-quick-reply-actions';
+    
+    // Generate button
     const generateBtn = document.createElement('button');
     generateBtn.className = 'inboxpilot-ai-quick-reply-generate-btn';
     generateBtn.textContent = 'Generate';
@@ -127,40 +219,104 @@ class ReplyToneSelector {
       await this.generateReply(container, emailBody, selectedTone, input.textContent.trim(), replyWindow);
     });
     
+    // Enhance button - for enhancing user-written text
+    const enhanceBtn = document.createElement('button');
+    enhanceBtn.className = 'inboxpilot-ai-quick-reply-enhance-btn';
+    enhanceBtn.textContent = '✨ Enhance';
+    enhanceBtn.setAttribute('type', 'button');
+    enhanceBtn.setAttribute('title', 'Enhance text you\'ve written with selected tone');
+    enhanceBtn.addEventListener('click', async () => {
+      const replyBody = replyWindow.querySelector('[contenteditable="true"][g_editable="true"]') ||
+                       replyWindow.querySelector('[contenteditable="true"]') ||
+                       replyWindow.querySelector('[role="textbox"]');
+      const userText = replyBody?.textContent?.trim() || '';
+      
+      if (!userText) {
+        // If no text, just generate a reply
+        await this.generateReply(container, emailBody, selectedTone, input.textContent.trim(), replyWindow);
+      } else {
+        // Enhance the user's written text
+        await this.enhanceUserText(container, userText, selectedTone, replyWindow, replyBody);
+      }
+    });
+    
+    actionButtons.appendChild(generateBtn);
+    actionButtons.appendChild(enhanceBtn);
+    
     container.appendChild(title);
     container.appendChild(buttonsContainer);
     container.appendChild(inputContainer);
-    container.appendChild(generateBtn);
+    container.appendChild(actionButtons);
     
-    // Find reply body area - try to insert near "Help me write" or before compose area
-    const helpMeWrite = replyWindow.querySelector('[aria-label*="Help me write"]')?.parentElement?.parentElement;
-    const replyBody = replyWindow.querySelector('[contenteditable="true"][g_editable="true"]') ||
-                     replyWindow.querySelector('[contenteditable="true"]') ||
-                     replyWindow.querySelector('[role="textbox"]');
+    // Find the best insertion point in the reply window
+    // Try multiple strategies to find where to insert the component
+    let inserted = false;
     
-    let insertParent = null;
-    let insertAfter = null;
-    
-    if (helpMeWrite && helpMeWrite.nextSibling) {
-      // Insert after "Help me write" section
-      insertParent = helpMeWrite.parentElement;
-      insertAfter = helpMeWrite.nextSibling;
-    } else if (replyBody) {
-      // Insert before reply body
-      insertParent = replyBody.parentElement;
-      insertAfter = replyBody;
-    } else {
-      insertParent = replyWindow;
-      insertAfter = replyWindow.firstChild;
+    // Strategy 1: Find "Help me write" section and insert after it
+    const helpMeWrite = replyWindow.querySelector('[aria-label*="Help me write"]')?.closest('div')?.parentElement;
+    if (helpMeWrite && helpMeWrite.parentElement) {
+      const parent = helpMeWrite.parentElement;
+      if (helpMeWrite.nextSibling) {
+        parent.insertBefore(container, helpMeWrite.nextSibling);
+        inserted = true;
+        console.log('InboxPilot: Inserted after Help me write');
+      } else {
+        parent.appendChild(container);
+        inserted = true;
+        console.log('InboxPilot: Appended after Help me write');
+      }
     }
     
-    if (insertParent && insertAfter) {
-      insertParent.insertBefore(container, insertAfter);
-    } else if (insertParent) {
-      insertParent.appendChild(container);
-    } else {
-      replyWindow.insertBefore(container, replyWindow.firstChild);
+    // Strategy 2: Find reply body and insert before it
+    if (!inserted) {
+      const replyBody = replyWindow.querySelector('[contenteditable="true"][g_editable="true"]') ||
+                       replyWindow.querySelector('[contenteditable="true"]') ||
+                       replyWindow.querySelector('[role="textbox"]');
+      
+      if (replyBody && replyBody.parentElement) {
+        const parent = replyBody.parentElement;
+        parent.insertBefore(container, replyBody);
+        inserted = true;
+        console.log('InboxPilot: Inserted before reply body');
+      }
     }
+    
+    // Strategy 3: Find compose area container
+    if (!inserted) {
+      const composeArea = replyWindow.querySelector('.Am') ||
+                         replyWindow.querySelector('.aO') ||
+                         replyWindow.querySelector('[role="textbox"]')?.parentElement?.parentElement;
+      
+      if (composeArea) {
+        if (composeArea.firstChild) {
+          composeArea.insertBefore(container, composeArea.firstChild);
+        } else {
+          composeArea.appendChild(container);
+        }
+        inserted = true;
+        console.log('InboxPilot: Inserted in compose area');
+      }
+    }
+    
+    // Strategy 4: Last resort - insert at beginning of dialog
+    if (!inserted) {
+      if (replyWindow.firstChild) {
+        replyWindow.insertBefore(container, replyWindow.firstChild);
+      } else {
+        replyWindow.appendChild(container);
+      }
+      console.log('InboxPilot: Inserted at beginning of dialog (fallback)');
+    }
+    
+    // Force visibility
+    container.style.display = 'block';
+    container.style.visibility = 'visible';
+    container.style.opacity = '1';
+    
+    // Scroll into view if needed
+    setTimeout(() => {
+      container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 100);
     
     // Handle input enter key to generate (Ctrl+Enter or Cmd+Enter)
     input.addEventListener('keydown', async (e) => {
@@ -372,6 +528,79 @@ class ReplyToneSelector {
       } else {
         replyWindow.insertBefore(card, replyWindow.firstChild);
       }
+    }
+  }
+
+  async enhanceUserText(container, userText, tone, replyWindow, replyBody) {
+    // Show loading state
+    const enhanceBtn = container.querySelector('.inboxpilot-ai-quick-reply-enhance-btn');
+    const generateBtn = container.querySelector('.inboxpilot-ai-quick-reply-generate-btn');
+    const buttons = container.querySelectorAll('.inboxpilot-ai-quick-reply-tone-btn');
+    
+    if (enhanceBtn) {
+      enhanceBtn.disabled = true;
+      enhanceBtn.textContent = 'Enhancing...';
+    }
+    if (generateBtn) {
+      generateBtn.disabled = true;
+    }
+    buttons.forEach(btn => {
+      btn.disabled = true;
+      btn.style.opacity = '0.6';
+    });
+    
+    try {
+      // Get auth token
+      const token = this.apiService ? await this.apiService.getAuthToken() : null;
+      
+      // Call API to enhance
+      const toneLabels = {
+        'formal': 'professional',
+        'friendly': 'friendly',
+        'assertive': 'assertive',
+        'short': 'brief and concise',
+        'concise': 'concise',
+        'negative': 'polite but firm, expressing disagreement or concerns'
+      };
+      const toneLabel = toneLabels[tone] || 'professional';
+      
+      // Use the API service directly to enhance text
+      const result = await this.apiService.call('/ai/rewrite', {
+        text: userText,
+        instruction: `Enhance and improve this text with a ${toneLabel} tone while keeping the same meaning and intent. Make it more polished and professional.`
+      });
+      
+      const enhancedText = result.rewritten || result.text || result;
+      
+      // Insert enhanced text into reply body
+      if (replyBody && enhancedText) {
+        replyBody.textContent = '';
+        const lines = enhancedText.split('\n');
+        lines.forEach((line, index) => {
+          if (index > 0) {
+            replyBody.appendChild(document.createElement('br'));
+          }
+          replyBody.appendChild(document.createTextNode(line));
+        });
+        replyBody.dispatchEvent(new Event('input', { bubbles: true }));
+        replyBody.focus();
+      }
+      
+    } catch (error) {
+      console.error('Error enhancing text:', error);
+      alert('Failed to enhance text: ' + (error.message || 'Unknown error'));
+    } finally {
+      if (enhanceBtn) {
+        enhanceBtn.disabled = false;
+        enhanceBtn.textContent = '✨ Enhance';
+      }
+      if (generateBtn) {
+        generateBtn.disabled = false;
+      }
+      buttons.forEach(btn => {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      });
     }
   }
 

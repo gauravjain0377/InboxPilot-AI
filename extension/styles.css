@@ -375,28 +375,51 @@ tr.priority-low {
 
 /* Compose Toolbar */
 .inboxpilot-compose-toolbar {
-  background: #f8f9fa;
-  border-bottom: 1px solid #e0e0e0;
-  padding: 12px 16px;
-  margin: 0;
+  background: #ffffff !important;
+  border: 1px solid #e0e0e0 !important;
+  border-radius: 8px !important;
+  padding: 12px 16px !important;
+  margin: 12px 0 !important;
   display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;
-  z-index: 1000;
+  z-index: 1000 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+  position: relative !important;
 }
 
 .inboxpilot-toolbar-content {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  flex-wrap: wrap !important;
+  width: 100% !important;
 }
 
 .inboxpilot-label {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #202124 !important;
+  margin-right: 4px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.inboxpilot-tone-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #ffffff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+}
+
+.inboxpilot-tone-label-text {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   color: #5f6368;
-  margin-right: 8px;
 }
 
 .inboxpilot-toolbar-buttons {
@@ -407,34 +430,71 @@ tr.priority-low {
 }
 
 .inboxpilot-toolbar-btn {
-  padding: 8px 14px;
+  padding: 8px 16px;
   background: white;
   border: 1px solid #dadce0;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   transition: all 0.2s;
   display: flex;
   align-items: center;
   gap: 6px;
   color: #202124;
+  position: relative;
 }
 
-.inboxpilot-toolbar-btn:hover {
-  background: #f8f9fa;
-  border-color: #cbd5e1;
+.inboxpilot-toolbar-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.inboxpilot-toolbar-text {
+  font-size: 13px;
+}
+
+.inboxpilot-toolbar-btn.loading {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.inboxpilot-toolbar-btn.loading::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #dadce0;
+  border-top-color: #1a73e8;
+  border-radius: 50%;
+  animation: inboxpilot-spin 0.8s linear infinite;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.inboxpilot-toolbar-btn.loading .inboxpilot-toolbar-text {
+  opacity: 0.7;
+}
+
+.inboxpilot-toolbar-btn:hover:not(:disabled):not(.loading) {
+  background: #f8f9fa !important;
+  border-color: #1a73e8 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
 }
 
 .inboxpilot-toolbar-btn.primary {
-  background: #1a73e8;
-  color: white;
-  border-color: #1a73e8;
+  background: #1a73e8 !important;
+  color: white !important;
+  border-color: #1a73e8 !important;
+  font-weight: 600 !important;
 }
 
-.inboxpilot-toolbar-btn.primary:hover {
-  background: #1557b0;
-  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
+.inboxpilot-toolbar-btn.primary:hover:not(:disabled) {
+  background: #1557b0 !important;
+  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3) !important;
+  transform: translateY(-1px) !important;
 }
 
 .inboxpilot-toolbar-btn:disabled {
@@ -443,14 +503,21 @@ tr.priority-low {
 }
 
 .inboxpilot-tone-select {
-  padding: 8px 12px;
-  border: 1px solid #dadce0;
-  border-radius: 8px;
-  font-size: 12px;
-  background: white;
-  cursor: pointer;
-  color: #202124;
-  font-weight: 500;
+  padding: 6px 12px !important;
+  border: 1px solid #dadce0 !important;
+  border-radius: 6px !important;
+  font-size: 13px !important;
+  background: white !important;
+  cursor: pointer !important;
+  color: #202124 !important;
+  font-weight: 500 !important;
+  min-width: 120px !important;
+}
+
+.inboxpilot-tone-select:focus {
+  outline: none !important;
+  border-color: #1a73e8 !important;
+  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.1) !important;
 }
 
 .inboxpilot-tone-select:focus {
@@ -541,50 +608,67 @@ tr.priority-low {
 
 /* AI Quick Reply Component - Matching Image Design */
 .inboxpilot-ai-quick-reply {
-  background: #f5f5f5;
-  border-radius: 12px;
-  padding: 16px;
-  margin: 12px 0;
-  border: 1px solid #e0e0e0;
+  background: #f5f5f5 !important;
+  border-radius: 12px !important;
+  padding: 16px !important;
+  margin: 12px 0 !important;
+  border: 1px solid #e0e0e0 !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative !important;
+  z-index: 1000 !important;
+  width: auto !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .inboxpilot-ai-quick-reply-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #5f6368;
-  margin-bottom: 12px;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  color: #202124 !important;
+  margin-bottom: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
 }
 
 .inboxpilot-ai-quick-reply-buttons {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
+  display: flex !important;
+  gap: 8px !important;
+  margin-bottom: 12px !important;
+  flex-wrap: wrap !important;
+  width: 100% !important;
 }
 
 .inboxpilot-ai-quick-reply-tone-btn {
-  padding: 8px 16px;
-  background: #ffffff;
-  border: 1px solid #dadce0;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s;
-  color: #5f6368;
-  flex: 1;
-  min-width: 80px;
+  padding: 10px 16px !important;
+  background: #ffffff !important;
+  border: 1px solid #dadce0 !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s !important;
+  color: #5f6368 !important;
+  flex: 1 !important;
+  min-width: 90px !important;
 }
 
-.inboxpilot-ai-quick-reply-tone-btn:hover:not(:disabled) {
-  background: #f8f9fa;
-  border-color: #cbd5e1;
+.inboxpilot-ai-quick-reply-tone-btn:hover:not(:disabled):not(.selected) {
+  background: #f8f9fa !important;
+  border-color: #1a73e8 !important;
+  color: #1a73e8 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
 }
 
 .inboxpilot-ai-quick-reply-tone-btn.selected {
-  background: #4a5568;
-  color: #ffffff;
-  border-color: #4a5568;
+  background: #1a73e8 !important;
+  color: #ffffff !important;
+  border-color: #1a73e8 !important;
+  font-weight: 600 !important;
+  box-shadow: 0 2px 4px rgba(26, 115, 232, 0.3) !important;
 }
 
 .inboxpilot-ai-quick-reply-tone-btn:disabled {
@@ -624,18 +708,27 @@ tr.priority-low {
   font-size: 14px;
 }
 
-.inboxpilot-ai-quick-reply-generate-btn {
+.inboxpilot-ai-quick-reply-actions {
+  display: flex;
+  gap: 8px;
   margin-top: 12px;
+}
+
+.inboxpilot-ai-quick-reply-generate-btn,
+.inboxpilot-ai-quick-reply-enhance-btn {
+  flex: 1;
   padding: 10px 20px;
-  background: #1a73e8;
-  color: #ffffff;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  width: 100%;
   transition: all 0.2s;
+}
+
+.inboxpilot-ai-quick-reply-generate-btn {
+  background: #1a73e8;
+  color: #ffffff;
 }
 
 .inboxpilot-ai-quick-reply-generate-btn:hover:not(:disabled) {
@@ -643,7 +736,19 @@ tr.priority-low {
   box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
 }
 
-.inboxpilot-ai-quick-reply-generate-btn:disabled {
+.inboxpilot-ai-quick-reply-enhance-btn {
+  background: #ffffff;
+  color: #5f6368;
+  border: 1px solid #dadce0;
+}
+
+.inboxpilot-ai-quick-reply-enhance-btn:hover:not(:disabled) {
+  background: #f8f9fa;
+  border-color: #cbd5e1;
+}
+
+.inboxpilot-ai-quick-reply-generate-btn:disabled,
+.inboxpilot-ai-quick-reply-enhance-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
