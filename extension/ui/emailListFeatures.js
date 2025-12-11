@@ -15,7 +15,7 @@ class EmailListFeatures {
         return;
       }
 
-      this.observer = new MutationObserver(() => {
+      const processRows = () => {
         try {
           const emailRows = document.querySelectorAll('tr[role="row"]:not([data-inboxpilot-processed])');
           emailRows.forEach(row => {
@@ -29,6 +29,13 @@ class EmailListFeatures {
         } catch (error) {
           console.error('InboxPilot: Error in mutation observer:', error);
         }
+      };
+
+      // Process any rows that already exist when the extension loads
+      processRows();
+
+      this.observer = new MutationObserver(() => {
+        processRows();
       });
 
       this.observer.observe(mainArea, { childList: true, subtree: true });
@@ -39,10 +46,110 @@ class EmailListFeatures {
 
   enhanceEmailRow(row) {
     try {
-      if (!row || row.querySelector('.inboxpilot-email-controls')) return;
+      if (!row || row.querySelector('.inboxpilot-email-controls') || row.querySelector('.inboxpilot-email-labels')) return;
       
-      const subjectCell = row.querySelector('td[class*="bog"]');
-      if (!subjectCell) return;
+      // Find the subject span and the best container to attach labels to
+      const subjectSpan = row.querySelector('span[class*="bog"]');
+      if (!subjectSpan) return;
+
+      // In most Gmail layouts, subject span is inside an <a> inside a <td>; we want to attach labels under that cell
+      let subjectCell = subjectSpan.closest('td');
+      if (!subjectCell) {
+        subjectCell = subjectSpan.parentElement || row;
+      }
+
+      // Add semantic tags (Finance, Marketing, High Priority, etc.) next to subject
+      try {
+        const subjectText = row.querySelector('span[class*="bog"]')?.textContent || '';
+        const snippetText = row.querySelector('span[class*="y2"]')?.textContent || '';
+        const fromText = row.querySelector('span[email]')?.getAttribute('email') ||
+                         row.querySelector('span[email]')?.textContent ||
+                         row.querySelector('span[class*="yP"]')?.textContent ||
+                         '';
+        const emailExtractor = (window.inboxPilotComponents && window.inboxPilotComponents.emailExtractor)
+          ? window.inboxPilotComponents.emailExtractor
+          : (typeof EmailExtractor !== 'undefined' ? new EmailExtractor() : null);
+
+        if (emailExtractor && (subjectText || snippetText || fromText)) {
+          const detectedLabels = emailExtractor.detectLabels(subjectText, snippetText, fromText) || [];
+          if (detectedLabels.length > 0) {
+            const labelsContainer = document.createElement('div');
+            labelsContainer.className = 'inboxpilot-email-labels';
+            labelsContainer.style.marginTop = '2px';
+            labelsContainer.style.display = 'flex';
+            labelsContainer.style.flexWrap = 'wrap';
+            labelsContainer.style.gap = '4px';
+
+            const seenClasses = new Set();
+
+            const threadId = row.getAttribute('data-thread-id') || row.getAttribute('data-legacy-thread-id') || '';
+            const apiService = window.inboxPilotComponents && window.inboxPilotComponents.apiService;
+
+            detectedLabels.forEach(label => {
+              if (!label || !label.class || seenClasses.has(label.class)) return;
+              seenClasses.add(label.class);
+
+              const chip = document.createElement('span');
+              chip.className = `inboxpilot-email-label inboxpilot-label-${label.class}`;
+              chip.textContent = label.text;
+              labelsContainer.appendChild(chip);
+
+              // Apply visual priority highlight on the row
+              if (label.class === 'high-priority') {
+                row.classList.add('priority-high');
+              }
+
+              // Persist priority/category to backend for analytics (best effort)
+              if (apiService && threadId) {
+                const payload = { emailId: threadId, label: label.text };
+                if (label.class === 'high-priority') {
+                  payload.priority = 'high';
+                }
+                if (label.class === 'medium-priority') {
+                  payload.priority = 'medium';
+                }
+                if (label.class === 'low-priority') {
+                  payload.priority = 'low';
+                }
+                if (label.class === 'finance' || label.class === 'scheduling' || label.class === 'marketing' || label.class === 'social') {
+                  if (label.class === 'finance') payload.category = 'Finance';
+                  if (label.class === 'scheduling') payload.category = 'Scheduling';
+                  if (label.class === 'marketing') payload.category = 'Marketing';
+                  if (label.class === 'social') payload.category = 'Social';
+                }
+
+                try {
+                  apiService.call('/gmail/apply-label', payload).catch(() => {});
+                } catch (e) {
+                  // Ignore errors in auto-tag sync
+                }
+              }
+            });
+
+            // Also reflect any manual priority selections (high/medium/low) as chips
+            if (row.classList.contains('priority-high') && !seenClasses.has('high-priority')) {
+              const chip = document.createElement('span');
+              chip.className = 'inboxpilot-email-label inboxpilot-label-high-priority';
+              chip.textContent = 'High Priority';
+              labelsContainer.appendChild(chip);
+            } else if (row.classList.contains('priority-medium') && !seenClasses.has('medium-priority')) {
+              const chip = document.createElement('span');
+              chip.className = 'inboxpilot-email-label inboxpilot-label-medium-priority';
+              chip.textContent = 'Medium Priority';
+              labelsContainer.appendChild(chip);
+            } else if (row.classList.contains('priority-low') && !seenClasses.has('low-priority')) {
+              const chip = document.createElement('span');
+              chip.className = 'inboxpilot-email-label inboxpilot-label-low-priority';
+              chip.textContent = 'Low Priority';
+              labelsContainer.appendChild(chip);
+            }
+
+            subjectCell.appendChild(labelsContainer);
+          }
+        }
+      } catch (labelError) {
+        console.error('InboxPilot: Error applying auto labels to row:', labelError);
+      }
 
       const controls = document.createElement('div');
       controls.className = 'inboxpilot-email-controls';

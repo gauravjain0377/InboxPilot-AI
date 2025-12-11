@@ -74,24 +74,53 @@ class EmailExtractor {
   }
 
   extractEmailContent(row) {
-    const snippet = row.querySelector('span[class*="bog"]')?.textContent || '';
-    return snippet;
+    const subject = row.querySelector('span[class*="bog"]')?.textContent || '';
+    const snippet = row.querySelector('span[class*="y2"]')?.textContent || '';
+    return `${subject} ${snippet}`.trim();
   }
 
-  detectLabels(subject, snippet) {
+  /**
+   * Lightweight heuristic classifier for inbox rows.
+   * Returns an array of label objects: { text: string, class: string }
+   */
+  detectLabels(subject, snippet, from = '') {
     const labels = [];
-    const text = (subject + ' ' + snippet).toLowerCase();
-    
-    if (text.match(/\b(invoice|payment|bill|receipt|finance|financial|accounting|billing|payment due|amount|price|cost|fee)\b/)) {
+    const text = (subject + ' ' + snippet + ' ' + from).toLowerCase();
+
+    // Finance / billing
+    if (text.match(/\b(invoice|payment|bill|receipt|finance|financial|accounting|billing|payment due|amount|price|cost|fee|tax)\b/)) {
       labels.push({ text: 'Finance', class: 'finance' });
     }
-    
-    if (text.match(/\b(urgent|asap|immediately|important|priority|high priority|critical)\b/)) {
-      labels.push({ text: 'High Priority', class: 'high-priority' });
-    } else if (text.match(/\b(meeting|schedule|calendar|appointment|call|conference)\b/)) {
+
+    // Scheduling / meetings
+    if (text.match(/\b(meeting|schedule|calendar|appointment|call|conference|reschedule|zoom|google meet|teams)\b/)) {
       labels.push({ text: 'Scheduling', class: 'scheduling' });
     }
-    
+
+    // Marketing / newsletters / promotions
+    if (text.match(/\b(marketing|newsletter|campaign|promo|promotion|offer|sale|discount|webinar|update from our team)\b/)) {
+      labels.push({ text: 'Marketing', class: 'marketing' });
+    }
+
+    // Social / community platforms (based mainly on sender/domain keywords)
+    if (text.match(/\b(linkedin|twitter|x\.com|facebook|instagram|youtube|github|community|slack|discord)\b/)) {
+      labels.push({ text: 'Social', class: 'social' });
+    }
+
+    // Priority heuristics
+    if (text.match(/\b(urgent|asap|immediately|important|priority|high priority|critical|action required|respond today)\b/)) {
+      labels.push({ text: 'High Priority', class: 'high-priority' });
+    } else if (text.match(/\b(reminder|follow up|follow-up|nudge|update)\b/)) {
+      labels.push({ text: 'Medium Priority', class: 'medium-priority' });
+    } else if (text.match(/\b(newsletter|digest|roundup|summary|update)\b/)) {
+      labels.push({ text: 'Low Priority', class: 'low-priority' });
+    }
+
+    // Reply needed
+    if (text.includes('?') || text.match(/\b(rsvp|please reply|please respond|let us know|confirm your attendance)\b/)) {
+      labels.push({ text: 'Reply Needed', class: 'reply-needed' });
+    }
+
     return labels;
   }
 }

@@ -216,6 +216,36 @@
   border-color: #c7d2fe;
 }
 
+.inboxpilot-label-marketing {
+  background: #f5e7ff;
+  color: #7c3aed;
+  border-color: #e9d5ff;
+}
+
+.inboxpilot-label-social {
+  background: #e0f2fe;
+  color: #0284c7;
+  border-color: #bae6fd;
+}
+
+.inboxpilot-label-medium-priority {
+  background: #fef3c7;
+  color: #d97706;
+  border-color: #fde68a;
+}
+
+.inboxpilot-label-low-priority {
+  background: #ecfdf5;
+  color: #16a34a;
+  border-color: #bbf7d0;
+}
+
+.inboxpilot-label-reply-needed {
+  background: #eff6ff;
+  color: #2563eb;
+  border-color: #bfdbfe;
+}
+
 /* Action Buttons */
 .inboxpilot-actions {
   display: grid;

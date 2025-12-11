@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middlewares/auth.js';
 import { User } from '../models/User.js';
 import { Email } from '../models/Email.js';
+import { AIUsage } from '../models/AIUsage.js';
 import { AppError } from '../utils/errorHandler.js';
 import { logger } from '../utils/logger.js';
 
@@ -18,13 +19,16 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
     let priorityBreakdown = { high: 0, medium: 0, low: 0 };
     let categoryStats: Array<{ name: string; count: number }> = [];
     let emailsOverTime: Array<{ date: string; count: number }> = [];
+    let aiUsageBreakdown: Record<string, number> = {
+      reply: 0,
+      summarize: 0,
+      rewrite: 0,
+      followup: 0,
+    };
+    let timeSavedMinutes = 0;
 
     try {
       totalEmails = await Email.countDocuments({ userId: user._id });
-      emailsWithAI = await Email.countDocuments({ 
-        userId: user._id, 
-        aiSuggestions: { $exists: true, $ne: [] } 
-      });
       highPriorityEmails = await Email.countDocuments({ 
         userId: user._id, 
         priority: 'high' 
@@ -70,13 +74,33 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
         { $sort: { _id: 1 } }
       ]);
       emailsOverTime = timeAggregation.map(item => ({ date: item._id, count: item.count }));
+
+      // AI usage statistics (reply, summarize, rewrite, followup) from AIUsage collection
+      const usageAggregation = await AIUsage.aggregate([
+        { $match: { userId: user._id } },
+        { $group: { _id: '$action', count: { $sum: 1 } } },
+      ]);
+
+      for (const item of usageAggregation) {
+        if (item?._id && typeof item.count === 'number') {
+          aiUsageBreakdown[item._id] = item.count;
+        }
+      }
+
+      // "AI Drafts" on dashboard = number of AI reply generations
+      emailsWithAI = aiUsageBreakdown.reply || 0;
+
+      // Estimate time saved using different weights per action (in minutes)
+      // reply: ~5 min, summarize: ~2 min, rewrite: ~2 min, followup: ~3 min
+      timeSavedMinutes =
+        (aiUsageBreakdown.reply || 0) * 5 +
+        (aiUsageBreakdown.summarize || 0) * 2 +
+        (aiUsageBreakdown.rewrite || 0) * 2 +
+        (aiUsageBreakdown.followup || 0) * 3;
     } catch (dbError) {
       logger.error('Error fetching email statistics:', dbError);
       // Continue with default values if database query fails
     }
-
-    // Calculate time saved (estimate: 5 minutes per AI-generated draft)
-    const timeSavedMinutes = emailsWithAI * 5;
 
     // Get user registration date
     const accountAge = Math.floor((Date.now() - user.createdAt.getTime()) / (1000 * 60 * 60 * 24));
@@ -86,6 +110,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
       stats: {
         totalEmails,
         emailsWithAI,
+        aiUsageBreakdown,
         highPriorityEmails,
         unreadEmails,
         timeSavedMinutes,
