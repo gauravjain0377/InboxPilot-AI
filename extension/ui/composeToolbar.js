@@ -83,35 +83,59 @@ class ComposeToolbar {
     const buttons = document.createElement('div');
     buttons.className = 'inboxpilot-toolbar-buttons';
     
-    // Tone selector - simplified with better UI
+    // Tone selector as simple buttons (no dropdown for better UX)
     const toneContainer = document.createElement('div');
     toneContainer.className = 'inboxpilot-tone-container';
     
     const toneLabel = document.createElement('span');
     toneLabel.className = 'inboxpilot-tone-label-text';
     toneLabel.textContent = 'Tone:';
+    toneContainer.appendChild(toneLabel);
     
-    const select = document.createElement('select');
-    select.className = 'inboxpilot-tone-select';
+    // Hidden input that stores the selected tone value (used by actionHandlers)
+    const toneInput = document.createElement('input');
+    toneInput.type = 'hidden';
+    toneInput.className = 'inboxpilot-tone-select';
+    toneInput.value = 'friendly';
+    
+    const toneButtonsWrap = document.createElement('div');
+    toneButtonsWrap.className = 'inboxpilot-compose-tone-buttons';
+    
     const toneOptions = [
       { value: 'formal', label: 'Professional' },
       { value: 'friendly', label: 'Friendly' },
       { value: 'concise', label: 'Concise' },
-      { value: 'negative', label: 'Negative' },
-      { value: 'assertive', label: 'Assertive' },
-      { value: 'short', label: 'Brief' }
+      { value: 'negative', label: 'Negative' }
     ];
-    toneOptions.forEach(opt => {
-      const option = document.createElement('option');
-      option.value = opt.value;
-      option.textContent = opt.label;
-      if (opt.value === 'friendly') option.selected = true;
-      select.appendChild(option);
+    
+    toneOptions.forEach((opt) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'inboxpilot-compose-tone-btn';
+      btn.textContent = opt.label;
+      btn.dataset.value = opt.value;
+      
+      if (opt.value === 'friendly') {
+        btn.classList.add('selected');
+      }
+      
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Update selected state
+        toneButtonsWrap.querySelectorAll('.inboxpilot-compose-tone-btn').forEach((b) => {
+          b.classList.remove('selected');
+        });
+        btn.classList.add('selected');
+        toneInput.value = opt.value;
+      });
+      
+      toneButtonsWrap.appendChild(btn);
     });
     
-    toneContainer.appendChild(toneLabel);
-    toneContainer.appendChild(select);
+    toneContainer.appendChild(toneButtonsWrap);
     buttons.appendChild(toneContainer);
+    buttons.appendChild(toneInput);
     
     // Simplified actions - removed redundant "Change Tone" since we have selector
     const toolbarActions = [

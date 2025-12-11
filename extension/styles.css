@@ -409,11 +409,11 @@ tr.priority-low {
 .inboxpilot-tone-container {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
+  gap: 6px;
+  padding: 4px 8px;
   background: #ffffff;
   border: 1px solid #dadce0;
-  border-radius: 8px;
+  border-radius: 9999px;
 }
 
 .inboxpilot-tone-label-text {
@@ -502,22 +502,32 @@ tr.priority-low {
   cursor: not-allowed;
 }
 
-.inboxpilot-tone-select {
-  padding: 6px 12px !important;
-  border: 1px solid #dadce0 !important;
-  border-radius: 6px !important;
-  font-size: 13px !important;
-  background: white !important;
-  cursor: pointer !important;
-  color: #202124 !important;
-  font-weight: 500 !important;
-  min-width: 120px !important;
+.inboxpilot-compose-tone-buttons {
+  display: flex;
+  gap: 4px;
 }
 
-.inboxpilot-tone-select:focus {
-  outline: none !important;
-  border-color: #1a73e8 !important;
-  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.1) !important;
+.inboxpilot-compose-tone-btn {
+  padding: 4px 10px;
+  border-radius: 9999px;
+  border: none;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.inboxpilot-compose-tone-btn.selected {
+  background: #1a73e8;
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.3);
+}
+
+.inboxpilot-compose-tone-btn:hover:not(.selected) {
+  background: #e5f0ff;
+}
 }
 
 .inboxpilot-tone-select:focus {
@@ -609,9 +619,9 @@ tr.priority-low {
 /* AI Quick Reply Component - Matching Image Design */
 .inboxpilot-ai-quick-reply {
   background: #f5f5f5 !important;
-  border-radius: 12px !important;
-  padding: 16px !important;
-  margin: 12px 0 !important;
+  border-radius: 10px !important;
+  padding: 10px 12px !important;
+  margin: 8px 0 !important;
   border: 1px solid #e0e0e0 !important;
   display: block !important;
   visibility: visible !important;
@@ -624,7 +634,7 @@ tr.priority-low {
 }
 
 .inboxpilot-ai-quick-reply-title {
-  font-size: 15px !important;
+  font-size: 14px !important;
   font-weight: 600 !important;
   color: #202124 !important;
   margin-bottom: 12px !important;
@@ -636,13 +646,13 @@ tr.priority-low {
 .inboxpilot-ai-quick-reply-buttons {
   display: flex !important;
   gap: 8px !important;
-  margin-bottom: 12px !important;
+  margin-bottom: 8px !important;
   flex-wrap: wrap !important;
   width: 100% !important;
 }
 
 .inboxpilot-ai-quick-reply-tone-btn {
-  padding: 10px 16px !important;
+  padding: 6px 10px !important;
   background: #ffffff !important;
   border: 1px solid #dadce0 !important;
   border-radius: 8px !important;
@@ -686,8 +696,8 @@ tr.priority-low {
 
 .inboxpilot-ai-quick-reply-input {
   width: 100%;
-  min-height: 60px;
-  padding: 12px;
+  min-height: 40px;
+  padding: 8px 10px;
   background: #f5f5f5;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
@@ -701,8 +711,8 @@ tr.priority-low {
 
 .inboxpilot-ai-quick-reply-placeholder {
   position: absolute;
-  top: 12px;
-  left: 12px;
+  top: 9px;
+  left: 10px;
   color: #9aa0a6;
   pointer-events: none;
   font-size: 14px;
@@ -711,13 +721,13 @@ tr.priority-low {
 .inboxpilot-ai-quick-reply-actions {
   display: flex;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .inboxpilot-ai-quick-reply-generate-btn,
 .inboxpilot-ai-quick-reply-enhance-btn {
   flex: 1;
-  padding: 10px 20px;
+  padding: 8px 14px;
   border: none;
   border-radius: 8px;
   cursor: pointer;

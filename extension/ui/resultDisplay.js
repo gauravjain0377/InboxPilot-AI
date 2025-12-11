@@ -29,6 +29,14 @@ class ResultDisplay {
     
     const header = document.createElement('div');
     header.className = 'inboxpilot-ai-summary-header';
+    header.style.display = 'flex';
+    header.style.alignItems = 'center';
+    header.style.justifyContent = 'space-between';
+
+    const titleContainer = document.createElement('div');
+    titleContainer.style.display = 'flex';
+    titleContainer.style.alignItems = 'center';
+    titleContainer.style.gap = '8px';
     
     const icon = document.createElement('span');
     icon.className = 'inboxpilot-ai-summary-icon';
@@ -37,9 +45,29 @@ class ResultDisplay {
     const titleDiv = document.createElement('div');
     titleDiv.className = 'inboxpilot-ai-summary-title';
     titleDiv.textContent = title.toUpperCase();
+
+    titleContainer.appendChild(icon);
+    titleContainer.appendChild(titleDiv);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.textContent = '×';
+    closeBtn.title = 'Close';
+    closeBtn.style.border = 'none';
+    closeBtn.style.background = 'transparent';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.fontSize = '18px';
+    closeBtn.style.padding = '0 4px';
+    closeBtn.style.lineHeight = '1';
+    closeBtn.style.color = '#5f6368';
+    closeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      card.remove();
+    });
     
-    header.appendChild(icon);
-    header.appendChild(titleDiv);
+    header.appendChild(titleContainer);
+    header.appendChild(closeBtn);
     
     const contentDiv = document.createElement('div');
     contentDiv.className = 'inboxpilot-ai-summary-content';
@@ -88,6 +116,9 @@ class ResultDisplay {
       
       const header = document.createElement('div');
       header.className = 'inboxpilot-reply-header';
+      header.style.display = 'flex';
+      header.style.alignItems = 'center';
+      header.style.justifyContent = 'space-between';
       
       const titleDiv = document.createElement('div');
       titleDiv.className = 'inboxpilot-reply-title';
@@ -101,9 +132,33 @@ class ResultDisplay {
       const toneDiv = document.createElement('div');
       toneDiv.className = 'inboxpilot-reply-tone';
       toneDiv.textContent = `(${tone})`;
+
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.textContent = '×';
+      closeBtn.title = 'Close';
+      closeBtn.style.border = 'none';
+      closeBtn.style.background = 'transparent';
+      closeBtn.style.cursor = 'pointer';
+      closeBtn.style.fontSize = '18px';
+      closeBtn.style.padding = '0 4px';
+      closeBtn.style.lineHeight = '1';
+      closeBtn.style.color = '#5f6368';
+      closeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        card.remove();
+      });
+
+      const right = document.createElement('div');
+      right.style.display = 'flex';
+      right.style.alignItems = 'center';
+      right.style.gap = '8px';
+      right.appendChild(toneDiv);
+      right.appendChild(closeBtn);
       
       header.appendChild(titleDiv);
-      header.appendChild(toneDiv);
+      header.appendChild(right);
       
       const contentDiv = document.createElement('div');
       contentDiv.className = 'inboxpilot-reply-content';

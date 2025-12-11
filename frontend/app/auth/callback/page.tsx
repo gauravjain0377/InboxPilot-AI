@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUserStore } from '@/store/userStore';
 import api from '@/lib/axios';
@@ -9,7 +9,35 @@ import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
+// Wrap the actual callback component in Suspense so Next.js
+// doesn't try to prerender it without browser APIs like useSearchParams.
 export default function AuthCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md border border-slate-200 bg-white shadow-lg">
+            <CardHeader className="text-center space-y-2">
+              <CardTitle className="text-2xl font-bold text-slate-900">
+                Completing Authentication
+              </CardTitle>
+              <CardDescription className="text-slate-600">
+                Setting up your account...
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center justify-center space-y-6 py-8">
+              <Loader2 className="h-12 w-12 text-slate-700 animate-spin" />
+            </CardContent>
+          </Card>
+        </div>
+      }
+    >
+      <AuthCallbackContent />
+    </Suspense>
+  );
+}
+
+function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setUser, setToken } = useUserStore();

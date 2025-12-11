@@ -184,7 +184,8 @@ class ReplyToneSelector {
     actionButtons.appendChild(generateBtn);
     actionButtons.appendChild(enhanceBtn);
     
-    container.appendChild(title);
+    // Build final layout
+    container.appendChild(header);
     container.appendChild(buttonsContainer);
     container.appendChild(inputContainer);
     container.appendChild(actionButtons);
