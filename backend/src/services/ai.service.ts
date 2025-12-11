@@ -28,13 +28,19 @@ export class AIService {
       this.geminiInitialized = true;
       logger.info('Gemini AI service initialized (using @google/generative-ai SDK)');
       
-      // Verify API key asynchronously (don't block initialization)
+      // Verify API key and cache available models asynchronously (don't block initialization)
       this.verifyAPIKey().then(result => {
         if (result.valid) {
           logger.info(`Gemini API key verified. Available models: ${result.availableModels.join(', ') || 'default free tier models'}`);
+          // Cache the models for use in generate()
+          this.cachedModels = result.availableModels;
         } else {
           logger.warn(`Gemini API key verification failed: ${result.error}`);
           logger.warn('Please verify your API key at https://makersuite.google.com/app/apikey');
+          logger.warn('Also ensure:');
+          logger.warn('1. The Generative Language API is enabled in Google Cloud Console');
+          logger.warn('2. Your API key has access to Gemini models');
+          logger.warn('3. Billing may need to be enabled for some models (free tier should still work)');
         }
       }).catch(err => {
         logger.warn('Could not verify Gemini API key on startup:', err.message);
@@ -95,22 +101,27 @@ export class AIService {
       return [];
     }
 
-    // Cache the models list to avoid repeated API calls
-    if (this.cachedModels !== null) {
+    // Cache the models list to avoid repeated API calls (but refresh occasionally)
+    if (this.cachedModels !== null && this.cachedModels.length > 0) {
       return this.cachedModels;
     }
 
     try {
       const verification = await this.verifyAPIKey();
-      if (verification.valid) {
+      if (verification.valid && verification.availableModels.length > 0) {
+        logger.info('Found available models:', verification.availableModels);
         return verification.availableModels;
+      } else {
+        logger.warn('API key verification failed or no models found:', verification.error);
       }
     } catch (error: any) {
       logger.warn('Could not list available models, will use defaults:', error.message);
     }
     
     // Return empty array, will use fallback models
-    this.cachedModels = [];
+    if (this.cachedModels === null) {
+      this.cachedModels = [];
+    }
     return [];
   }
 
@@ -123,34 +134,42 @@ export class AIService {
       throw new Error(this.initializationError || 'Gemini AI service not initialized');
     }
 
-    // Free tier models only - try in order of preference
-    // These are the official free tier model names from Google
-    // Try to get available models first, but don't wait if it fails
+    // Try to get available models first
+    let availableModels = await this.listAvailableModels();
+    
+    // Default model names to try - include variants
     let modelsToTry = [
-      'gemini-1.5-flash',        // Primary free tier model (fastest)
-      'gemini-1.5-pro',          // Free tier pro model (slower but more capable)
-      'gemini-pro',              // Legacy free tier model
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-flash',
+      'gemini-1.5-pro-latest',
+      'gemini-1.5-pro',
+      'gemini-pro',
+      'gemini-1.0-pro',
     ];
 
-    // If we have cached models, prioritize those
-    if (this.cachedModels && this.cachedModels.length > 0) {
-      // Filter to only free tier models we know about
-      const availableFreeTier = this.cachedModels.filter(m => 
-        m.includes('flash') || m.includes('pro')
+    // If we have available models from API, use those first
+    if (availableModels && availableModels.length > 0) {
+      logger.info('Using available models from API:', availableModels);
+      // Filter to models that support generateContent
+      const generateModels = availableModels.filter(m => 
+        m.includes('gemini') && (m.includes('flash') || m.includes('pro'))
       );
-      if (availableFreeTier.length > 0) {
-        modelsToTry = [...availableFreeTier, ...modelsToTry.filter(m => !availableFreeTier.includes(m))];
+      if (generateModels.length > 0) {
+        modelsToTry = [...generateModels, ...modelsToTry.filter(m => !generateModels.includes(m))];
       }
+    } else {
+      logger.warn('Could not fetch available models, using default list');
     }
 
     let lastError: any = null;
     const errors: string[] = [];
 
     for (const modelName of modelsToTry) {
+      // Try SDK first - it might work even if direct API doesn't
+      // The SDK handles API version negotiation automatically
       try {
-        logger.info(`Trying Gemini model: ${modelName}`);
+        logger.info(`Trying Gemini model: ${modelName} via SDK`);
         
-        // Try SDK first - it should handle API version automatically
         const model = this.gemini.getGenerativeModel({ 
           model: modelName,
         });
@@ -162,25 +181,21 @@ export class AIService {
           throw new Error('Empty response from model');
         }
         
-        logger.info(`Successfully used model: ${modelName}`);
+        logger.info(`Successfully used model: ${modelName} via SDK`);
         return text.trim();
-      } catch (error: any) {
-        lastError = error;
-        const errorMsg = error?.message || String(error);
-        const errorDetails = error?.errorDetails || error?.status || '';
-        errors.push(`${modelName}: ${errorMsg}${errorDetails ? ` (${errorDetails})` : ''}`);
+      } catch (sdkError: any) {
+        const sdkErrorMsg = sdkError?.message || String(sdkError);
+        const sdkErrorString = JSON.stringify(sdkError) || sdkErrorMsg;
+        logger.warn(`SDK failed for ${modelName}:`, sdkErrorMsg);
         
-        logger.warn(`Model ${modelName} failed:`, errorMsg);
+        // Check if it's a v1beta/404 error
+        const isV1BetaError = sdkErrorString.includes('v1beta') || sdkErrorMsg.includes('v1beta') || sdkErrorString.includes('/v1beta/');
+        const is404Error = sdkErrorMsg.includes('404') || sdkErrorString.includes('404');
         
-        // If it's a 404 or model not found (especially v1beta errors), try direct v1 API
-        if (errorMsg.includes('404') || 
-            errorMsg.includes('not found') || 
-            errorMsg.includes('NotFound') ||
-            (errorMsg.includes('Model') && errorMsg.includes('not found')) ||
-            (errorMsg.includes('v1beta') && errorMsg.includes('not found'))) {
-          logger.info(`Model ${modelName} not available via SDK, trying direct v1 API`);
+        // If SDK fails with v1beta/404, try direct v1 API as fallback
+        if (isV1BetaError || is404Error) {
+          logger.info(`SDK failed with v1beta/404 error, trying direct v1 API for ${modelName}`);
           
-          // Try direct v1 API call as fallback
           try {
             const apiKey = config.ai.geminiKey;
             const response = await fetch(
@@ -204,37 +219,62 @@ export class AIService {
               const data = await response.json() as any;
               const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
               if (text && text.trim()) {
-                logger.info(`Successfully used model ${modelName} via direct v1 API`);
+                logger.info(`Successfully used model ${modelName} via direct v1 API fallback`);
                 return text.trim();
               }
+            } else {
+              const errorText = await response.text().catch(() => 'Could not read error response');
+              logger.warn(`Direct v1 API also failed for ${modelName}: ${response.status} ${errorText}`);
+              
+              // Parse error response to get more details
+              try {
+                const errorData = JSON.parse(errorText);
+                if (errorData.error?.message) {
+                  logger.warn(`API Error details: ${errorData.error.message}`);
+                  errors.push(`${modelName}: ${errorData.error.message}`);
+                } else {
+                  errors.push(`${modelName}: Direct v1 API returned ${response.status}`);
+                }
+              } catch (e) {
+                errors.push(`${modelName}: Direct v1 API returned ${response.status} - ${errorText.substring(0, 100)}`);
+              }
+              
+              // Continue to next model
+              lastError = sdkError;
+              continue;
             }
           } catch (directApiError: any) {
-            logger.warn(`Direct v1 API also failed for ${modelName}:`, directApiError.message);
+            logger.warn(`Direct v1 API fallback call failed for ${modelName}:`, directApiError.message);
+            errors.push(`${modelName}: SDK failed (${sdkErrorMsg.substring(0, 50)}...) and direct API also failed`);
+            lastError = sdkError;
+            continue;
+          }
+        } else {
+          // SDK failed with non-404 error, record and continue
+          lastError = sdkError;
+          const errorDetails = sdkError?.errorDetails || sdkError?.status || '';
+          errors.push(`${modelName}: ${sdkErrorMsg}${errorDetails ? ` (${errorDetails})` : ''}`);
+          
+          // If it's authentication/authorization, don't try other models
+          if (sdkErrorMsg.includes('401') || 
+              sdkErrorMsg.includes('403') || 
+              sdkErrorMsg.includes('Authentication') || 
+              sdkErrorMsg.includes('API key') ||
+              sdkErrorMsg.includes('PERMISSION_DENIED') ||
+              (sdkErrorMsg.includes('INVALID_ARGUMENT') && sdkErrorMsg.includes('API key'))) {
+            logger.error('Authentication error detected, stopping model attempts');
+            break;
           }
           
-          // If direct API also fails, try next model
+          // For quota/rate limit errors, try next model (might be model-specific)
+          if (sdkErrorMsg.includes('quota') || sdkErrorMsg.includes('429') || sdkErrorMsg.includes('rate limit')) {
+            logger.warn(`Rate limit on ${modelName}, trying next model`);
+            continue;
+          }
+          
+          // For other errors, try next model
           continue;
         }
-        
-        // If it's authentication/authorization, don't try other models
-        if (errorMsg.includes('401') || 
-            errorMsg.includes('403') || 
-            errorMsg.includes('Authentication') || 
-            errorMsg.includes('API key') ||
-            errorMsg.includes('PERMISSION_DENIED') ||
-            (errorMsg.includes('INVALID_ARGUMENT') && errorMsg.includes('API key'))) {
-          logger.error('Authentication error detected, stopping model attempts');
-          break;
-        }
-        
-        // For quota/rate limit errors, try next model (might be model-specific)
-        if (errorMsg.includes('quota') || errorMsg.includes('429') || errorMsg.includes('rate limit')) {
-          logger.warn(`Rate limit on ${modelName}, trying next model`);
-          continue;
-        }
-        
-        // For other errors, log and try next model
-        continue;
       }
     }
 
@@ -259,13 +299,17 @@ export class AIService {
     
     // Check if models are not found - provide specific instructions
     // This often happens when SDK uses v1beta but models need v1, or API key doesn't have access
-    if (errorMsg.includes('404') || errorMsg.includes('not found') || errors.some(e => e.includes('404')) || errors.some(e => e.includes('v1beta'))) {
-      const v1betaIssue = errors.some(e => e.includes('v1beta'));
-      const helpText = v1betaIssue 
-        ? 'The API is trying to use v1beta but models may require v1. This is usually an API key or model access issue.'
+    const allErrorsString = errors.join(' ');
+    const has404Error = errorMsg.includes('404') || errors.some(e => e.includes('404')) || allErrorsString.includes('404');
+    const hasV1BetaError = errorMsg.includes('v1beta') || errors.some(e => e.includes('v1beta')) || allErrorsString.includes('v1beta') || allErrorsString.includes('/v1beta/');
+    const hasNotFoundError = errorMsg.includes('not found') || errors.some(e => e.includes('not found')) || allErrorsString.includes('NotFound');
+    
+    if (has404Error || hasNotFoundError || hasV1BetaError) {
+      const helpText = hasV1BetaError 
+        ? 'The SDK tried to use v1beta API but models require v1. We attempted to use v1 API directly, but it appears your API key may not have access or there\'s a configuration issue.'
         : 'Models are not available. This could be due to API key permissions or model availability.';
       
-      throw new Error(`AI generation failed: No free tier models available. ${helpText}\n\nPlease verify:\n1. Your Gemini API key is valid and active (get one at https://makersuite.google.com/app/apikey)\n2. The Generative Language API is enabled in Google Cloud Console\n3. Your API key has access to free tier models (gemini-1.5-flash, gemini-1.5-pro)\n4. Try regenerating your API key if the issue persists\n\nErrors: ${errors.join('; ')}`);
+      throw new Error(`AI generation failed: No free tier models available. ${helpText}\n\nPlease verify:\n1. Your Gemini API key is valid and active (get one at https://makersuite.google.com/app/apikey)\n2. The Generative Language API is enabled in Google Cloud Console\n3. Your API key has access to free tier models (gemini-1.5-flash, gemini-1.5-pro)\n4. Try regenerating your API key if the issue persists\n5. Check that your API key hasn't reached rate limits\n\nErrors: ${errors.join('; ')}`);
     }
     
     throw new Error(`AI generation failed: ${errorMsg}\n\nTried models: ${modelsToTry.join(', ')}\nErrors: ${errors.join('; ')}\n\nPlease verify your GEMINI_API_KEY in backend/.env is correct and get a free API key at https://makersuite.google.com/app/apikey`);
