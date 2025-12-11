@@ -26,8 +26,25 @@ export default function LoginPage() {
       setLoading(true);
       setError('');
       
+      // Check if backend is reachable first
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      
+      try {
+        // Try to ping the health endpoint first
+        await fetch(`${apiUrl.replace('/api', '')}/health`, {
+          method: 'GET',
+          mode: 'cors',
+        }).catch(() => {
+          // If health check fails, try the auth endpoint directly
+        });
+      } catch (healthError) {
+        // Continue anyway, might be CORS issue
+      }
+      
       // Get the OAuth URL from backend
-      const { data } = await api.get('/auth/url');
+      const { data } = await api.get('/auth/url', {
+        timeout: 10000, // 10 second timeout
+      });
       
       if (data.success && data.url) {
         // Redirect to Google OAuth
@@ -37,11 +54,23 @@ export default function LoginPage() {
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      setError(
-        error.response?.data?.message || 
-        error.message || 
-        'Failed to connect to server. Please make sure the backend is running.'
-      );
+      
+      let errorMessage = 'Failed to connect to server. ';
+      
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        errorMessage += 'Please make sure:\n';
+        errorMessage += '1. The backend server is running on port 5000\n';
+        errorMessage += '2. CORS is properly configured\n';
+        errorMessage += '3. The API URL is correct in your environment variables';
+      } else if (error.code === 'ECONNREFUSED') {
+        errorMessage += 'Connection refused. Is the backend server running?';
+      } else if (error.response) {
+        errorMessage = error.response.data?.message || error.message || 'Authentication failed';
+      } else {
+        errorMessage += error.message || 'Unknown error occurred';
+      }
+      
+      setError(errorMessage);
       setLoading(false);
     }
   };
@@ -51,7 +80,29 @@ export default function LoginPage() {
     const urlParams = new URLSearchParams(window.location.search);
     const errorParam = urlParams.get('error');
     if (errorParam) {
-      setError('Authentication failed. Please try again.');
+      let errorMessage = 'Authentication failed. ';
+      
+      switch (errorParam) {
+        case 'db_error':
+          errorMessage += 'Database connection error. Please make sure MongoDB is running and MONGO_URI is correct in backend/.env';
+          break;
+        case 'token_error':
+          errorMessage += 'OAuth token error. Please check your Google OAuth credentials in backend/.env and verify redirect URI matches in Google Console.';
+          break;
+        case 'config_error':
+          errorMessage += 'Configuration error. Please check your backend/.env file has all required values (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, JWT_SECRET).';
+          break;
+        case 'no_code':
+          errorMessage += 'No authorization code received from Google.';
+          break;
+        case 'auth_failed':
+          errorMessage += 'Failed to authenticate with Google. Please try again.';
+          break;
+        default:
+          errorMessage += 'Please try again.';
+      }
+      
+      setError(errorMessage);
     }
   }, []);
 
@@ -164,7 +215,7 @@ export default function LoginPage() {
 
               <div className="pt-2">
                 <Link href="/" className="block text-center">
-                  <Button variant="ghost" className="text-slate-600 hover:text-slate-900">
+                  <Button variant="ghost" className="text-slate-600 hover:text-slate-900 hover:bg-slate-50">
                     ← Back to Home
                   </Button>
                 </Link>

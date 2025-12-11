@@ -32,7 +32,7 @@ const config: Config = {
           foreground: 'hsl(var(--secondary-foreground))',
         },
         accent: {
-          DEFAULT: '#10b981',
+          DEFAULT: '#f1f5f9',
           foreground: 'hsl(var(--accent-foreground))',
         },
         destructive: {

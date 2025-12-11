@@ -102,12 +102,12 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <span className="text-sm text-slate-600 hidden sm:block">{user.email}</span>
             <Link href="/settings">
-              <Button variant="outline" size="sm" className="border-slate-300">
+              <Button variant="outline" size="sm" className="border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 bg-white">
                 <Settings className="h-4 w-4 mr-2" />
                 <span className="hidden sm:inline">Settings</span>
               </Button>
             </Link>
-            <Button variant="outline" size="sm" onClick={logout} className="border-slate-300">
+            <Button variant="outline" size="sm" onClick={logout} className="border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 bg-white">
               Logout
             </Button>
           </div>

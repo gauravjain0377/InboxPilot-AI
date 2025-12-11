@@ -98,8 +98,12 @@ jspm_packages/
 
 # Next.js
 .next/
+frontend/.next/
+.next/
+**/.next/
 out/
 .vercel
+*.pack.gz
 
 # Nuxt.js
 .nuxt

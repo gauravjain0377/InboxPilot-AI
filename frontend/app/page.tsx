@@ -42,91 +42,139 @@ export default function LandingPage() {
             </Button>
           </Link>
           <Link href="/login">
-            <Button size="lg" variant="outline" className="text-lg px-8 py-6 border-slate-300 text-slate-700 hover:bg-slate-50">
+            <Button size="lg" variant="outline" className="text-lg px-8 py-6 border-2 border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-slate-400 bg-white">
               Watch Demo
             </Button>
           </Link>
         </div>
       </section>
 
-      {/* Features */}
+      {/* Features - Black & White Theme */}
       <section className="container mx-auto px-4 py-20">
         <h3 className="text-3xl font-bold text-center mb-4 text-slate-900">Powerful Features</h3>
         <p className="text-center text-slate-600 mb-12 max-w-2xl mx-auto">
           Everything you need to manage your inbox efficiently
         </p>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card className="border-slate-200 hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center mb-4">
-                <Sparkles className="h-6 w-6 text-slate-700" />
-              </div>
-              <CardTitle className="text-slate-900">AI-Powered Replies</CardTitle>
-              <CardDescription className="text-slate-600">
-                Generate intelligent email replies with perfect tone - formal, friendly, or assertive
-              </CardDescription>
-            </CardHeader>
-          </Card>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* AI-Powered Replies */}
+          <div className="group relative">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-slate-700 via-slate-800 to-slate-700 rounded-2xl opacity-20 group-hover:opacity-30 blur transition duration-300"></div>
+            <Card className="relative border border-slate-200 bg-white shadow-xl hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-1">
+              <CardHeader className="relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-slate-100 rounded-full -mr-16 -mt-16"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-slate-100 rounded-full -ml-12 -mb-12"></div>
+                <div className="relative z-10">
+                  <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <Sparkles className="h-8 w-8 text-white" />
+                  </div>
+                  <CardTitle className="text-slate-900 text-xl mb-2">AI-Powered Replies</CardTitle>
+                  <CardDescription className="text-slate-600">
+                    Generate intelligent email replies with perfect tone - formal, friendly, or assertive
+                  </CardDescription>
+                </div>
+              </CardHeader>
+            </Card>
+          </div>
 
-          <Card className="border-slate-200 hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center mb-4">
-                <TrendingUp className="h-6 w-6 text-slate-700" />
-              </div>
-              <CardTitle className="text-slate-900">Smart Prioritization</CardTitle>
-              <CardDescription className="text-slate-600">
-                Automatically categorize and prioritize emails based on importance and urgency
-              </CardDescription>
-            </CardHeader>
-          </Card>
+          {/* Smart Prioritization */}
+          <div className="group relative">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-slate-700 via-slate-800 to-slate-700 rounded-2xl opacity-20 group-hover:opacity-30 blur transition duration-300"></div>
+            <Card className="relative border border-slate-200 bg-white shadow-xl hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-1">
+              <CardHeader className="relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-slate-100 rounded-full -mr-16 -mt-16"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-slate-100 rounded-full -ml-12 -mb-12"></div>
+                <div className="relative z-10">
+                  <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <TrendingUp className="h-8 w-8 text-white" />
+                  </div>
+                  <CardTitle className="text-slate-900 text-xl mb-2">Smart Prioritization</CardTitle>
+                  <CardDescription className="text-slate-600">
+                    Automatically categorize and prioritize emails based on importance and urgency
+                  </CardDescription>
+                </div>
+              </CardHeader>
+            </Card>
+          </div>
 
-          <Card className="border-slate-200 hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center mb-4">
-                <Clock className="h-6 w-6 text-slate-700" />
-              </div>
-              <CardTitle className="text-slate-900">Follow-up Automation</CardTitle>
-              <CardDescription className="text-slate-600">
-                Never miss important emails with intelligent follow-up reminders and tracking
-              </CardDescription>
-            </CardHeader>
-          </Card>
+          {/* Follow-up Automation */}
+          <div className="group relative">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-slate-700 via-slate-800 to-slate-700 rounded-2xl opacity-20 group-hover:opacity-30 blur transition duration-300"></div>
+            <Card className="relative border border-slate-200 bg-white shadow-xl hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-1">
+              <CardHeader className="relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-slate-100 rounded-full -mr-16 -mt-16"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-slate-100 rounded-full -ml-12 -mb-12"></div>
+                <div className="relative z-10">
+                  <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <Clock className="h-8 w-8 text-white" />
+                  </div>
+                  <CardTitle className="text-slate-900 text-xl mb-2">Follow-up Automation</CardTitle>
+                  <CardDescription className="text-slate-600">
+                    Never miss important emails with intelligent follow-up reminders and tracking
+                  </CardDescription>
+                </div>
+              </CardHeader>
+            </Card>
+          </div>
 
-          <Card className="border-slate-200 hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center mb-4">
-                <Mail className="h-6 w-6 text-slate-700" />
-              </div>
-              <CardTitle className="text-slate-900">Gmail Integration</CardTitle>
-              <CardDescription className="text-slate-600">
-                Works seamlessly inside your Gmail inbox with Chrome extension and Gmail add-on
-              </CardDescription>
-            </CardHeader>
-          </Card>
+          {/* Gmail Integration */}
+          <div className="group relative">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-slate-700 via-slate-800 to-slate-700 rounded-2xl opacity-20 group-hover:opacity-30 blur transition duration-300"></div>
+            <Card className="relative border border-slate-200 bg-white shadow-xl hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-1">
+              <CardHeader className="relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-slate-100 rounded-full -mr-16 -mt-16"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-slate-100 rounded-full -ml-12 -mb-12"></div>
+                <div className="relative z-10">
+                  <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <Mail className="h-8 w-8 text-white" />
+                  </div>
+                  <CardTitle className="text-slate-900 text-xl mb-2">Gmail Integration</CardTitle>
+                  <CardDescription className="text-slate-600">
+                    Works seamlessly inside your Gmail inbox with Chrome extension and Gmail add-on
+                  </CardDescription>
+                </div>
+              </CardHeader>
+            </Card>
+          </div>
 
-          <Card className="border-slate-200 hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center mb-4">
-                <Zap className="h-6 w-6 text-slate-700" />
-              </div>
-              <CardTitle className="text-slate-900">Email Summarization</CardTitle>
-              <CardDescription className="text-slate-600">
-                Get instant summaries of long email threads to save time and stay informed
-              </CardDescription>
-            </CardHeader>
-          </Card>
+          {/* Email Summarization */}
+          <div className="group relative">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-slate-700 via-slate-800 to-slate-700 rounded-2xl opacity-20 group-hover:opacity-30 blur transition duration-300"></div>
+            <Card className="relative border border-slate-200 bg-white shadow-xl hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-1">
+              <CardHeader className="relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-slate-100 rounded-full -mr-16 -mt-16"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-slate-100 rounded-full -ml-12 -mb-12"></div>
+                <div className="relative z-10">
+                  <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <Zap className="h-8 w-8 text-white" />
+                  </div>
+                  <CardTitle className="text-slate-900 text-xl mb-2">Email Summarization</CardTitle>
+                  <CardDescription className="text-slate-600">
+                    Get instant summaries of long email threads to save time and stay informed
+                  </CardDescription>
+                </div>
+              </CardHeader>
+            </Card>
+          </div>
 
-          <Card className="border-slate-200 hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center mb-4">
-                <Shield className="h-6 w-6 text-slate-700" />
-              </div>
-              <CardTitle className="text-slate-900">Secure & Private</CardTitle>
-              <CardDescription className="text-slate-600">
-                Your data is encrypted and secure. We only access what you authorize
-              </CardDescription>
-            </CardHeader>
-          </Card>
+          {/* Secure & Private */}
+          <div className="group relative">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-slate-700 via-slate-800 to-slate-700 rounded-2xl opacity-20 group-hover:opacity-30 blur transition duration-300"></div>
+            <Card className="relative border border-slate-200 bg-white shadow-xl hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-1">
+              <CardHeader className="relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-slate-100 rounded-full -mr-16 -mt-16"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-slate-100 rounded-full -ml-12 -mb-12"></div>
+                <div className="relative z-10">
+                  <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <Shield className="h-8 w-8 text-white" />
+                  </div>
+                  <CardTitle className="text-slate-900 text-xl mb-2">Secure & Private</CardTitle>
+                  <CardDescription className="text-slate-600">
+                    Your data is encrypted and secure. We only access what you authorize
+                  </CardDescription>
+                </div>
+              </CardHeader>
+            </Card>
+          </div>
         </div>
       </section>
 

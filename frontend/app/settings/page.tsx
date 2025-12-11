@@ -126,7 +126,7 @@ export default function SettingsPage() {
 
           {/* Save Button */}
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => router.push('/dashboard')} className="border-slate-300">
+            <Button variant="outline" onClick={() => router.push('/dashboard')} className="border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 bg-white">
               Cancel
             </Button>
             <Button 
