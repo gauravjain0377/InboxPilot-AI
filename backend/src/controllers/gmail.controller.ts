@@ -35,34 +35,45 @@ export const getMessages = async (req: AuthRequest, res: Response, next: NextFun
 
     const validEmails = emailDetails.filter((e) => e !== null);
 
+    // Save emails to database with error handling
     for (const emailData of validEmails) {
       if (!emailData) continue;
 
-      const existingEmail = await Email.findOne({ gmailId: emailData.id });
-      if (existingEmail) continue;
+      try {
+        const existingEmail = await Email.findOne({ gmailId: emailData.id });
+        if (existingEmail) continue;
 
-      const preferences = await Preferences.findOne({ userId: user._id });
-      const rules = preferences?.rules || [];
-      const classification = ruleEngine.evaluateRules(rules, emailData);
+        const preferences = await Preferences.findOne({ userId: user._id });
+        const rules = preferences?.rules || [];
+        const classification = ruleEngine.evaluateRules(rules, emailData);
 
-      await Email.create({
-        userId: user._id,
-        gmailId: emailData.id,
-        threadId: emailData.threadId,
-        from: emailData.from,
-        to: emailData.to,
-        cc: emailData.cc,
-        bcc: emailData.bcc,
-        subject: emailData.subject,
-        body: emailData.body,
-        snippet: emailData.snippet,
-        date: emailData.date,
-        labels: emailData.labels,
-        priority: classification.priority || 'medium',
-        category: classification.category,
-        isRead: emailData.isRead,
-        isStarred: emailData.isStarred,
-      });
+        await Email.create({
+          userId: user._id,
+          gmailId: emailData.id,
+          threadId: emailData.threadId,
+          from: emailData.from,
+          to: emailData.to,
+          cc: emailData.cc,
+          bcc: emailData.bcc,
+          subject: emailData.subject,
+          body: emailData.body,
+          snippet: emailData.snippet,
+          date: emailData.date,
+          labels: emailData.labels,
+          priority: classification.priority || 'medium',
+          category: classification.category,
+          isRead: emailData.isRead,
+          isStarred: emailData.isStarred,
+        });
+      } catch (dbError: any) {
+        // Log error but continue processing other emails
+        logger.error(`Error saving email ${emailData.id} to database:`, dbError);
+        // If it's a duplicate key error, that's fine - continue
+        if (dbError.code !== 11000) {
+          // Only log non-duplicate errors
+          logger.warn(`Skipping email ${emailData.id} due to database error`);
+        }
+      }
     }
 
     const dbEmails = await Email.find({ userId: user._id })
