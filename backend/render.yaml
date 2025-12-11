@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: inboxpilot-backend
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      # Adding environment variables in Render dashboard:
+      # GOOGLE_CLIENT_ID
+      # GOOGLE_CLIENT_SECRET
+      # GOOGLE_REDIRECT_URI
+      # GEMINI_API_KEY
+      # MONGO_URI
+      # JWT_SECRET
+      # ENCRYPTION_KEY
+      # ENCRYPTION_IV
+      # FRONTEND_URL
+

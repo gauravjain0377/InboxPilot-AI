@@ -24,7 +24,13 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps, Postman, or Chrome extensions)
     if (!origin) return callback(null, true);
     
-    // Allow localhost origins
+    // Allow production frontend URL
+    const frontendUrl = config.server.frontendUrl;
+    if (frontendUrl && origin.startsWith(frontendUrl)) {
+      return callback(null, true);
+    }
+    
+    // Allow localhost origins (for development)
     if (origin.startsWith('http://localhost') || origin.startsWith('https://localhost')) {
       return callback(null, true);
     }
@@ -39,7 +45,12 @@ app.use(cors({
       return callback(null, true);
     }
     
-    // Default: allow all origins for development
+    // Allow Vercel preview deployments
+    if (origin.includes('.vercel.app')) {
+      return callback(null, true);
+    }
+    
+    // Default: allow all origins (for development and flexibility)
     callback(null, true);
   },
   credentials: true,
