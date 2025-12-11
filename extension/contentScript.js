@@ -1,10 +1,50 @@
+// Remove any existing sidebar elements (legacy code cleanup)
+function removeSidebarElements() {
+  try {
+    // Remove sidebar panel if it exists
+    const panel = document.getElementById('inboxpilot-panel');
+    if (panel) {
+      panel.remove();
+      console.log('InboxPilot: Removed existing sidebar panel');
+    }
+    
+    // Remove toggle button if it exists
+    const toggle = document.getElementById('inboxpilot-toggle');
+    if (toggle) {
+      toggle.remove();
+      console.log('InboxPilot: Removed existing sidebar toggle button');
+    }
+    
+    // Watch for any sidebar elements being added and remove them
+    const observer = new MutationObserver((mutations) => {
+      const panel = document.getElementById('inboxpilot-panel');
+      if (panel) {
+        panel.remove();
+      }
+      const toggle = document.getElementById('inboxpilot-toggle');
+      if (toggle) {
+        toggle.remove();
+      }
+    });
+    
+    if (document.body) {
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+  } catch (error) {
+    console.warn('InboxPilot: Error removing sidebar elements:', error);
+  }
+}
+
 // Inject all component scripts in order, then the main UI script
 function injectScripts(attempts = 0) {
   const maxAttempts = 10;
   
+  // Remove any sidebar elements first
+  removeSidebarElements();
+  
   // Check if extension context is still valid
   if (!isExtensionContextValid()) {
-    console.warn('InboxPilot: Extension context invalid, cannot inject scripts. Please reload the page after reloading the extension.');
+    // Silently return - don't log warnings that show on extension page
     return;
   }
   
@@ -48,7 +88,7 @@ function injectScripts(attempts = 0) {
 
         // Check context validity before each script load
         if (!isExtensionContextValid()) {
-          console.warn('InboxPilot: Extension context invalidated during script loading');
+          // Silently return - context invalidated
           return;
         }
         
@@ -244,74 +284,147 @@ async function handleMessage(data) {
         // Get token from background script via message passing
         // Content scripts can't access chrome.storage directly, must use message passing
         
-        // First check if extension context is valid
+        // Silently handle token retrieval - don't log errors that show on extension page
+        const getTokenSilently = () => {
+          try {
+            const cachedToken = localStorage.getItem('inboxpilot_authToken');
+            if (cachedToken) {
+              window.postMessage({ 
+                type: 'INBOXPILOT_TOKEN_RESPONSE', 
+                token: cachedToken 
+              }, '*');
+              return;
+            }
+          } catch (e) {
+            // Ignore localStorage errors
+          }
+          
+          // Try to get from background script if context is valid
+          if (isExtensionContextValid() && typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+            try {
+              chrome.runtime.sendMessage({ type: 'INBOXPILOT_GET_TOKEN' }, (response) => {
+                // Silently handle errors - don't log
+                if (chrome.runtime.lastError) {
+                  // Just use null token - no error logging
+                  window.postMessage({ 
+                    type: 'INBOXPILOT_TOKEN_RESPONSE', 
+                    token: null 
+                  }, '*');
+                  return;
+                }
+                
+                const token = response?.token || null;
+                // Store in localStorage if we got a token
+                if (token) {
+                  try {
+                    localStorage.setItem('inboxpilot_authToken', token);
+                  } catch (e) {
+                    // Ignore localStorage errors
+                  }
+                }
+                window.postMessage({ 
+                  type: 'INBOXPILOT_TOKEN_RESPONSE', 
+                  token: token 
+                }, '*');
+              });
+            } catch (error) {
+              // Silently fail - just return null token
+              window.postMessage({ 
+                type: 'INBOXPILOT_TOKEN_RESPONSE', 
+                token: null 
+              }, '*');
+            }
+          } else {
+            // Context invalid - silently return null
+            window.postMessage({ 
+              type: 'INBOXPILOT_TOKEN_RESPONSE', 
+              token: null 
+            }, '*');
+          }
+        };
+        
+        getTokenSilently();
+        break;
+      case 'INBOXPILOT_INJECT_UI':
+        // UI injection is handled by injectedUI.js
+        break;
+      case 'INBOXPILOT_API_CALL':
+        // Forward API call to background script
+        console.log('InboxPilot: Content script received API call:', data.endpoint);
+        
         if (!isExtensionContextValid()) {
-          console.warn('InboxPilot: Extension context invalid, using cached token or null');
-          const cachedToken = localStorage.getItem('inboxpilot_authToken');
-          window.postMessage({ 
-            type: 'INBOXPILOT_TOKEN_RESPONSE', 
-            token: cachedToken || null 
+          // Silently handle - don't log errors that show on extension page
+          window.postMessage({
+            type: 'INBOXPILOT_API_RESPONSE',
+            requestId: data.requestId,
+            success: false,
+            error: 'Extension context invalidated. Please reload the extension.'
           }, '*');
           break;
         }
         
         if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
           try {
-            chrome.runtime.sendMessage({ type: 'INBOXPILOT_GET_TOKEN' }, (response) => {
-              // Check for extension context errors
+            chrome.runtime.sendMessage({
+              type: 'INBOXPILOT_API_CALL',
+              endpoint: data.endpoint,
+              data: data.data,
+              token: data.token
+            }, (response) => {
               if (chrome.runtime.lastError) {
-                const errorMsg = chrome.runtime.lastError.message;
-                // Only log if it's not the common "Extension context invalidated" error
-                if (!errorMsg.includes('Extension context invalidated')) {
-                  console.warn('InboxPilot: Extension context error:', errorMsg);
-                }
-                // Try to use cached token from localStorage
-                const cachedToken = localStorage.getItem('inboxpilot_authToken');
-                window.postMessage({ 
-                  type: 'INBOXPILOT_TOKEN_RESPONSE', 
-                  token: cachedToken || null 
+                const errorMsg = chrome.runtime.lastError.message || 'Failed to communicate with background script';
+                console.error('InboxPilot: Background script error:', errorMsg);
+                window.postMessage({
+                  type: 'INBOXPILOT_API_RESPONSE',
+                  requestId: data.requestId,
+                  success: false,
+                  error: errorMsg
                 }, '*');
                 return;
               }
               
-              const token = response?.token || null;
-              // Store in localStorage for direct access by injected script
-              if (token) {
-                try {
-                  localStorage.setItem('inboxpilot_authToken', token);
-                } catch (e) {
-                  console.warn('InboxPilot: Could not store token in localStorage:', e);
-                }
-              }
-              window.postMessage({ 
-                type: 'INBOXPILOT_TOKEN_RESPONSE', 
-                token: token 
+              console.log('InboxPilot: Received response from background script');
+              
+              // Forward response back to injected script
+              window.postMessage({
+                type: 'INBOXPILOT_API_RESPONSE',
+                requestId: data.requestId,
+                success: response?.success || false,
+                data: response?.data,
+                error: response?.error
               }, '*');
             });
           } catch (error) {
-            // Handle any errors gracefully
-            console.warn('InboxPilot: Error getting token:', error);
-            const cachedToken = localStorage.getItem('inboxpilot_authToken');
-            window.postMessage({ 
-              type: 'INBOXPILOT_TOKEN_RESPONSE', 
-              token: cachedToken || null 
+            console.error('InboxPilot: Error sending message to background:', error);
+            window.postMessage({
+              type: 'INBOXPILOT_API_RESPONSE',
+              requestId: data.requestId,
+              success: false,
+              error: error.message || 'Failed to send message to background script'
             }, '*');
           }
         } else {
-          // If chrome.runtime is not available, try cached token
-          const cachedToken = localStorage.getItem('inboxpilot_authToken');
-          window.postMessage({ 
-            type: 'INBOXPILOT_TOKEN_RESPONSE', 
-            token: cachedToken || null 
+          console.error('InboxPilot: Chrome runtime not available');
+          window.postMessage({
+            type: 'INBOXPILOT_API_RESPONSE',
+            requestId: data.requestId,
+            success: false,
+            error: 'Chrome runtime not available'
           }, '*');
         }
-        break;
-      case 'INBOXPILOT_INJECT_UI':
-        // UI injection is handled by injectedUI.js
         break;
     }
   } catch (error) {
     console.error('InboxPilot: Error in handleMessage:', error);
+    // Send error response if we have a requestId
+    if (data.requestId) {
+      window.postMessage({
+        type: 'INBOXPILOT_API_RESPONSE',
+        requestId: data.requestId,
+        success: false,
+        error: error.message || 'Unknown error'
+      }, '*');
+    }
   }
 }
 

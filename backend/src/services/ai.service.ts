@@ -5,28 +5,38 @@ import { logger } from '../utils/logger.js';
 export type Tone = 'formal' | 'friendly' | 'assertive' | 'short';
 
 export class AIService {
-  private gemini: GoogleGenerativeAI;
+  private gemini: GoogleGenerativeAI | null = null;
   private cachedModels: string[] | null = null;
+  private geminiInitialized: boolean = false;
+  private initializationError: string | null = null;
 
   constructor() {
-    if (!config.ai.geminiKey) {
-      throw new Error('Gemini API key not configured. Please set GEMINI_API_KEY in backend/.env file');
+    try {
+      if (!config.ai.geminiKey || config.ai.geminiKey.trim().length === 0) {
+        this.initializationError = 'Gemini API key not configured. Please set GEMINI_API_KEY in backend/.env file';
+        logger.warn(this.initializationError);
+        return;
+      }
+      
+      // Basic validation - Gemini API keys usually start with "AIza"
+      if (!config.ai.geminiKey.startsWith('AIza')) {
+        logger.warn('Gemini API key format looks unusual. Please verify your API key is correct.');
+      }
+      
+      this.gemini = new GoogleGenerativeAI(config.ai.geminiKey);
+      this.geminiInitialized = true;
+      logger.info('Gemini AI service initialized (using @google/generative-ai SDK)');
+    } catch (error: any) {
+      this.initializationError = error.message || 'Failed to initialize Gemini AI service';
+      logger.error('Gemini AI service initialization error:', error);
     }
-    
-    if (config.ai.geminiKey.trim().length === 0) {
-      throw new Error('Gemini API key is empty. Please set GEMINI_API_KEY in backend/.env file');
-    }
-    
-    // Basic validation - Gemini API keys usually start with "AIza"
-    if (!config.ai.geminiKey.startsWith('AIza')) {
-      logger.warn('Gemini API key format looks unusual. Please verify your API key is correct.');
-    }
-    
-    this.gemini = new GoogleGenerativeAI(config.ai.geminiKey);
-    logger.info('Gemini AI service initialized (using @google/generative-ai SDK)');
   }
 
   private async listAvailableModels(): Promise<string[]> {
+    if (!this.gemini) {
+      return [];
+    }
+
     // Cache the models list to avoid repeated API calls
     if (this.cachedModels !== null) {
       return this.cachedModels;
@@ -34,7 +44,7 @@ export class AIService {
 
     try {
       // Use direct API call to list models (SDK doesn't have this method)
-      const apiKey = (this.gemini as any).apiKey || config.ai.geminiKey;
+      const apiKey = config.ai.geminiKey;
       const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
       const response = await fetch(url);
       
@@ -58,6 +68,10 @@ export class AIService {
   }
 
   private async generate(prompt: string): Promise<string> {
+    if (!this.geminiInitialized || this.initializationError) {
+      throw new Error(this.initializationError || 'Gemini AI service not initialized. Please check your GEMINI_API_KEY in backend/.env file');
+    }
+
     // First, try to get list of available models
     const availableModels = await this.listAvailableModels();
     
@@ -82,6 +96,10 @@ export class AIService {
     }
 
     let lastError: any = null;
+
+    if (!this.gemini) {
+      throw new Error(this.initializationError || 'Gemini AI service not initialized');
+    }
 
     for (const modelName of modelsToTry) {
       try {

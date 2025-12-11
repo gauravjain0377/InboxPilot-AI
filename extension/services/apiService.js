@@ -1,5 +1,6 @@
 /**
  * API Service - Handles all backend API calls and authentication
+ * Routes calls through background script to avoid CORS issues
  */
 class APIService {
   constructor(baseURL = 'http://localhost:5000/api') {
@@ -9,38 +10,60 @@ class APIService {
   async call(endpoint, data) {
     try {
       const token = await this.getAuthToken();
-      const url = `${this.baseURL}${endpoint}`;
       
-      const headers = {
-        'Content-Type': 'application/json',
-      };
-      
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(data),
-      }).catch((fetchError) => {
-        console.error('InboxPilot: Fetch error:', fetchError);
-        throw new Error(`Cannot connect to backend. Make sure the server is running at ${this.baseURL}`);
-      });
-
-      if (!response.ok) {
-        let errorMessage = 'Request failed';
+      // Route API call through background script via message passing
+      // Injected scripts can't make direct fetch calls to localhost due to CORS
+      return new Promise((resolve, reject) => {
+        // Generate unique request ID
+        const requestId = `api_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        console.log('InboxPilot: Making API call:', endpoint, 'Request ID:', requestId);
+        
+        // Set up response listener
+        const listener = (event) => {
+          // Only process messages from the same window
+          if (event.source !== window) return;
+          
+          if (event.data.type === 'INBOXPILOT_API_RESPONSE' && event.data.requestId === requestId) {
+            window.removeEventListener('message', listener);
+            clearTimeout(timeoutId);
+            
+            if (event.data.success) {
+              console.log('InboxPilot: API call succeeded:', endpoint);
+              console.log('InboxPilot: Response data structure:', event.data);
+              console.log('InboxPilot: Resolving with data:', event.data.data);
+              resolve(event.data.data);
+            } else {
+              console.error('InboxPilot: API call failed:', endpoint, event.data.error);
+              reject(new Error(event.data.error || 'API call failed'));
+            }
+          }
+        };
+        window.addEventListener('message', listener);
+        
+        // Set timeout with more helpful error message
+        const timeoutId = setTimeout(() => {
+          window.removeEventListener('message', listener);
+          console.error('InboxPilot: API call timeout:', endpoint);
+          reject(new Error(`API call timeout after 30 seconds. The request to ${this.baseURL}${endpoint} did not complete. Make sure:\n1. The backend server is running (npm run dev in the backend folder)\n2. The server is accessible at ${this.baseURL}\n3. Check the browser console and backend logs for errors`));
+        }, 30000); // 30 second timeout
+        
+        // Send request to content script, which forwards to background
         try {
-          const error = await response.json();
-          errorMessage = error.error || error.message || `HTTP ${response.status}: ${response.statusText}`;
-        } catch (e) {
-          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          window.postMessage({
+            type: 'INBOXPILOT_API_CALL',
+            requestId,
+            endpoint,
+            data,
+            token
+          }, '*');
+          console.log('InboxPilot: API call message sent to content script');
+        } catch (error) {
+          clearTimeout(timeoutId);
+          window.removeEventListener('message', listener);
+          console.error('InboxPilot: Error posting message:', error);
+          reject(new Error('Failed to send API request: ' + error.message));
         }
-        throw new Error(errorMessage);
-      }
-
-      return await response.json().catch(() => {
-        throw new Error('Invalid response from server');
       });
     } catch (error) {
       console.error('InboxPilot: API call error:', error);

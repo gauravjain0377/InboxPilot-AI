@@ -7,8 +7,28 @@ class InlineResultDisplay {
   }
 
   showResult(action, text, title = 'AI Result') {
-    const actionsBar = document.querySelector('.inboxpilot-email-actions');
-    if (!actionsBar) return;
+    console.log('InboxPilot: InlineResultDisplay.showResult called:', { action, text, title });
+    
+    // Try to find actions bar with retry
+    let actionsBar = document.querySelector('.inboxpilot-email-actions');
+    if (!actionsBar) {
+      console.warn('InboxPilot: Actions bar not found immediately, retrying...');
+      // Wait a bit and retry (sometimes DOM updates are delayed)
+      setTimeout(() => {
+        actionsBar = document.querySelector('.inboxpilot-email-actions');
+        if (actionsBar) {
+          this._insertResult(actionsBar, action, text, title);
+        } else {
+          console.error('InboxPilot: Actions bar still not found after retry');
+        }
+      }, 500);
+      return;
+    }
+    
+    this._insertResult(actionsBar, action, text, title);
+  }
+
+  _insertResult(actionsBar, action, text, title) {
 
     // Remove existing result for this action
     this.removeResult(action);
@@ -38,15 +58,64 @@ class InlineResultDisplay {
     
     const content = document.createElement('div');
     content.className = 'inboxpilot-inline-content';
-    content.textContent = typeof text === 'string' ? text : String(text || '');
+    const textContent = typeof text === 'string' ? text : String(text || '');
+    content.textContent = textContent;
+    
+    if (!textContent || textContent.trim().length === 0) {
+      console.error('InboxPilot: Empty text content provided to showResult');
+      return;
+    }
     
     resultContainer.appendChild(header);
     resultContainer.appendChild(content);
     
     // Insert after actions bar
-    actionsBar.parentNode.insertBefore(resultContainer, actionsBar.nextSibling);
-    
-    this.currentResults.set(action, resultContainer);
+    if (actionsBar.parentNode) {
+      try {
+        // Try inserting after actions bar
+        if (actionsBar.nextSibling) {
+          actionsBar.parentNode.insertBefore(resultContainer, actionsBar.nextSibling);
+        } else {
+          actionsBar.parentNode.appendChild(resultContainer);
+        }
+        console.log('InboxPilot: Result container inserted successfully after actions bar');
+        console.log('InboxPilot: Result container element:', resultContainer);
+        console.log('InboxPilot: Text content length:', textContent.length);
+        
+        // Force visibility and ensure it's displayed
+        resultContainer.style.display = 'block';
+        resultContainer.style.visibility = 'visible';
+        resultContainer.style.opacity = '1';
+        
+        this.currentResults.set(action, resultContainer);
+        
+        // Log for debugging
+        setTimeout(() => {
+          const rect = resultContainer.getBoundingClientRect();
+          console.log('InboxPilot: Result container position:', {
+            top: rect.top,
+            left: rect.left,
+            width: rect.width,
+            height: rect.height,
+            visible: rect.width > 0 && rect.height > 0
+          });
+        }, 100);
+      } catch (error) {
+        console.error('InboxPilot: Error inserting result container:', error);
+        // Fallback: try appending to parent
+        try {
+          actionsBar.parentNode.appendChild(resultContainer);
+          console.log('InboxPilot: Result container appended as fallback');
+          resultContainer.style.display = 'block';
+          resultContainer.style.visibility = 'visible';
+        } catch (fallbackError) {
+          console.error('InboxPilot: Fallback insertion also failed:', fallbackError);
+        }
+      }
+    } else {
+      console.error('InboxPilot: Actions bar parent node not found, cannot insert result');
+      console.error('InboxPilot: Actions bar:', actionsBar);
+    }
   }
 
   showError(action, message) {

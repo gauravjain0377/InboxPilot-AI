@@ -23,10 +23,14 @@ class ActionHandlers {
       switch (action) {
         case 'summarize-email':
           result = await this.api.call('/ai/summarize', { emailBody: emailContent.body });
-          const summaryText = result?.summary || result?.text || (typeof result === 'string' ? result : (result ? JSON.stringify(result) : ''));
+          console.log('InboxPilot: Summarize result received:', result);
+          // Handle nested response structure: { success: true, summary: "..." } or just { summary: "..." }
+          const summaryText = result?.summary || result?.data?.summary || result?.text || result?.data?.text || (typeof result === 'string' ? result : (result ? JSON.stringify(result) : ''));
+          console.log('InboxPilot: Extracted summary text:', summaryText);
           if (summaryText && summaryText.trim().length > 0) {
             this.display.showResult(action, summaryText, 'AI Summary');
           } else {
+            console.error('InboxPilot: No summary text found in result:', result);
             this.display.showError(action, 'No summary generated.');
           }
           break;
@@ -42,10 +46,14 @@ class ActionHandlers {
           return; // Don't show loading for reply as it opens in reply window
         case 'followup-email':
           result = await this.api.call('/ai/followup', { emailBody: emailContent.body });
-          const followUpText = result?.followUp || result?.text || (typeof result === 'string' ? result : (result ? JSON.stringify(result) : ''));
+          console.log('InboxPilot: Follow-up result received:', result);
+          // Handle nested response structure: { success: true, followUp: "..." } or just { followUp: "..." }
+          const followUpText = result?.followUp || result?.data?.followUp || result?.text || result?.data?.text || (typeof result === 'string' ? result : (result ? JSON.stringify(result) : ''));
+          console.log('InboxPilot: Extracted follow-up text:', followUpText);
           if (followUpText && followUpText.trim().length > 0) {
             this.display.showResult(action, followUpText, 'Follow-up Draft');
           } else {
+            console.error('InboxPilot: No follow-up text found in result:', result);
             this.display.showError(action, 'No follow-up generated.');
           }
           break;

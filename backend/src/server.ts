@@ -76,11 +76,25 @@ app.use(errorHandler);
 
 const startServer = async () => {
   try {
-    await connectDB();
-    startFollowUpCron();
+    // Try to connect to DB, but don't fail if it doesn't work
+    const dbConnected = await connectDB();
+    
+    // Only start cron jobs if DB is connected
+    if (dbConnected) {
+      try {
+        startFollowUpCron();
+      } catch (error) {
+        logger.warn('Failed to start cron jobs:', error);
+      }
+    }
 
-    app.listen(config.server.port, () => {
-      logger.info(`Server running on port ${config.server.port}`);
+    // Listen on 0.0.0.0 to accept connections from extensions and other sources
+    app.listen(config.server.port, '0.0.0.0', () => {
+      logger.info(`Server running on http://0.0.0.0:${config.server.port}`);
+      logger.info(`Server accessible at http://localhost:${config.server.port}`);
+      if (!dbConnected) {
+        logger.warn('Server running in extension mode (no database connection)');
+      }
     });
   } catch (error) {
     logger.error('Failed to start server:', error);
