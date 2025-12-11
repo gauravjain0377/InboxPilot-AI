@@ -30,7 +30,8 @@ export class RuleEngine {
       case 'subject':
         return email.subject?.toLowerCase() || '';
       case 'body':
-        return email.body?.toLowerCase() || '';
+        // Use snippet as body content since IEmail doesn't have a body field
+        return email.snippet?.toLowerCase() || '';
       case 'from':
         return email.from?.toLowerCase() || '';
       case 'to':

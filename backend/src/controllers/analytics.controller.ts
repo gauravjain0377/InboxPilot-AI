@@ -56,7 +56,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
 
       // Get emails by category
       const categoryAggregation = await Email.aggregate([
-        { $match: { userId: user._id, category: { $exists: true, $ne: null, $ne: '' } } },
+        { $match: { userId: user._id, category: { $exists: true, $nin: [null, ''] } } },
         { $group: { _id: '$category', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 5 }
