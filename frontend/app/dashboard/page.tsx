@@ -106,26 +106,7 @@ export default function DashboardPage() {
   const [communication, setCommunication] = useState<CommunicationInsights | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-
-    fetchStats();
-  }, [user, router]);
-
-  // Refresh stats when window regains focus (user might have connected extension in another tab)
-  useEffect(() => {
-    const handleFocus = () => {
-      if (user) {
-        fetchStats();
-      }
-    };
-    
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [user]);
+  const [syncing, setSyncing] = useState(false);
 
   const fetchStats = async () => {
     try {
@@ -149,6 +130,72 @@ export default function DashboardPage() {
       setLoading(false);
     }
   };
+
+  const syncEmails = async () => {
+    try {
+      setSyncing(true);
+      // Sync emails from Gmail API - this will fetch and save emails to database
+      await api.get('/gmail/messages?maxResults=100');
+      // After syncing, refresh dashboard stats
+      await fetchStats();
+    } catch (error) {
+      console.error('Error syncing emails:', error);
+      alert('Failed to sync emails. Please check your Gmail connection.');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    // Auto-sync emails on first load if we have no emails
+    const autoSyncOnLoad = async () => {
+      // First check if we have any emails
+      try {
+        const dashboardRes = await api.get('/analytics/dashboard');
+        const totalEmails = dashboardRes.data.stats?.totalEmails || 0;
+        
+        // If no emails, sync from Gmail
+        if (totalEmails === 0) {
+          try {
+            setSyncing(true);
+            await api.get('/gmail/messages?maxResults=100');
+          } catch (syncError) {
+            console.error('Error syncing emails on load:', syncError);
+          } finally {
+            setSyncing(false);
+          }
+        }
+        
+        // Always fetch stats after checking/syncing
+        fetchStats();
+      } catch (error) {
+        console.error('Error in auto-sync:', error);
+        // Fallback to just fetching stats
+        fetchStats();
+      }
+    };
+
+    autoSyncOnLoad();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, router]);
+
+  // Refresh stats when window regains focus (user might have connected extension in another tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) {
+        fetchStats();
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   if (!user) return null;
 
@@ -195,13 +242,33 @@ export default function DashboardPage() {
 
       <div className="container mx-auto px-4 md:px-6 py-8 max-w-7xl">
         {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-slate-900 mb-2">
-            Welcome back, {stats?.userInfo?.name?.split(' ')[0] || user.name?.split(' ')[0] || 'User'}
-          </h2>
-          <p className="text-slate-600">
-            Here's your email analytics and account overview
-          </p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold text-slate-900 mb-2">
+              Welcome back, {stats?.userInfo?.name?.split(' ')[0] || user.name?.split(' ')[0] || 'User'}
+            </h2>
+            <p className="text-slate-600">
+              Here's your email analytics and account overview
+            </p>
+          </div>
+          <Button
+            onClick={syncEmails}
+            disabled={syncing}
+            variant="outline"
+            className="border-slate-300 text-slate-700 hover:bg-slate-50"
+          >
+            {syncing ? (
+              <>
+                <div className="w-4 h-4 border-2 border-slate-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+                Syncing...
+              </>
+            ) : (
+              <>
+                <Mail className="h-4 w-4 mr-2" />
+                Sync Emails
+              </>
+            )}
+          </Button>
         </div>
 
         {loading ? (
@@ -275,7 +342,8 @@ export default function DashboardPage() {
 
             {/* Main Content Grid */}
             <div className="grid gap-6 lg:grid-cols-3 mb-8">
-              {/* Priority Breakdown */}
+              {/* Priority Breakdown - Only show if we have emails */}
+            {stats.totalEmails > 0 ? (
               <Card className="lg:col-span-2 border border-slate-200 bg-white shadow-sm">
                 <CardHeader className="border-b border-slate-200">
                   <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
@@ -332,6 +400,7 @@ export default function DashboardPage() {
                   </div>
                 </CardContent>
               </Card>
+            ) : null}
 
               {/* Account Info */}
               <Card className="border border-slate-200 bg-white shadow-sm">
@@ -423,20 +492,26 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* AI Activity */}
-            <Card className="border border-slate-200 bg-white shadow-sm mb-8">
-              <CardHeader className="border-b border-slate-200 flex flex-row items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-slate-700" />
-                  <CardTitle className="text-base font-semibold text-slate-900">
-                    AI Activity
-                  </CardTitle>
-                </div>
-                <CardDescription className="text-xs sm:text-sm text-slate-500">
-                  Usage of InboxPilot AI features
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6">
+            {/* AI Activity - Only show if there's actual AI usage */}
+            {stats.aiUsageBreakdown && (
+              (stats.aiUsageBreakdown.reply || 0) + 
+              (stats.aiUsageBreakdown.summarize || 0) + 
+              (stats.aiUsageBreakdown.rewrite || 0) + 
+              (stats.aiUsageBreakdown.followup || 0) > 0
+            ) ? (
+              <Card className="border border-slate-200 bg-white shadow-sm mb-8">
+                <CardHeader className="border-b border-slate-200 flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-slate-700" />
+                    <CardTitle className="text-base font-semibold text-slate-900">
+                      AI Activity
+                    </CardTitle>
+                  </div>
+                  <CardDescription className="text-xs sm:text-sm text-slate-500">
+                    Usage of InboxPilot AI features
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="space-y-1">
                     <p className="text-xs uppercase tracking-wide text-slate-500">AI Replies</p>
@@ -469,67 +544,68 @@ export default function DashboardPage() {
                 </div>
               </CardContent>
             </Card>
+            ) : null}
 
             {/* Attention & Focus + Daily Digest */}
-            <div className="grid gap-6 lg:grid-cols-2 mb-8">
-              <Card className="border border-slate-200 bg-white shadow-sm">
-                <CardHeader className="border-b border-slate-200 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-slate-700" />
-                  <CardTitle className="text-base font-semibold text-slate-900">
-                    Attention Budget (Last 7 Days)
-                  </CardTitle>
-                </div>
-                <CardDescription className="text-xs sm:text-sm text-slate-500">
-                  Estimated time you needed for unread emails in the past week
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  {attention ? (
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">
-                          Today&apos;s load
-                        </p>
-                        <p className="text-2xl font-semibold text-slate-900">
-                          {formatTime(attention.today.estimatedMinutes)}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {attention.today.high} high • {attention.today.medium} medium •{' '}
-                          {attention.today.low} low priority emails
-                        </p>
+            {(attention && attention.today.total > 0) || (digest.length > 0) ? (
+              <div className="grid gap-6 lg:grid-cols-2 mb-8">
+                {attention && attention.today.total > 0 ? (
+                  <Card className="border border-slate-200 bg-white shadow-sm">
+                    <CardHeader className="border-b border-slate-200 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-slate-700" />
+                        <CardTitle className="text-base font-semibold text-slate-900">
+                          Attention Budget (Last 7 Days)
+                        </CardTitle>
                       </div>
-                      <div className="space-y-2">
-                        {attention.days.slice(0, 7).map((day) => (
-                          <div key={day.date} className="flex items-center justify-between text-xs">
-                            <span className="text-slate-600">
-                              {new Date(day.date).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                              })}
-                            </span>
-                            <div className="flex-1 mx-3 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                              <div
-                                className="h-1.5 rounded-full bg-slate-900"
-                                style={{
-                                  width: `${Math.min(100, (day.estimatedMinutes / Math.max(30, attention.today.estimatedMinutes || 30)) * 100)}%`,
-                                }}
-                              ></div>
+                      <CardDescription className="text-xs sm:text-sm text-slate-500">
+                        Estimated time you needed for unread emails in the past week
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">
+                            Today&apos;s load
+                          </p>
+                          <p className="text-2xl font-semibold text-slate-900">
+                            {formatTime(attention.today.estimatedMinutes)}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {attention.today.high} high • {attention.today.medium} medium •{' '}
+                            {attention.today.low} low priority emails
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          {attention.days.slice(0, 7).map((day) => (
+                            <div key={day.date} className="flex items-center justify-between text-xs">
+                              <span className="text-slate-600">
+                                {new Date(day.date).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </span>
+                              <div className="flex-1 mx-3 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                <div
+                                  className="h-1.5 rounded-full bg-slate-900"
+                                  style={{
+                                    width: `${Math.min(100, (day.estimatedMinutes / Math.max(30, attention.today.estimatedMinutes || 30)) * 100)}%`,
+                                  }}
+                                ></div>
+                              </div>
+                              <span className="text-slate-700">
+                                {day.estimatedMinutes} min
+                              </span>
                             </div>
-                            <span className="text-slate-700">
-                              {day.estimatedMinutes} min
-                            </span>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-slate-500">No unread emails to plan for.</p>
-                  )}
-                </CardContent>
-              </Card>
+                    </CardContent>
+                  </Card>
+                ) : null}
 
-              <Card className="border border-slate-200 bg-white shadow-sm">
+                {digest.length > 0 ? (
+                  <Card className="border border-slate-200 bg-white shadow-sm">
                 <CardHeader className="border-b border-slate-200 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <MessageCircle className="h-4 w-4 text-slate-700" />
@@ -594,18 +670,18 @@ export default function DashboardPage() {
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <p className="text-sm text-slate-500">
-                      No high‑impact emails detected for today.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                  ) : null}
+                  </CardContent>
+                </Card>
+                ) : null}
+              </div>
+            ) : null}
 
-            {/* Relationships & Communication */}
-            <div className="grid gap-6 lg:grid-cols-2 mb-8">
-              <Card className="border border-slate-200 bg-white shadow-sm">
+            {/* Relationships & Communication - Only show if we have data */}
+            {(relationships.length > 0 || (communication && communication.totalSent + communication.totalReceived > 0)) ? (
+              <div className="grid gap-6 lg:grid-cols-2 mb-8">
+                {relationships.length > 0 ? (
+                  <Card className="border border-slate-200 bg-white shadow-sm">
                 <CardHeader className="border-b border-slate-200 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-slate-700" />
@@ -644,15 +720,13 @@ export default function DashboardPage() {
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <p className="text-sm text-slate-500">
-                      We&apos;ll populate your relationship map as emails arrive.
-                    </p>
-                  )}
+                  ) : null}
                 </CardContent>
               </Card>
+              ) : null}
 
-              <Card className="border border-slate-200 bg-white shadow-sm">
+              {communication && (communication.totalSent + communication.totalReceived > 0) ? (
+                <Card className="border border-slate-200 bg-white shadow-sm">
                 <CardHeader className="border-b border-slate-200 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <MessageCircle className="h-4 w-4 text-slate-700" />
@@ -714,14 +788,12 @@ export default function DashboardPage() {
                         </p>
                       </div>
                     </div>
-                  ) : (
-                    <p className="text-sm text-slate-500">
-                      Start replying to emails and we&apos;ll analyze your style.
-                    </p>
-                  )}
+                  ) : null}
                 </CardContent>
               </Card>
+              ) : null}
             </div>
+            ) : null}
 
             {/* Gmail Integration Status */}
             <Card className="border border-slate-200 bg-white shadow-sm">
