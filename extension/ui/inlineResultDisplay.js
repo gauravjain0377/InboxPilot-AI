@@ -298,10 +298,63 @@ class InlineResultDisplay {
       btn.disabled = true;
       btn.style.opacity = '0.6';
       btn.style.cursor = 'wait';
+      
+      // Add visual loading spinner using safe DOM methods (no innerHTML)
+      if (!btn.querySelector('.inboxpilot-loading-spinner')) {
+        try {
+          const spinner = document.createElement('span');
+          spinner.className = 'inboxpilot-loading-spinner';
+          spinner.textContent = ' ⏳';
+          spinner.style.marginLeft = '4px';
+          spinner.style.display = 'inline-block';
+          spinner.style.animation = 'spin 1s linear infinite';
+          // Use existing spin animation from styles.css if available
+          btn.appendChild(spinner);
+        } catch (error) {
+          // Fallback if DOM manipulation fails
+          console.warn('InboxPilot: Could not add loading spinner:', error);
+        }
+      }
     } else {
       btn.disabled = false;
       btn.style.opacity = '1';
       btn.style.cursor = 'pointer';
+      
+      // Remove loading spinner
+      const spinner = btn.querySelector('.inboxpilot-loading-spinner');
+      if (spinner) {
+        spinner.remove();
+      }
+    }
+  }
+
+  hasResult(action) {
+    const existing = this.currentResults.get(action);
+    if (!existing) return false;
+    
+    // Check if element still exists in DOM and is visible
+    if (existing.parentNode && existing.offsetParent !== null) {
+      return true;
+    }
+    
+    // Clean up if element was removed from DOM
+    this.currentResults.delete(action);
+    return false;
+  }
+
+  showExistingResult(action) {
+    const existing = this.currentResults.get(action);
+    if (existing && existing.parentNode) {
+      // Scroll to the result
+      existing.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      
+      // Highlight it briefly
+      const originalBg = existing.style.backgroundColor;
+      existing.style.backgroundColor = '#e3f2fd';
+      existing.style.transition = 'background-color 0.3s';
+      setTimeout(() => {
+        existing.style.backgroundColor = originalBg || '';
+      }, 1000);
     }
   }
 

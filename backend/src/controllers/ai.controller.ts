@@ -66,11 +66,15 @@ export const generateReply = async (req: AuthRequest, res: Response, next: NextF
     let emailContent: string;
     let user = null;
     
+    // Try to get user for signature (even if not authenticated, try to get from token)
+    if (req.user?.userId) {
+      user = await User.findById(req.user.userId);
+    }
+    
     // Support both emailId (from database) and emailBody (from extension)
     if (emailBody) {
       emailContent = emailBody;
     } else if (emailId && req.user?.userId) {
-      user = await User.findById(req.user.userId);
       if (!user) throw new AppError('User not found', 404);
 
       const email = await Email.findOne({ _id: emailId, userId: user._id });
@@ -79,7 +83,7 @@ export const generateReply = async (req: AuthRequest, res: Response, next: NextF
       emailContent = email.body;
       
       const selectedTone = tone || user.preferences?.defaultTone || 'friendly';
-      const replies = await aiService.generateReply(emailContent, selectedTone);
+      const replies = await aiService.generateReply(emailContent, selectedTone, user.preferences?.signature);
 
       email.aiSuggestions = replies.map((draft) => ({
         tone: selectedTone,
@@ -95,7 +99,8 @@ export const generateReply = async (req: AuthRequest, res: Response, next: NextF
     }
 
     const selectedTone = tone || (user?.preferences?.defaultTone) || 'friendly';
-    const replies = await aiService.generateReply(emailContent, selectedTone);
+    const signature = user?.preferences?.signature || '';
+    const replies = await aiService.generateReply(emailContent, selectedTone, signature);
     res.json({ success: true, replies });
   } catch (error) {
     next(error);

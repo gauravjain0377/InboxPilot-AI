@@ -16,6 +16,12 @@ class ActionHandlers {
       return;
     }
 
+    // Check if result already exists for this action - if so, just show it
+    if (this.display.hasResult(action)) {
+      this.display.showExistingResult(action);
+      return;
+    }
+
     this.display.showLoading(action, true);
 
     try {
@@ -125,6 +131,7 @@ class ActionHandlers {
 
   async handleReplyWithTone(emailBody, tone, replyWindow) {
     try {
+      // API service already handles token, so just call normally
       const result = await this.api.call('/ai/reply', { emailBody, tone });
       const replies = result.replies || (result.reply ? [result.reply] : [result.text || result]);
       
@@ -157,23 +164,26 @@ class ActionHandlers {
       let result;
       switch (action) {
         case 'rewrite':
+          const rewriteTone = composeBox.querySelector('.inboxpilot-tone-select')?.value || 'friendly';
           result = await this.api.call('/ai/rewrite', {
             text: currentText,
-            instruction: 'Rewrite this text to be clearer and more professional'
+            instruction: `Rewrite this text to be clearer and more professional in a ${rewriteTone} tone`
           });
           this.domHelpers.insertIntoCompose(composeBody, result.rewritten || result);
           break;
         case 'expand':
+          const expandTone = composeBox.querySelector('.inboxpilot-tone-select')?.value || 'friendly';
           result = await this.api.call('/ai/rewrite', {
             text: currentText,
-            instruction: 'Expand this text with more details and context'
+            instruction: `Expand this text with more details and context in a ${expandTone} tone`
           });
           this.domHelpers.insertIntoCompose(composeBody, result.rewritten || result);
           break;
         case 'shorten':
+          const shortenTone = composeBox.querySelector('.inboxpilot-tone-select')?.value || 'friendly';
           result = await this.api.call('/ai/rewrite', {
             text: currentText,
-            instruction: 'Make this text shorter and more concise'
+            instruction: `Make this text shorter and more concise in a ${shortenTone} tone`
           });
           this.domHelpers.insertIntoCompose(composeBody, result.rewritten || result);
           break;
@@ -186,10 +196,11 @@ class ActionHandlers {
           this.domHelpers.insertIntoCompose(composeBody, result.rewritten || result);
           break;
         case 'generate':
+          const generateTone = composeBox.querySelector('.inboxpilot-tone-select')?.value || 'friendly';
           const subject = composeBox.querySelector('input[name="subjectbox"]')?.value || '';
           result = await this.api.call('/ai/rewrite', {
-            text: `Subject: ${subject}\n\nGenerate a professional email about this topic`,
-            instruction: 'Generate a complete professional email'
+            text: `Subject: ${subject}\n\nGenerate a ${generateTone} email about this topic`,
+            instruction: `Generate a complete ${generateTone} email`
           });
           this.domHelpers.insertIntoCompose(composeBody, result.rewritten || result);
           break;

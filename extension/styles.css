@@ -574,14 +574,44 @@ tr.priority-low {
 }
 
 .inboxpilot-reply-tone-btn:hover:not(:disabled) {
+  background: #e8f0fe;
+  border-color: #1a73e8;
+  transform: translateY(-1px);
+}
+
+.inboxpilot-reply-tone-btn.selected {
   background: #1a73e8;
   color: white;
   border-color: #1a73e8;
-  transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(26, 115, 232, 0.3);
 }
 
 .inboxpilot-reply-tone-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.inboxpilot-reply-generate-btn {
+  margin-top: 12px;
+  padding: 10px 20px;
+  background: #1a73e8;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.inboxpilot-reply-generate-btn:hover:not(:disabled) {
+  background: #1557b0;
+  box-shadow: 0 2px 4px rgba(26, 115, 232, 0.4);
+  transform: translateY(-1px);
+}
+
+.inboxpilot-reply-generate-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

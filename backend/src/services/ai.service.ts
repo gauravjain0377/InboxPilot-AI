@@ -52,9 +52,16 @@ export class AIService {
 
     try {
       // Use direct API call to list models and verify key
+      // Try v1 first (newer API), fallback to v1beta if needed
       const apiKey = config.ai.geminiKey;
-      const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-      const response = await fetch(url);
+      let url = `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`;
+      let response = await fetch(url);
+      
+      // If v1 fails, try v1beta
+      if (!response.ok && response.status === 404) {
+        url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+        response = await fetch(url);
+      }
       
       if (response.ok) {
         const data = await response.json() as any;
@@ -121,7 +128,6 @@ export class AIService {
     // Try to get available models first, but don't wait if it fails
     let modelsToTry = [
       'gemini-1.5-flash',        // Primary free tier model (fastest)
-      'gemini-1.5-flash-8b',     // Faster variant (if available)
       'gemini-1.5-pro',          // Free tier pro model (slower but more capable)
       'gemini-pro',              // Legacy free tier model
     ];
@@ -144,8 +150,10 @@ export class AIService {
       try {
         logger.info(`Trying Gemini model: ${modelName}`);
         
-        // Use SDK to generate content
-        const model = this.gemini.getGenerativeModel({ model: modelName });
+        // Try SDK first - it should handle API version automatically
+        const model = this.gemini.getGenerativeModel({ 
+          model: modelName,
+        });
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
@@ -164,11 +172,47 @@ export class AIService {
         
         logger.warn(`Model ${modelName} failed:`, errorMsg);
         
-        // If it's a 404 or model not found, try next model
+        // If it's a 404 or model not found (especially v1beta errors), try direct v1 API
         if (errorMsg.includes('404') || 
             errorMsg.includes('not found') || 
             errorMsg.includes('NotFound') ||
-            errorMsg.includes('Model') && errorMsg.includes('not found')) {
+            (errorMsg.includes('Model') && errorMsg.includes('not found')) ||
+            (errorMsg.includes('v1beta') && errorMsg.includes('not found'))) {
+          logger.info(`Model ${modelName} not available via SDK, trying direct v1 API`);
+          
+          // Try direct v1 API call as fallback
+          try {
+            const apiKey = config.ai.geminiKey;
+            const response = await fetch(
+              `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${apiKey}`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  contents: [{
+                    parts: [{
+                      text: prompt
+                    }]
+                  }]
+                })
+              }
+            );
+            
+            if (response.ok) {
+              const data = await response.json() as any;
+              const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (text && text.trim()) {
+                logger.info(`Successfully used model ${modelName} via direct v1 API`);
+                return text.trim();
+              }
+            }
+          } catch (directApiError: any) {
+            logger.warn(`Direct v1 API also failed for ${modelName}:`, directApiError.message);
+          }
+          
+          // If direct API also fails, try next model
           continue;
         }
         
@@ -178,7 +222,7 @@ export class AIService {
             errorMsg.includes('Authentication') || 
             errorMsg.includes('API key') ||
             errorMsg.includes('PERMISSION_DENIED') ||
-            errorMsg.includes('INVALID_ARGUMENT') && errorMsg.includes('API key')) {
+            (errorMsg.includes('INVALID_ARGUMENT') && errorMsg.includes('API key'))) {
           logger.error('Authentication error detected, stopping model attempts');
           break;
         }
@@ -214,8 +258,14 @@ export class AIService {
     }
     
     // Check if models are not found - provide specific instructions
-    if (errorMsg.includes('404') || errorMsg.includes('not found') || errors.some(e => e.includes('404'))) {
-      throw new Error(`AI generation failed: No free tier models available. Please verify:\n1. Your Gemini API key is valid (get one at https://makersuite.google.com/app/apikey)\n2. The Generative Language API is enabled in Google Cloud Console\n3. Your API key has access to free tier models\n\nErrors: ${errors.join('; ')}`);
+    // This often happens when SDK uses v1beta but models need v1, or API key doesn't have access
+    if (errorMsg.includes('404') || errorMsg.includes('not found') || errors.some(e => e.includes('404')) || errors.some(e => e.includes('v1beta'))) {
+      const v1betaIssue = errors.some(e => e.includes('v1beta'));
+      const helpText = v1betaIssue 
+        ? 'The API is trying to use v1beta but models may require v1. This is usually an API key or model access issue.'
+        : 'Models are not available. This could be due to API key permissions or model availability.';
+      
+      throw new Error(`AI generation failed: No free tier models available. ${helpText}\n\nPlease verify:\n1. Your Gemini API key is valid and active (get one at https://makersuite.google.com/app/apikey)\n2. The Generative Language API is enabled in Google Cloud Console\n3. Your API key has access to free tier models (gemini-1.5-flash, gemini-1.5-pro)\n4. Try regenerating your API key if the issue persists\n\nErrors: ${errors.join('; ')}`);
     }
     
     throw new Error(`AI generation failed: ${errorMsg}\n\nTried models: ${modelsToTry.join(', ')}\nErrors: ${errors.join('; ')}\n\nPlease verify your GEMINI_API_KEY in backend/.env is correct and get a free API key at https://makersuite.google.com/app/apikey`);
@@ -228,7 +278,7 @@ export class AIService {
     return this.generate(prompt);
   }
 
-  async generateReply(originalEmail: string, tone: Tone): Promise<string[]> {
+  async generateReply(originalEmail: string, tone: Tone, signature?: string): Promise<string[]> {
     const toneInstructions: Record<Tone, string> = {
       formal: 'Write a formal, professional reply',
       friendly: 'Write a friendly, warm reply',
@@ -238,11 +288,24 @@ export class AIService {
 
     // Truncate email body if too long for faster processing
     const truncatedBody = originalEmail.length > 2000 ? originalEmail.substring(0, 2000) + '...' : originalEmail;
-    const prompt = `${toneInstructions[tone]}. Email:\n\n${truncatedBody}\n\nReply:`;
+    
+    // Build prompt with signature instruction if provided
+    let prompt = `${toneInstructions[tone]}. Email:\n\n${truncatedBody}\n\nReply:`;
+    
+    if (signature && signature.trim()) {
+      prompt += `\n\nNote: Include the following signature at the end: ${signature.trim()}`;
+    }
 
     // Generate only one reply for speed (user can regenerate if needed)
     const reply = await this.generate(prompt);
-    return [reply];
+    
+    // Ensure signature is appended if not already included
+    let finalReply = reply;
+    if (signature && signature.trim() && !reply.includes(signature.trim())) {
+      finalReply = `${reply}\n\n${signature.trim()}`;
+    }
+    
+    return [finalReply];
   }
 
   async rewriteText(text: string, instruction: string): Promise<string> {
