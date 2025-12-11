@@ -61,7 +61,7 @@ export const summarize = async (req: AuthRequest, res: Response, next: NextFunct
 
 export const generateReply = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { emailId, emailBody, tone } = req.body;
+    const { emailId, emailBody, tone, userContext } = req.body;
     
     let emailContent: string;
     let user = null;
@@ -74,6 +74,11 @@ export const generateReply = async (req: AuthRequest, res: Response, next: NextF
     // Support both emailId (from database) and emailBody (from extension)
     if (emailBody) {
       emailContent = emailBody;
+      
+      // If user context is provided, prepend it to the email content for better context
+      if (userContext && userContext.trim()) {
+        emailContent = `User context/instructions: ${userContext.trim()}\n\nOriginal email:\n${emailContent}`;
+      }
     } else if (emailId && req.user?.userId) {
       if (!user) throw new AppError('User not found', 404);
 
@@ -81,6 +86,11 @@ export const generateReply = async (req: AuthRequest, res: Response, next: NextF
       if (!email) throw new AppError('Email not found', 404);
       
       emailContent = email.body;
+      
+      // If user context is provided, prepend it
+      if (userContext && userContext.trim()) {
+        emailContent = `User context/instructions: ${userContext.trim()}\n\nOriginal email:\n${emailContent}`;
+      }
       
       const selectedTone = tone || user.preferences?.defaultTone || 'friendly';
       const replies = await aiService.generateReply(emailContent, selectedTone, user.preferences?.signature);

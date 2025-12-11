@@ -76,9 +76,12 @@
     const emailExtractor = new EmailExtractor();
     const inlineResultDisplay = new InlineResultDisplay();
     const actionHandlers = new ActionHandlers(apiService, emailExtractor, inlineResultDisplay, DOMHelpers);
-    const replyToneSelector = new ReplyToneSelector((emailBody, tone, replyWindow) => {
-      return actionHandlers.handleReplyWithTone(emailBody, tone, replyWindow);
-    });
+    const replyToneSelector = new ReplyToneSelector(
+      (emailBody, tone, replyWindow, userContext, token) => {
+        return actionHandlers.handleReplyWithTone(emailBody, tone, replyWindow, userContext, token);
+      },
+      apiService
+    );
     const composeToolbar = new ComposeToolbar((action, composeBox) => {
       actionHandlers.handleComposeAction(action, composeBox);
     });

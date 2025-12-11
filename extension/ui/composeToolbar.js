@@ -51,21 +51,29 @@ class ComposeToolbar {
     
     const select = document.createElement('select');
     select.className = 'inboxpilot-tone-select';
-    ['formal', 'friendly', 'assertive', 'short'].forEach(val => {
+    const toneOptions = [
+      { value: 'formal', label: 'Professional' },
+      { value: 'friendly', label: 'Friendly' },
+      { value: 'concise', label: 'Concise' },
+      { value: 'negative', label: 'Negative' },
+      { value: 'assertive', label: 'Assertive' },
+      { value: 'short', label: 'Brief' }
+    ];
+    toneOptions.forEach(opt => {
       const option = document.createElement('option');
-      option.value = val;
-      option.textContent = val.charAt(0).toUpperCase() + val.slice(1);
-      if (val === 'friendly') option.selected = true;
+      option.value = opt.value;
+      option.textContent = opt.label;
+      if (opt.value === 'friendly') option.selected = true;
       select.appendChild(option);
     });
     buttons.appendChild(select);
     
     const toolbarActions = [
+      { action: 'enhance', icon: '✨', text: 'Enhance', title: 'Enhance with selected tone', primary: true },
       { action: 'rewrite', icon: '✏️', text: 'Rewrite', title: 'Rewrite' },
       { action: 'expand', icon: '📝', text: 'Expand', title: 'Expand' },
       { action: 'shorten', icon: '✂️', text: 'Shorten', title: 'Shorten' },
-      { action: 'change-tone', icon: '🎨', text: 'Tone', title: 'Change Tone' },
-      { action: 'generate', icon: '✨', text: 'Generate', title: 'Generate Email', primary: true }
+      { action: 'change-tone', icon: '🎨', text: 'Change Tone', title: 'Change Tone' }
     ];
     
     toolbarActions.forEach(item => {

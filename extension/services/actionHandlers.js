@@ -16,12 +16,6 @@ class ActionHandlers {
       return;
     }
 
-    // Check if result already exists for this action - if so, just show it
-    if (this.display.hasResult(action)) {
-      this.display.showExistingResult(action);
-      return;
-    }
-
     this.display.showLoading(action, true);
 
     try {
@@ -129,15 +123,27 @@ class ActionHandlers {
     }
   }
 
-  async handleReplyWithTone(emailBody, tone, replyWindow) {
+  async handleReplyWithTone(emailBody, tone, replyWindow, userContext = '', token = null) {
     try {
-      // API service already handles token, so just call normally
-      const result = await this.api.call('/ai/reply', { emailBody, tone });
+      // Get auth token to pass user info for signature if not provided
+      if (!token) {
+        token = await this.api.getAuthToken();
+      }
+      
+      // Build request with user context if provided
+      const requestData = { emailBody, tone };
+      if (userContext && userContext.trim()) {
+        requestData.userContext = userContext.trim();
+      }
+      
+      const result = await this.api.call('/ai/reply', requestData);
       const replies = result.replies || (result.reply ? [result.reply] : [result.text || result]);
       
       const firstReply = Array.isArray(replies) ? replies[0] : replies;
       if (firstReply) {
-        this.domHelpers.insertReplyIntoGmail(firstReply);
+        // Return the reply text instead of inserting directly
+        // The caller (replyToneSelector) will handle displaying it in the draft card
+        return firstReply;
       } else {
         throw new Error('No reply generated');
       }
@@ -162,45 +168,63 @@ class ActionHandlers {
 
     try {
       let result;
+      const selectedTone = composeBox.querySelector('.inboxpilot-tone-select')?.value || 'friendly';
+      const toneLabels = {
+        'formal': 'professional',
+        'friendly': 'friendly',
+        'assertive': 'assertive',
+        'short': 'brief and concise',
+        'concise': 'concise',
+        'negative': 'polite but firm, expressing disagreement or concerns'
+      };
+      const toneLabel = toneLabels[selectedTone] || 'professional';
+      
       switch (action) {
-        case 'rewrite':
-          const rewriteTone = composeBox.querySelector('.inboxpilot-tone-select')?.value || 'friendly';
+        case 'enhance':
+          // Enhance the existing text with the selected tone
+          if (!currentText) {
+            console.warn('Please write something in the compose box first');
+            return;
+          }
           result = await this.api.call('/ai/rewrite', {
             text: currentText,
-            instruction: `Rewrite this text to be clearer and more professional in a ${rewriteTone} tone`
+            instruction: `Enhance and improve this email text while maintaining a ${toneLabel} tone. Make it more polished, clear, and professional while keeping the same meaning and intent.`
+          });
+          this.domHelpers.insertIntoCompose(composeBody, result.rewritten || result);
+          break;
+        case 'rewrite':
+          result = await this.api.call('/ai/rewrite', {
+            text: currentText,
+            instruction: `Rewrite this text to be clearer and more professional in a ${toneLabel} tone`
           });
           this.domHelpers.insertIntoCompose(composeBody, result.rewritten || result);
           break;
         case 'expand':
-          const expandTone = composeBox.querySelector('.inboxpilot-tone-select')?.value || 'friendly';
           result = await this.api.call('/ai/rewrite', {
             text: currentText,
-            instruction: `Expand this text with more details and context in a ${expandTone} tone`
+            instruction: `Expand this text with more details and context in a ${toneLabel} tone`
           });
           this.domHelpers.insertIntoCompose(composeBody, result.rewritten || result);
           break;
         case 'shorten':
-          const shortenTone = composeBox.querySelector('.inboxpilot-tone-select')?.value || 'friendly';
           result = await this.api.call('/ai/rewrite', {
             text: currentText,
-            instruction: `Make this text shorter and more concise in a ${shortenTone} tone`
+            instruction: `Make this text shorter and more concise in a ${toneLabel} tone`
           });
           this.domHelpers.insertIntoCompose(composeBody, result.rewritten || result);
           break;
         case 'change-tone':
-          const tone = composeBox.querySelector('.inboxpilot-tone-select')?.value || 'friendly';
           result = await this.api.call('/ai/rewrite', {
             text: currentText,
-            instruction: `Rewrite this in a ${tone} tone`
+            instruction: `Rewrite this email in a ${toneLabel} tone while keeping the same content and meaning`
           });
           this.domHelpers.insertIntoCompose(composeBody, result.rewritten || result);
           break;
         case 'generate':
-          const generateTone = composeBox.querySelector('.inboxpilot-tone-select')?.value || 'friendly';
           const subject = composeBox.querySelector('input[name="subjectbox"]')?.value || '';
           result = await this.api.call('/ai/rewrite', {
-            text: `Subject: ${subject}\n\nGenerate a ${generateTone} email about this topic`,
-            instruction: `Generate a complete ${generateTone} email`
+            text: `Subject: ${subject}\n\nGenerate a ${toneLabel} email about this topic`,
+            instruction: `Generate a complete ${toneLabel} email`
           });
           this.domHelpers.insertIntoCompose(composeBody, result.rewritten || result);
           break;

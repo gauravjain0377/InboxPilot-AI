@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 
-export type Tone = 'formal' | 'friendly' | 'assertive' | 'short';
+export type Tone = 'formal' | 'friendly' | 'assertive' | 'short' | 'negative' | 'concise';
 
 export class AIService {
   private gemini: GoogleGenerativeAI | null = null;
@@ -328,6 +328,8 @@ export class AIService {
       friendly: 'Write a friendly, warm reply',
       assertive: 'Write a direct, assertive reply',
       short: 'Write a brief, concise reply (2-3 sentences)',
+      concise: 'Write a brief, concise reply (2-3 sentences)',
+      negative: 'Write a polite but firm reply expressing disagreement or concerns',
     };
 
     // Truncate email body if too long for faster processing

@@ -18,6 +18,28 @@ class InlineResultDisplay {
       return;
     }
     
+    // Check if result already exists for this action - if so, just update it
+    const existingResult = this.currentResults.get(action);
+    if (existingResult && existingResult.parentNode) {
+      console.log('InboxPilot: Result already exists for action, updating content:', action);
+      // Update existing result content instead of creating new one
+      const contentDiv = existingResult.querySelector('.inboxpilot-inline-content');
+      if (contentDiv) {
+        const textContent = typeof text === 'string' ? text : String(text || '');
+        contentDiv.textContent = textContent;
+        // Update title if needed
+        const titleDiv = existingResult.querySelector('.inboxpilot-inline-title');
+        if (titleDiv) {
+          titleDiv.textContent = title;
+        }
+        // Make sure it's visible
+        existingResult.style.display = 'block';
+        existingResult.style.visibility = 'visible';
+        existingResult.style.opacity = '1';
+        return;
+      }
+    }
+    
     // Try to find actions bar with retry
     let actionsBar = document.querySelector('.inboxpilot-email-actions');
     console.log('InboxPilot: Actions bar found:', !!actionsBar);
@@ -66,7 +88,10 @@ class InlineResultDisplay {
     closeBtn.setAttribute('type', 'button');
     closeBtn.textContent = '×';
     closeBtn.setAttribute('title', 'Close');
-    closeBtn.addEventListener('click', () => {
+    closeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('InboxPilot: Close button clicked for action:', action);
       this.removeResult(action);
     });
     
@@ -230,7 +255,10 @@ class InlineResultDisplay {
     closeBtn.setAttribute('type', 'button');
     closeBtn.textContent = '×';
     closeBtn.setAttribute('title', 'Close');
-    closeBtn.addEventListener('click', () => {
+    closeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('InboxPilot: Close button clicked for action:', action);
       this.removeResult(action);
     });
     
@@ -271,7 +299,11 @@ class InlineResultDisplay {
     closeBtn.className = 'inboxpilot-inline-close';
     closeBtn.setAttribute('type', 'button');
     closeBtn.textContent = '×';
-    closeBtn.addEventListener('click', () => {
+    closeBtn.setAttribute('title', 'Close');
+    closeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('InboxPilot: Close button clicked for action:', action);
       this.removeResult(action);
     });
     
@@ -292,77 +324,129 @@ class InlineResultDisplay {
 
   showLoading(action, show) {
     const btn = document.querySelector(`[data-action="${action}"]`);
-    if (!btn) return;
+    if (!btn) {
+      console.warn('InboxPilot: Button not found for action:', action);
+      return;
+    }
     
     if (show) {
       btn.disabled = true;
       btn.style.opacity = '0.6';
       btn.style.cursor = 'wait';
       
-      // Add visual loading spinner using safe DOM methods (no innerHTML)
-      if (!btn.querySelector('.inboxpilot-loading-spinner')) {
-        try {
-          const spinner = document.createElement('span');
-          spinner.className = 'inboxpilot-loading-spinner';
-          spinner.textContent = ' ⏳';
-          spinner.style.marginLeft = '4px';
-          spinner.style.display = 'inline-block';
-          spinner.style.animation = 'spin 1s linear infinite';
-          // Use existing spin animation from styles.css if available
-          btn.appendChild(spinner);
-        } catch (error) {
-          // Fallback if DOM manipulation fails
-          console.warn('InboxPilot: Could not add loading spinner:', error);
-        }
-      }
+      // Show loading indicator in result area
+      this._showLoadingIndicator(action);
     } else {
       btn.disabled = false;
       btn.style.opacity = '1';
       btn.style.cursor = 'pointer';
       
-      // Remove loading spinner
-      const spinner = btn.querySelector('.inboxpilot-loading-spinner');
-      if (spinner) {
-        spinner.remove();
+      // Remove loading indicator
+      this._hideLoadingIndicator(action);
+    }
+  }
+
+  _showLoadingIndicator(action) {
+    // Remove any existing result first
+    this.removeResult(action);
+    
+    // Try to find actions bar
+    let actionsBar = document.querySelector('.inboxpilot-email-actions');
+    if (!actionsBar) {
+      // If no actions bar, try to find email content area
+      const emailContent = document.querySelector('[role="main"]') || 
+                          document.querySelector('.a3s') ||
+                          document.querySelector('.nH > div');
+      if (emailContent) {
+        actionsBar = emailContent;
+      } else {
+        return; // Can't show loading without a container
       }
     }
-  }
-
-  hasResult(action) {
-    const existing = this.currentResults.get(action);
-    if (!existing) return false;
     
-    // Check if element still exists in DOM and is visible
-    if (existing.parentNode && existing.offsetParent !== null) {
-      return true;
+    // Create loading container
+    const loadingContainer = document.createElement('div');
+    loadingContainer.className = 'inboxpilot-inline-result inboxpilot-loading';
+    loadingContainer.setAttribute('data-action', action);
+    loadingContainer.setAttribute('data-loading', 'true');
+    loadingContainer.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; position: relative !important; margin: 12px 0 !important; padding: 16px !important;';
+    
+    const header = document.createElement('div');
+    header.className = 'inboxpilot-inline-header';
+    header.style.cssText = 'display: flex !important; visibility: visible !important;';
+    
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'inboxpilot-inline-title';
+    titleDiv.textContent = 'Generating...';
+    
+    header.appendChild(titleDiv);
+    
+    const content = document.createElement('div');
+    content.className = 'inboxpilot-inline-content';
+    content.style.cssText = 'display: flex !important; align-items: center !important; justify-content: center !important; padding: 20px !important;';
+    
+    // Create spinner
+    const spinner = document.createElement('div');
+    spinner.className = 'inboxpilot-spinner';
+    
+    // Create spinner circles using DOM methods instead of innerHTML to avoid TrustedHTML issues
+    for (let i = 0; i < 3; i++) {
+      const circle = document.createElement('div');
+      circle.className = 'inboxpilot-spinner-circle';
+      spinner.appendChild(circle);
     }
     
-    // Clean up if element was removed from DOM
-    this.currentResults.delete(action);
-    return false;
+    content.appendChild(spinner);
+    
+    loadingContainer.appendChild(header);
+    loadingContainer.appendChild(content);
+    
+    // Insert after actions bar or at top of email content
+    if (actionsBar.classList.contains('inboxpilot-email-actions')) {
+      // Insert after actions bar
+      if (actionsBar.nextSibling) {
+        actionsBar.parentNode.insertBefore(loadingContainer, actionsBar.nextSibling);
+      } else {
+        actionsBar.parentNode.appendChild(loadingContainer);
+      }
+    } else {
+      // Insert at beginning of email content
+      if (actionsBar.firstChild) {
+        actionsBar.insertBefore(loadingContainer, actionsBar.firstChild);
+      } else {
+        actionsBar.appendChild(loadingContainer);
+      }
+    }
+    
+    this.currentResults.set(action, loadingContainer);
   }
 
-  showExistingResult(action) {
+  _hideLoadingIndicator(action) {
     const existing = this.currentResults.get(action);
-    if (existing && existing.parentNode) {
-      // Scroll to the result
-      existing.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      
-      // Highlight it briefly
-      const originalBg = existing.style.backgroundColor;
-      existing.style.backgroundColor = '#e3f2fd';
-      existing.style.transition = 'background-color 0.3s';
-      setTimeout(() => {
-        existing.style.backgroundColor = originalBg || '';
-      }, 1000);
+    if (existing && existing.getAttribute('data-loading') === 'true') {
+      // Don't remove it here, let showResult replace it
+      // Just mark it as not loading
+      existing.removeAttribute('data-loading');
     }
   }
 
   removeResult(action) {
     const existing = this.currentResults.get(action);
     if (existing) {
-      existing.remove();
+      console.log('InboxPilot: Removing result for action:', action);
+      try {
+        existing.remove();
+      } catch (error) {
+        console.error('InboxPilot: Error removing result element:', error);
+        // Try to remove from parent if direct remove fails
+        if (existing.parentNode) {
+          existing.parentNode.removeChild(existing);
+        }
+      }
       this.currentResults.delete(action);
+      console.log('InboxPilot: Result removed successfully');
+    } else {
+      console.log('InboxPilot: No existing result found for action:', action);
     }
   }
 

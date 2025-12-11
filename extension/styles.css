@@ -539,7 +539,226 @@ tr.priority-low {
   min-height: 50px !important;
 }
 
-/* Reply Tone Selector in Gmail Reply Window */
+/* AI Quick Reply Component - Matching Image Design */
+.inboxpilot-ai-quick-reply {
+  background: #f5f5f5;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+  border: 1px solid #e0e0e0;
+}
+
+.inboxpilot-ai-quick-reply-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #5f6368;
+  margin-bottom: 12px;
+}
+
+.inboxpilot-ai-quick-reply-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.inboxpilot-ai-quick-reply-tone-btn {
+  padding: 8px 16px;
+  background: #ffffff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  color: #5f6368;
+  flex: 1;
+  min-width: 80px;
+}
+
+.inboxpilot-ai-quick-reply-tone-btn:hover:not(:disabled) {
+  background: #f8f9fa;
+  border-color: #cbd5e1;
+}
+
+.inboxpilot-ai-quick-reply-tone-btn.selected {
+  background: #4a5568;
+  color: #ffffff;
+  border-color: #4a5568;
+}
+
+.inboxpilot-ai-quick-reply-tone-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.inboxpilot-ai-quick-reply-input-container {
+  margin-top: 12px;
+}
+
+.inboxpilot-ai-quick-reply-input-container {
+  position: relative;
+}
+
+.inboxpilot-ai-quick-reply-input {
+  width: 100%;
+  min-height: 60px;
+  padding: 12px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #202124;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.inboxpilot-ai-quick-reply-placeholder {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  color: #9aa0a6;
+  pointer-events: none;
+  font-size: 14px;
+}
+
+.inboxpilot-ai-quick-reply-generate-btn {
+  margin-top: 12px;
+  padding: 10px 20px;
+  background: #1a73e8;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.inboxpilot-ai-quick-reply-generate-btn:hover:not(:disabled) {
+  background: #1557b0;
+  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
+}
+
+.inboxpilot-ai-quick-reply-generate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.inboxpilot-ai-quick-reply-input:focus {
+  border-color: #1a73e8;
+  background: #ffffff;
+}
+
+.inboxpilot-ai-quick-reply-input.generating {
+  color: #1a73e8;
+  font-style: italic;
+}
+
+.inboxpilot-ai-quick-reply-input.error {
+  color: #dc2626;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+/* AI Draft Card - Matching Image Design */
+.inboxpilot-ai-draft-card {
+  background: #ffffff;
+  border: 1px solid #a78bfa;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.inboxpilot-ai-draft-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.inboxpilot-ai-draft-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #5f6368;
+  display: flex;
+  align-items: center;
+}
+
+.inboxpilot-ai-draft-discard {
+  font-size: 13px;
+  color: #5f6368;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.inboxpilot-ai-draft-discard:hover {
+  color: #dc2626;
+  text-decoration: underline;
+}
+
+.inboxpilot-ai-draft-content {
+  background: #2d3748;
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #4a5568;
+}
+
+.inboxpilot-ai-draft-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.inboxpilot-ai-draft-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  display: flex;
+  align-items: center;
+}
+
+.inboxpilot-ai-draft-btn-edit {
+  background: #ffffff;
+  color: #5f6368;
+  border: 1px solid #dadce0;
+}
+
+.inboxpilot-ai-draft-btn-edit:hover {
+  background: #f8f9fa;
+  border-color: #cbd5e1;
+}
+
+.inboxpilot-ai-draft-btn-send {
+  background: #a78bfa;
+  color: #ffffff;
+}
+
+.inboxpilot-ai-draft-btn-send:hover {
+  background: #8b5cf6;
+  box-shadow: 0 2px 8px rgba(167, 139, 250, 0.3);
+}
+
+/* Reply Tone Selector in Gmail Reply Window (Legacy - keeping for compatibility) */
 .inboxpilot-reply-tone-selector {
   background: #f8f9fa;
   border: 1px solid #e0e0e0;
@@ -574,44 +793,14 @@ tr.priority-low {
 }
 
 .inboxpilot-reply-tone-btn:hover:not(:disabled) {
-  background: #e8f0fe;
-  border-color: #1a73e8;
-  transform: translateY(-1px);
-}
-
-.inboxpilot-reply-tone-btn.selected {
   background: #1a73e8;
   color: white;
   border-color: #1a73e8;
+  transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(26, 115, 232, 0.3);
 }
 
 .inboxpilot-reply-tone-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.inboxpilot-reply-generate-btn {
-  margin-top: 12px;
-  padding: 10px 20px;
-  background: #1a73e8;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  font-size: 14px;
-  width: 100%;
-  transition: all 0.2s;
-}
-
-.inboxpilot-reply-generate-btn:hover:not(:disabled) {
-  background: #1557b0;
-  box-shadow: 0 2px 4px rgba(26, 115, 232, 0.4);
-  transform: translateY(-1px);
-}
-
-.inboxpilot-reply-generate-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -736,4 +925,50 @@ tr.priority-low {
 
 .inboxpilot-tone-btn span:first-child {
   font-size: 18px;
+}
+
+/* Loading Spinner */
+.inboxpilot-loading {
+  background: #ffffff !important;
+  border: 1px solid #e0e0e0 !important;
+  border-radius: 8px !important;
+}
+
+.inboxpilot-spinner {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 20px !important;
+}
+
+.inboxpilot-spinner-circle {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #1a73e8;
+  animation: inboxpilot-spin 1.4s infinite ease-in-out both;
+}
+
+.inboxpilot-spinner-circle:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.inboxpilot-spinner-circle:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.inboxpilot-spinner-circle:nth-child(3) {
+  animation-delay: 0s;
+}
+
+@keyframes inboxpilot-spin {
+  0%, 80%, 100% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }

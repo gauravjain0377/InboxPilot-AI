@@ -9,7 +9,7 @@ export interface IUser extends Document {
   refreshToken: string;
   tokenExpiry?: Date;
     preferences?: {
-      defaultTone: 'formal' | 'friendly' | 'assertive' | 'short';
+      defaultTone: 'formal' | 'friendly' | 'assertive' | 'short' | 'negative' | 'concise';
       signature?: string;
       autoLabel: boolean;
     };
@@ -27,7 +27,7 @@ const UserSchema = new Schema<IUser>(
     refreshToken: { type: String, required: true },
     tokenExpiry: Date,
     preferences: {
-      defaultTone: { type: String, enum: ['formal', 'friendly', 'assertive', 'short'], default: 'friendly' },
+      defaultTone: { type: String, enum: ['formal', 'friendly', 'assertive', 'short', 'negative', 'concise'], default: 'friendly' },
       signature: String,
       autoLabel: { type: Boolean, default: true },
     },
