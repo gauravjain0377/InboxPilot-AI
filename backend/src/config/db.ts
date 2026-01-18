@@ -4,7 +4,7 @@ import { logger } from '../utils/logger.js';
 
 export const connectDB = async (): Promise<boolean> => {
   try {
-    // If no MongoDB URI is configured, skip connection (for extension-only mode)
+    // If no MongoDB URI is configured, skip connection
     if (!config.db.mongoUri || config.db.mongoUri.trim() === '') {
       logger.warn('MongoDB URI not configured. Running without database (extension mode).');
       return false;
@@ -39,7 +39,7 @@ export const connectDB = async (): Promise<boolean> => {
       logger.error(`MongoDB error: ${error.message || 'Unknown error'}`);
     }
     
-    logger.warn('Continuing without database connection (extension mode)');
+    logger.warn('Continuing without database connection');
     logger.warn('Login will fail with db_error until MongoDB is connected');
     return false;
   }

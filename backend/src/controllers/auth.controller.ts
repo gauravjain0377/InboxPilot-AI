@@ -194,7 +194,7 @@ export const handleCallback = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-// Return basic user info (used by dashboard and extension to verify token)
+// Return basic user info
 export const getMe = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const user = await User.findById(req.user?.userId);
@@ -207,44 +207,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
         email: user.email,
         name: user.name,
         picture: user.picture,
-        extensionConnected: user.extensionConnected || false,
       },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Mark that the browser extension is connected for this user
-export const connectExtension = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const user = await User.findById(req.user?.userId);
-    if (!user) throw new AppError('User not found', 404);
-
-    user.extensionConnected = true;
-    await user.save();
-
-    res.json({
-      success: true,
-      extensionConnected: true,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Mark that the browser extension is disconnected for this user
-export const disconnectExtension = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const user = await User.findById(req.user?.userId);
-    if (!user) throw new AppError('User not found', 404);
-
-    user.extensionConnected = false;
-    await user.save();
-
-    res.json({
-      success: true,
-      extensionConnected: false,
     });
   } catch (error) {
     next(error);

@@ -1,7 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Zap, CheckCircle2 } from 'lucide-react';
-import api from '@/lib/axios';
+import { Zap, CheckCircle2, ExternalLink } from 'lucide-react';
 import { DashboardStats } from './types';
 
 interface GmailIntegrationStatusProps {
@@ -9,72 +7,46 @@ interface GmailIntegrationStatusProps {
   onUpdate: () => void;
 }
 
-export default function GmailIntegrationStatus({ stats, onUpdate }: GmailIntegrationStatusProps) {
+export default function GmailIntegrationStatus({ stats }: GmailIntegrationStatusProps) {
   return (
     <Card className="border border-slate-200 bg-white shadow-sm">
       <CardHeader className="border-b border-slate-200 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Zap className="h-4 w-4 text-slate-700" />
-          <CardTitle className="text-base font-semibold text-slate-900">Gmail Integration Status</CardTitle>
+          <CardTitle className="text-base font-semibold text-slate-900">Gmail Add-on</CardTitle>
         </div>
         <CardDescription className="text-xs sm:text-sm text-slate-500">
-          Control which Gmail account has InboxPilot enabled.
+          Use InboxPilot AI directly in Gmail
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-6 flex flex-col gap-4">
-        {stats.userInfo.extensionConnected ? (
-          <div className="flex items-center gap-3 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
-            <CheckCircle2 className="h-5 w-5 text-emerald-700" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-slate-900">Gmail Connected</p>
-              <p className="text-xs text-slate-500">
-                InboxPilot features are active for <span className="font-semibold">{stats.userInfo.email}</span>.
-              </p>
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={async () => {
-                try {
-                  await api.post('/auth/extension/disconnect');
-                  onUpdate();
-                } catch (err) {
-                  console.error('Error disconnecting extension:', err);
-                }
-              }}
-            >
-              Disconnect
-            </Button>
+        <div className="flex items-center gap-3 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+          <CheckCircle2 className="h-5 w-5 text-emerald-700" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-slate-900">Gmail Account Connected</p>
+            <p className="text-xs text-slate-500">
+              Your Gmail account <span className="font-semibold">{stats.userInfo.email}</span> is connected.
+              Install the Gmail Add-on to use AI features directly in Gmail.
+            </p>
           </div>
-        ) : (
-          <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
-            <div className="w-5 h-5 rounded-full border border-slate-300 flex items-center justify-center">
-              <span className="w-2 h-2 rounded-full bg-slate-300" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-slate-900">Not connected</p>
-              <p className="text-xs text-slate-500">
-                Install the InboxPilot Chrome extension, then open the Settings page and click{' '}
-                <span className="font-semibold">Connect Chrome Extension</span> to enable it for this Gmail account.
-              </p>
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                window.location.href = '/settings';
-              }}
-              className="mr-2"
-            >
-              Settings
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={onUpdate} title="Refresh connection status">
-              Refresh
-            </Button>
-          </div>
-        )}
+        </div>
+        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-sm font-medium text-slate-900 mb-2">How to use InboxPilot in Gmail:</p>
+          <ol className="text-xs text-slate-600 space-y-1 list-decimal list-inside">
+            <li>Open Gmail in your browser</li>
+            <li>Look for "InboxPilot AI" in the Gmail menu</li>
+            <li>Click it to open the sidebar with AI features</li>
+            <li>Select any email and use AI features like Summarize, Generate Reply, etc.</li>
+          </ol>
+          <a
+            href="https://mail.google.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+          >
+            Open Gmail <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
       </CardContent>
     </Card>
   );

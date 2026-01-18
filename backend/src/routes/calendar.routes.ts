@@ -12,7 +12,7 @@ router.get('/events', authenticate, getEvents);
 router.get('/free-slots', authenticate, getFreeSlots);
 router.post('/event', authenticate, createEvent);
 
-// Suggest endpoint - optional auth for extension use
+// Suggest endpoint - optional auth for Gmail Add-on use
 router.post('/suggest', optionalAuthenticate, async (req: any, res, next) => {
   try {
     const { emailBody } = req.body;
@@ -48,7 +48,7 @@ router.post('/suggest', optionalAuthenticate, async (req: any, res, next) => {
       }
     }
     
-    // Return meeting details without calendar slots (for extension use without auth)
+    // Return meeting details without calendar slots (for Gmail Add-on use without auth)
     res.json({
       success: true,
       hasMeeting: meetingDetails.hasMeeting || false,

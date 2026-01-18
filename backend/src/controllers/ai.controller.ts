@@ -10,6 +10,27 @@ import { AppError } from '../utils/errorHandler.js';
 const aiService = new AIService();
 const gmailService = new GmailService();
 
+// Helper function to get user from request (supports both JWT and email auth from Gmail Add-on)
+async function getUserFromRequest(req: AuthRequest | any): Promise<any> {
+  // Try JWT authentication first (from website)
+  if (req.user?.userId) {
+    const user = await User.findById(req.user.userId);
+    if (user) return user;
+  }
+  
+  // Try email authentication (from Gmail Add-on)
+  const { userEmail } = req.body;
+  if (userEmail) {
+    const user = await User.findOne({ email: userEmail });
+    if (!user) {
+      throw new AppError('User not found. Please register on the website first.', 404);
+    }
+    return user;
+  }
+  
+  throw new AppError('Authentication required', 401);
+}
+
 export const verifyAPIKey = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const verification = await aiService.verifyAPIKey();
@@ -27,7 +48,7 @@ export const verifyAPIKey = async (req: AuthRequest, res: Response, next: NextFu
   }
 };
 
-export const summarize = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+export const summarize = async (req: AuthRequest | any, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { emailId, emailBody, subject, from } = req.body;
 
@@ -35,46 +56,35 @@ export const summarize = async (req: AuthRequest, res: Response, next: NextFunct
       throw new AppError('Email ID or email body required', 400);
     }
 
+    const user = await getUserFromRequest(req);
     let emailContent: string;
     let emailDoc: any = null;
 
     if (emailBody) {
       emailContent = emailBody;
     } else {
-      if (!req.user?.userId) {
-        throw new AppError('Authentication required when using emailId', 401);
-      }
-
-      const user = await User.findById(req.user.userId);
-      if (!user) throw new AppError('User not found', 404);
-
       emailDoc = await Email.findOne({ _id: emailId, userId: user._id });
       if (!emailDoc) throw new AppError('Email not found', 404);
 
-      // Fetch full content from Gmail API on demand (we don't store bodies)
       const fullMessage = await gmailService.getMessage(user, emailDoc.gmailId);
       emailContent = fullMessage.body || fullMessage.snippet || '';
     }
 
     const summary = await aiService.summarizeEmail(emailContent);
 
-    // Persist summary on email when we have a DB email document
     if (emailDoc) {
       emailDoc.aiSummary = summary;
       await emailDoc.save();
     }
 
-    // Log AI usage for analytics when we know the user
-    if (req.user?.userId) {
-      await AIUsage.create({
-        userId: req.user.userId,
-        action: 'summarize',
-        source: emailBody ? 'extension' : 'web',
-        emailId: emailDoc?._id,
-        subjectSnippet: subject?.slice(0, 200),
-        fromSnippet: from?.slice(0, 200),
-      });
-    }
+    await AIUsage.create({
+      userId: user._id,
+      action: 'summarize',
+      source: emailBody ? 'addon' : 'web',
+      emailId: emailDoc?._id,
+      subjectSnippet: subject?.slice(0, 200),
+      fromSnippet: from?.slice(0, 200),
+    });
 
     res.json({ success: true, summary });
   } catch (error) {
@@ -82,7 +92,7 @@ export const summarize = async (req: AuthRequest, res: Response, next: NextFunct
   }
 };
 
-export const generateReply = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+export const generateReply = async (req: AuthRequest | any, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { emailId, emailBody, tone, userContext, subject, from } = req.body;
 
@@ -90,23 +100,13 @@ export const generateReply = async (req: AuthRequest, res: Response, next: NextF
       throw new AppError('Email ID or email body required', 400);
     }
     
+    const user = await getUserFromRequest(req);
     let emailContent: string;
-    let user = null;
     let emailDoc: any = null;
     
-    // Try to get user for signature (even if not authenticated, try to get from token)
-    if (req.user?.userId) {
-      user = await User.findById(req.user.userId);
-    }
-    
-    // Support both emailId (from database) and emailBody (from extension)
     if (emailBody) {
       emailContent = emailBody;
     } else {
-      if (!req.user?.userId || !user) {
-        throw new AppError('User not found', 404);
-      }
-
       emailDoc = await Email.findOne({ _id: emailId, userId: user._id });
       if (!emailDoc) throw new AppError('Email not found', 404);
 
@@ -114,7 +114,6 @@ export const generateReply = async (req: AuthRequest, res: Response, next: NextF
       emailContent = fullMessage.body || fullMessage.snippet || '';
     }
 
-    // If user context is provided, prepend it to the email content for better context
     if (userContext && userContext.trim()) {
       emailContent = `User context/instructions: ${userContext.trim()}\n\nOriginal email:\n${emailContent}`;
     }
@@ -123,7 +122,6 @@ export const generateReply = async (req: AuthRequest, res: Response, next: NextF
     const signature = user?.preferences?.signature || '';
     const replies = await aiService.generateReply(emailContent, selectedTone, signature);
 
-    // When we have a DB email document, persist suggestions there
     if (emailDoc) {
       emailDoc.aiSuggestions = replies.map((draft) => ({
         tone: selectedTone,
@@ -133,20 +131,17 @@ export const generateReply = async (req: AuthRequest, res: Response, next: NextF
       await emailDoc.save();
     }
 
-    // Log AI usage for analytics when we know the user
-    if (req.user?.userId) {
-      const firstDraft = Array.isArray(replies) ? replies[0] : replies;
-      await AIUsage.create({
-        userId: req.user.userId,
-        action: 'reply',
-        source: emailBody ? 'extension' : 'web',
-        emailId: emailDoc?._id,
-        tone: selectedTone,
-        subjectSnippet: subject?.slice(0, 200),
-        fromSnippet: from?.slice(0, 200),
-        draftLength: typeof firstDraft === 'string' ? firstDraft.length : undefined,
-      });
-    }
+    const firstDraft = Array.isArray(replies) ? replies[0] : replies;
+    await AIUsage.create({
+      userId: user._id,
+      action: 'reply',
+      source: emailBody ? 'addon' : 'web',
+      emailId: emailDoc?._id,
+      tone: selectedTone,
+      subjectSnippet: subject?.slice(0, 200),
+      fromSnippet: from?.slice(0, 200),
+      draftLength: typeof firstDraft === 'string' ? firstDraft.length : undefined,
+    });
 
     res.json({ success: true, replies });
   } catch (error) {
@@ -154,25 +149,22 @@ export const generateReply = async (req: AuthRequest, res: Response, next: NextF
   }
 };
 
-export const rewrite = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+export const rewrite = async (req: AuthRequest | any, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { text, instruction, subject, from } = req.body;
     if (!text || !instruction) throw new AppError('Text and instruction required', 400);
 
-    // Generate rewritten text (works with or without user)
+    const user = await getUserFromRequest(req);
     const rewritten = await aiService.rewriteText(text, instruction);
 
-    // Log AI usage for analytics when we know the user
-    if (req.user?.userId) {
-      await AIUsage.create({
-        userId: req.user.userId,
-        action: 'rewrite',
-        source: 'extension',
-        subjectSnippet: subject?.slice(0, 200),
-        fromSnippet: from?.slice(0, 200),
-        draftLength: rewritten.length,
-      });
-    }
+    await AIUsage.create({
+      userId: user._id,
+      action: 'rewrite',
+      source: 'addon',
+      subjectSnippet: subject?.slice(0, 200),
+      fromSnippet: from?.slice(0, 200),
+      draftLength: rewritten.length,
+    });
 
     res.json({ success: true, rewritten });
   } catch (error) {
@@ -180,7 +172,7 @@ export const rewrite = async (req: AuthRequest, res: Response, next: NextFunctio
   }
 };
 
-export const generateFollowUp = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+export const generateFollowUp = async (req: AuthRequest | any, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { emailId, emailBody, subject, from } = req.body;
     
@@ -188,20 +180,13 @@ export const generateFollowUp = async (req: AuthRequest, res: Response, next: Ne
       throw new AppError('Email ID or email body required', 400);
     }
 
+    const user = await getUserFromRequest(req);
     let emailContent: string;
     let emailDoc: any = null;
     
-    // Support both emailId (from database) and emailBody (from extension)
     if (emailBody) {
       emailContent = emailBody;
     } else {
-      if (!req.user?.userId) {
-        throw new AppError('Authentication required when using emailId', 401);
-      }
-
-      const user = await User.findById(req.user.userId);
-      if (!user) throw new AppError('User not found', 404);
-
       emailDoc = await Email.findOne({ _id: emailId, userId: user._id });
       if (!emailDoc) throw new AppError('Email not found', 404);
 
@@ -211,18 +196,15 @@ export const generateFollowUp = async (req: AuthRequest, res: Response, next: Ne
 
     const followUp = await aiService.generateFollowUp(emailContent);
 
-    // Log AI usage for analytics when we know the user
-    if (req.user?.userId) {
-      await AIUsage.create({
-        userId: req.user.userId,
-        action: 'followup',
-        source: emailBody ? 'extension' : 'web',
-        emailId: emailDoc?._id,
-        subjectSnippet: subject?.slice(0, 200),
-        fromSnippet: from?.slice(0, 200),
-        draftLength: followUp.length,
-      });
-    }
+    await AIUsage.create({
+      userId: user._id,
+      action: 'followup',
+      source: emailBody ? 'addon' : 'web',
+      emailId: emailDoc?._id,
+      subjectSnippet: subject?.slice(0, 200),
+      fromSnippet: from?.slice(0, 200),
+      draftLength: followUp.length,
+    });
 
     res.json({ success: true, followUp });
   } catch (error) {

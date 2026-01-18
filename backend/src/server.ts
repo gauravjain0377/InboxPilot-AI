@@ -7,6 +7,7 @@ import { errorHandler } from './utils/errorHandler.js';
 import { rateLimit } from './middlewares/rateLimit.js';
 import { logger } from './utils/logger.js';
 import { startFollowUpCron } from './cron/followups.js';
+import { startEmailSyncCron } from './cron/emailSync.js';
 
 import authRoutes from './routes/auth.routes.js';
 import gmailRoutes from './routes/gmail.routes.js';
@@ -21,7 +22,7 @@ app.use(helmet({
 }));
 app.use(cors({
   origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    // Allow requests with no origin (like mobile apps, Postman, or Chrome extensions)
+    // Allow requests with no origin
     if (!origin) return callback(null, true);
     
     // Allow production frontend URL
@@ -35,22 +36,12 @@ app.use(cors({
       return callback(null, true);
     }
     
-    // Allow Chrome extension origins
-    if (origin.startsWith('chrome-extension://')) {
-      return callback(null, true);
-    }
-    
-    // Allow Gmail origin (for extension requests)
-    if (origin.includes('mail.google.com')) {
-      return callback(null, true);
-    }
-    
     // Allow Vercel preview deployments
     if (origin.includes('.vercel.app')) {
       return callback(null, true);
     }
     
-    // Default: allow all origins (for development and flexibility)
+    // Default: allow all origins
     callback(null, true);
   },
   credentials: true,
@@ -97,17 +88,17 @@ const startServer = async () => {
     if (dbConnected) {
       try {
         startFollowUpCron();
+        startEmailSyncCron();
       } catch (error) {
         logger.warn('Failed to start cron jobs:', error);
       }
     }
 
-    // Listen on 0.0.0.0 to accept connections from extensions and other sources
     app.listen(config.server.port, '0.0.0.0', () => {
       logger.info(`Server running on http://0.0.0.0:${config.server.port}`);
       logger.info(`Server accessible at http://localhost:${config.server.port}`);
       if (!dbConnected) {
-        logger.warn('Server running in extension mode (no database connection)');
+        logger.warn('Server running without database connection');
       }
     });
   } catch (error) {

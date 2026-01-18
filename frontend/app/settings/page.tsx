@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, Settings as SettingsIcon, Sparkles, Copy } from 'lucide-react';
+import { ArrowLeft, Save, Settings as SettingsIcon, Sparkles } from 'lucide-react';
 import api from '@/lib/axios';
 import { useUserStore } from '@/store/userStore';
 
@@ -16,7 +16,6 @@ export default function SettingsPage() {
   const [defaultTone, setDefaultTone] = useState<'formal' | 'friendly' | 'assertive' | 'short'>('friendly');
   const [signature, setSignature] = useState('');
   const [saving, setSaving] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -125,105 +124,52 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Chrome Extension Connection */}
+          {/* Gmail Add-on Information */}
           <Card className="border border-slate-200 bg-white shadow-sm">
             <CardHeader className="bg-slate-50 border-b border-slate-200">
               <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
                 <SettingsIcon className="h-4 w-4 text-slate-600" />
-                Chrome Extension
+                Gmail Add-on
               </CardTitle>
               <CardDescription className="text-sm text-slate-500">
-                One-click connect your InboxPilot Chrome extension to this account. No tokens or copy-paste needed.
+                Use InboxPilot AI features directly inside Gmail
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
-              {token ? (
-                <>
-                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                    <p className="text-sm font-medium text-slate-900 mb-1">
-                      Connect InboxPilot inside Gmail
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      Make sure the InboxPilot Chrome extension is installed, then click the button below.
-                      We&apos;ll securely send your login token to the extension and mark this Gmail account as connected.
-                    </p>
-                  </div>
-                  <div className="space-y-3">
-                    <Button
-                      type="button"
-                      className="bg-slate-900 hover:bg-slate-800 text-white w-full"
-                      onClick={async () => {
-                        try {
-                          // Store token in localStorage for extension to pick up
-                          const storageKey = 'inboxpilot_pending_connection_token';
-                          localStorage.setItem(storageKey, token);
-                          localStorage.setItem(storageKey + '_timestamp', Date.now().toString());
-                          
-                          // Try to send message to extension background (if content script is listening)
-                          window.postMessage({
-                            type: 'INBOXPILOT_CONNECT_REQUEST',
-                            token: token
-                          }, '*');
-                          
-                          alert(
-                            'Token saved! Now:\n\n' +
-                            '1. Click the InboxPilot extension icon in your browser toolbar\n' +
-                            '2. The extension will auto-detect and connect\n' +
-                            '3. If auto-connect doesn\'t work, paste the token shown below into the extension popup'
-                          );
-                        } catch (err) {
-                          console.error('Error saving connection token:', err);
-                          alert('Unable to save connection token. Please try again.');
-                        }
-                      }}
-                    >
-                      Connect Chrome Extension
-                    </Button>
-                    
-                    {/* Fallback: Show token for manual copy-paste if auto-connect fails */}
-                    <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-                      <p className="text-xs font-medium text-amber-900 mb-2">
-                        Fallback (if auto-connect doesn't work):
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          readOnly
-                          value={token}
-                          className="flex-1 text-xs font-mono bg-white border border-amber-300 rounded px-2 py-1"
-                          onClick={(e) => e.currentTarget.select()}
-                        />
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            navigator.clipboard.writeText(token);
-                            setCopied(true);
-                            setTimeout(() => setCopied(false), 2000);
-                          }}
-                          className="shrink-0"
-                        >
-                          <Copy className="h-3 w-3 mr-1" />
-                          {copied ? 'Copied' : 'Copy'}
-                        </Button>
-                      </div>
-                      <p className="text-xs text-amber-700 mt-2">
-                        Paste this token into the extension popup's "Token" field and click "Connect".
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Click "Connect Chrome Extension" above, then open the extension icon. 
-                    It will automatically detect your saved token and connect.
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm text-slate-500">
-                  No login token found. Please sign in again to InboxPilot on this browser, then come back here to
-                  connect the extension.
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm font-medium text-slate-900 mb-2">
+                  Your Gmail account is connected
                 </p>
-              )}
+                <p className="text-xs text-slate-600 mb-4">
+                  Your account <span className="font-semibold">{user.email}</span> is connected and ready to use.
+                  Install the Gmail Add-on to access AI features directly in Gmail.
+                </p>
+                <div className="space-y-2 text-xs text-slate-600">
+                  <p className="font-medium">How to use:</p>
+                  <ol className="list-decimal list-inside space-y-1 ml-2">
+                    <li>Open Gmail in your browser</li>
+                    <li>Look for &quot;InboxPilot AI&quot; in the Gmail menu (top right)</li>
+                    <li>Click it to open the sidebar</li>
+                    <li>Select any email and use AI features like Summarize, Generate Reply, etc.</li>
+                  </ol>
+                </div>
+                <a
+                  href="https://mail.google.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 inline-block"
+                >
+                  <Button type="button" size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+                    Open Gmail
+                  </Button>
+                </a>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <p className="text-xs text-slate-600">
+                  <strong>Note:</strong> The Gmail Add-on needs to be installed from Google Workspace Marketplace.
+                  Once installed, it will automatically recognize your connected Gmail account.
+                </p>
+              </div>
             </CardContent>
           </Card>
 
