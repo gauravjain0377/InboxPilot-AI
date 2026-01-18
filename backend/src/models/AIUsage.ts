@@ -5,7 +5,7 @@ export type AIActionType = 'reply' | 'summarize' | 'rewrite' | 'followup';
 export interface IAIUsage extends Document {
   userId?: mongoose.Types.ObjectId; // optional to allow unauthenticated extension usage
   action: AIActionType;
-  source: 'extension' | 'web' | 'api';
+  source: 'addon' | 'web' | 'api';
   emailId?: mongoose.Types.ObjectId; // reference to Email document when available
   gmailId?: string; // raw Gmail message id when available
   threadId?: string;
@@ -27,7 +27,7 @@ const AIUsageSchema = new Schema<IAIUsage>(
     },
     source: {
       type: String,
-      enum: ['extension', 'web', 'api'],
+      enum: ['addon', 'web', 'api'],
       default: 'api',
       required: true,
     },

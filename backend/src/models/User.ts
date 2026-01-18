@@ -13,7 +13,6 @@ export interface IUser extends Document {
     signature?: string;
     autoLabel: boolean;
   };
-  extensionConnected?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,7 +31,6 @@ const UserSchema = new Schema<IUser>(
       signature: String,
       autoLabel: { type: Boolean, default: true },
     },
-    extensionConnected: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

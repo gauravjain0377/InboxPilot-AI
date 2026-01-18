@@ -119,18 +119,6 @@ export default function DashboardPage() {
 
   if (!user) return null;
 
-  const handleGmailStatusUpdate = async () => {
-    // Update local stats immediately for disconnect, then fetch fresh data
-    setStats((prev) =>
-      prev
-        ? {
-            ...prev,
-            userInfo: { ...prev.userInfo, extensionConnected: false },
-          }
-        : prev
-    );
-    await fetchStats();
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">

@@ -10,7 +10,7 @@ import {
 
 const router = Router();
 
-// Use optional auth - allows extension to work without token when emailBody is provided
+// Use optional auth - allows Gmail Add-on to authenticate via userEmail
 router.use(optionalAuthenticate);
 
 router.get('/verify-key', verifyAPIKey);
