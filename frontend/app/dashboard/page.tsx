@@ -167,7 +167,7 @@ export default function DashboardPage() {
                           </div>
             ) : null}
 
-            <GmailIntegrationStatus stats={stats} onUpdate={handleGmailStatusUpdate} />
+            <GmailIntegrationStatus stats={stats} />
           </>
         ) : (
           <div className="flex items-center justify-center py-20">

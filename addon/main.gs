@@ -2,37 +2,47 @@
  * InboxPilot AI Gmail Add-on
  * Main Apps Script file
  * 
- * Update API_BASE_URL with your production backend URL after deployment
+ * Update API_BASE_URL with your backend URL
+ * 
+ * For localhost testing:
+ *   1. Use ngrok: ngrok http 5000
+ *   2. Copy the HTTPS URL (e.g., https://abc123.ngrok.io)
+ *   3. Update: const API_BASE_URL = 'https://abc123.ngrok.io/api';
+ * 
+ * For production:
+ *   const API_BASE_URL = 'https://inboxpilot-ai.onrender.com/api';
  */
 
-// Update this with your production backend URL (e.g., https://your-backend.onrender.com/api)
-const API_BASE_URL = 'https://your-backend.onrender.com/api';
+// Update this with your backend URL
+const API_BASE_URL = 'https://inocencia-frostiest-andrew.ngrok-free.dev/api';
 
-function onOpen(e) {
-  GmailApp.getUi()
-    .createAddonMenu()
-    .addItem('InboxPilot AI', 'showSidebar')
-    .addToUi();
-}
+function showSidebar(e) {
+  Logger.log("✅ Gmail Add-on triggered");
 
-function onInstall(e) {
-  onOpen(e);
-}
-
-function showSidebar() {
-  const ui = HtmlService.createHtmlOutputFromFile('sidebar')
+  return HtmlService.createHtmlOutputFromFile('sidebar')
     .setTitle('InboxPilot AI')
     .setWidth(350);
-  GmailApp.getUi().showSidebar(ui);
 }
 
 function getCurrentMessage() {
+  Logger.log('InboxPilot: getCurrentMessage called');
   try {
+    // For Gmail add-ons, getCurrentMessageId() should work with proper scopes
     const messageId = GmailApp.getCurrentMessageId();
-    if (!messageId) return null;
+    Logger.log('InboxPilot: Message ID = ' + messageId);
+    
+    if (!messageId) {
+      Logger.log('InboxPilot: No message ID found - user may not have an email open');
+      return { error: 'Please open an email to use this feature' };
+    }
 
     const message = GmailApp.getMessageById(messageId);
-    return {
+    if (!message) {
+      Logger.log('InboxPilot: Could not retrieve message');
+      return { error: 'Could not retrieve email message' };
+    }
+
+    const result = {
       id: message.getId(),
       subject: message.getSubject(),
       from: message.getFrom(),
@@ -40,30 +50,41 @@ function getCurrentMessage() {
       body: message.getPlainBody(),
       date: message.getDate().toISOString(),
     };
+    
+    Logger.log('InboxPilot: Message retrieved - Subject: ' + result.subject);
+    return result;
   } catch (error) {
-    Logger.log('Error getting message: ' + error);
-    return null;
+    Logger.log('InboxPilot: Error getting message: ' + error.toString());
+    Logger.log('InboxPilot: Error details: ' + JSON.stringify(error));
+    return { error: 'Error retrieving message: ' + error.toString() };
   }
 }
 
 // Get user's email to identify them for backend authentication
 function getUserEmail() {
   try {
-    return Session.getActiveUser().getEmail();
+    const email = Session.getActiveUser().getEmail();
+    Logger.log('InboxPilot: User email = ' + email);
+    return email;
   } catch (error) {
-    Logger.log('Error getting user email: ' + error);
+    Logger.log('InboxPilot: Error getting user email: ' + error.toString());
     return null;
   }
 }
 
 // Call backend API with user email for authentication
 function callBackendAPI(endpoint, data) {
+  Logger.log('InboxPilot: callBackendAPI called - Endpoint: ' + endpoint);
+  
   const userEmail = getUserEmail();
   if (!userEmail) {
+    Logger.log('InboxPilot: No user email found');
     return { error: 'Could not identify user email. Please make sure you are logged into Gmail.' };
   }
 
   const apiUrl = API_BASE_URL + endpoint;
+  Logger.log('InboxPilot: API URL = ' + apiUrl);
+  Logger.log('InboxPilot: User Email = ' + userEmail);
   
   const options = {
     method: 'POST',
@@ -78,19 +99,30 @@ function callBackendAPI(endpoint, data) {
   };
 
   try {
+    Logger.log('InboxPilot: Making API request...');
     const response = UrlFetchApp.fetch(apiUrl, options);
     const responseCode = response.getResponseCode();
     const responseText = response.getContentText();
     
+    Logger.log('InboxPilot: Response Code = ' + responseCode);
+    Logger.log('InboxPilot: Response Text = ' + responseText.substring(0, 200)); // First 200 chars
+    
     if (responseCode !== 200) {
-      Logger.log('API Error Response: ' + responseText);
-      const errorData = JSON.parse(responseText);
-      return { error: errorData.message || errorData.error || 'API request failed: ' + responseCode };
+      Logger.log('InboxPilot: API Error Response: ' + responseText);
+      try {
+        const errorData = JSON.parse(responseText);
+        return { error: errorData.message || errorData.error || 'API request failed: ' + responseCode };
+      } catch (e) {
+        return { error: 'API request failed: ' + responseCode + ' - ' + responseText };
+      }
     }
     
-    return JSON.parse(responseText);
+    const parsed = JSON.parse(responseText);
+    Logger.log('InboxPilot: API call successful');
+    return parsed;
   } catch (error) {
-    Logger.log('API Error: ' + error);
+    Logger.log('InboxPilot: API Error: ' + error.toString());
+    Logger.log('InboxPilot: Error stack: ' + (error.stack || 'No stack trace'));
     return { error: error.toString() };
   }
 }

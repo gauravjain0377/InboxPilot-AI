@@ -4,7 +4,6 @@ import { DashboardStats } from './types';
 
 interface GmailIntegrationStatusProps {
   stats: DashboardStats;
-  onUpdate: () => void;
 }
 
 export default function GmailIntegrationStatus({ stats }: GmailIntegrationStatusProps) {
