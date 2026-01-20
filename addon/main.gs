@@ -19,7 +19,7 @@ const API_BASE_URL = 'https://inocencia-frostiest-andrew.ngrok-free.dev/api';
 function showSidebar(e) {
   Logger.log("✅ Gmail Add-on triggered");
 
-  return HtmlService.createHtmlOutputFromFile('sidebar')
+  return HtmlService.createHtmlOutputFromFile('sidebar.html')
     .setTitle('InboxPilot AI')
     .setWidth(350);
 }
