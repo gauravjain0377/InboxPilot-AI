@@ -10,13 +10,7 @@ export const connectDB = async (): Promise<boolean> => {
       return false;
     }
 
-    // Add connection options for better error handling
-    const connectionOptions = {
-      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
-      socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
-    };
-
-    await mongoose.connect(config.db.mongoUri, connectionOptions);
+    await mongoose.connect(config.db.mongoUri);
     logger.info('MongoDB connected successfully');
     
     // Log connection details (without sensitive info)
