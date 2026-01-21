@@ -6,6 +6,7 @@ import { Email } from '../models/Email.js';
 import { AIUsage } from '../models/AIUsage.js';
 import { GmailService } from '../services/gmail.service.js';
 import { AppError } from '../utils/errorHandler.js';
+import { logger } from '../utils/logger.js';
 
 const aiService = new AIService();
 const gmailService = new GmailService();
@@ -21,14 +22,31 @@ async function getUserFromRequest(req: AuthRequest | any): Promise<any> {
   // Try email authentication (from Gmail Add-on)
   const { userEmail } = req.body;
   if (userEmail) {
-    const user = await User.findOne({ email: userEmail });
+    let user = await User.findOne({ email: userEmail });
+    
+    // Auto-register Gmail Add-on users if they don't exist
     if (!user) {
-      throw new AppError('User not found. Please register on the website first.', 404);
+      logger.info(`Auto-registering Gmail Add-on user: ${userEmail}`);
+      try {
+        user = await User.create({
+          email: userEmail,
+          name: userEmail.split('@')[0], // Use email prefix as name
+          // googleId, accessToken, refreshToken are optional for Gmail Add-on users
+        });
+        logger.info(`Successfully auto-registered user: ${userEmail}`);
+      } catch (createError: any) {
+        logger.error(`Failed to auto-register user ${userEmail}:`, createError);
+        // If creation fails (e.g., duplicate), try to find again
+        user = await User.findOne({ email: userEmail });
+        if (!user) {
+          throw new AppError(`Failed to register user. Please try again or register on the website first.`, 500);
+        }
+      }
     }
     return user;
   }
   
-  throw new AppError('Authentication required', 401);
+  throw new AppError('Authentication required. Please provide userEmail (for Gmail Add-on) or valid JWT token.', 401);
 }
 
 export const verifyAPIKey = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {

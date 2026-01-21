@@ -67,119 +67,305 @@
   <button class="button" onclick="handleFollowUp()">⏰ Follow-up</button>
   <button class="button" onclick="handleMeeting()">📅 Meeting Times</button>
   <button class="button" onclick="handleExplain()">💡 Explain Simply</button>
+  <button class="button" onclick="testConnection()" style="background: #f0f0f0; font-size: 11px; padding: 8px;">🔧 Test Connection</button>
 
   <div id="result"></div>
+  
+  <!-- Debug log area (hidden by default, can be shown for debugging) -->
+  <div id="debug-log" style="display: none; max-height: 200px; overflow-y: auto; font-size: 10px; background: #f5f5f5; padding: 8px; margin-top: 8px; border-radius: 4px;"></div>
+  
+  <button class="button" onclick="toggleDebugLog()" style="margin-top: 8px; font-size: 11px; padding: 6px;">🔍 Toggle Debug Log</button>
 
   <script>
+    // Initialize logging
+    console.log('[InboxPilot] Sidebar loaded at', new Date().toISOString());
+    console.log('[InboxPilot] Google Script API available:', typeof google !== 'undefined' && typeof google.script !== 'undefined');
+    
+    function toggleDebugLog() {
+      const logDiv = document.getElementById('debug-log');
+      if (logDiv.style.display === 'none') {
+        logDiv.style.display = 'block';
+        log('[InboxPilot] Debug log enabled');
+      } else {
+        logDiv.style.display = 'none';
+      }
+    }
+    // Console logging helper
+    function log(message, data) {
+      console.log('[InboxPilot] ' + message, data || '');
+      // Also log to result area for visibility
+      const timestamp = new Date().toLocaleTimeString();
+      const logDiv = document.getElementById('debug-log');
+      if (logDiv) {
+        logDiv.innerHTML += '<div style="font-size: 10px; color: #666; margin: 2px 0;">[' + timestamp + '] ' + message + '</div>';
+        logDiv.scrollTop = logDiv.scrollHeight;
+      }
+    }
+
     function showLoading() {
+      log('Showing loading state');
       document.getElementById('result').innerHTML = '<div class="loading">Loading...</div>';
     }
 
     function showResult(text) {
+      log('Showing result', text);
       document.getElementById('result').innerHTML = '<div class="result">' + text + '</div>';
     }
 
     function showError(error) {
-      document.getElementById('result').innerHTML = '<div class="result" style="color: #ef4444;">Error: ' + error + '</div>';
+      let errorMessage = 'Unknown error occurred';
+      
+      log('Error occurred', error);
+      
+      if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && error.message) {
+        errorMessage = error.message;
+      } else if (error && error.error) {
+        errorMessage = error.error;
+      } else if (error && typeof error === 'object') {
+        errorMessage = JSON.stringify(error);
+      }
+      
+      // Provide helpful error messages
+      if (errorMessage.includes('User not found') || errorMessage.includes('register')) {
+        errorMessage = 'Setting up your account... Please try again in a moment.';
+      } else if (errorMessage.includes('API request failed') || errorMessage.includes('fetch')) {
+        errorMessage = 'Cannot connect to server. Please check if the backend API is running and accessible.';
+      } else if (errorMessage.includes('401') || errorMessage.includes('403')) {
+        errorMessage = 'Authentication error. Please check your OAuth configuration.';
+      } else if (errorMessage.includes('deleted_client')) {
+        errorMessage = 'OAuth client error. Please recreate your OAuth client in Google Cloud Console. See OAUTH_SETUP_GUIDE.md for instructions.';
+      }
+      
+      log('Displaying error to user', errorMessage);
+      document.getElementById('result').innerHTML = '<div class="result" style="color: #ef4444; border-color: #ef4444;">⚠️ Error: ' + errorMessage + '</div>';
     }
 
     function getCurrentEmail() {
+      log('Getting current email...');
       return new Promise((resolve, reject) => {
-        google.script.run
-          .withSuccessHandler(resolve)
-          .withFailureHandler(reject)
-          .getCurrentMessage();
+        try {
+          if (typeof google === 'undefined' || typeof google.script === 'undefined') {
+            log('ERROR: Google Script API not available');
+            reject(new Error('Google Script API not available. Make sure you are running this in Gmail.'));
+            return;
+          }
+          
+          log('Calling google.script.run.getCurrentMessage()');
+          google.script.run
+            .withSuccessHandler(function(result) {
+              log('getCurrentMessage success', result);
+              resolve(result);
+            })
+            .withFailureHandler(function(error) {
+              log('getCurrentMessage failed', error);
+              reject(error);
+            })
+            .getCurrentMessage();
+        } catch (error) {
+          log('Exception in getCurrentEmail', error);
+          reject(error);
+        }
       });
     }
 
     async function handleSummarize() {
+      log('=== handleSummarize called ===');
       showLoading();
       try {
+        log('Step 1: Getting current email...');
         const email = await getCurrentEmail();
-        if (!email) {
-          showError('No email selected');
+        log('Step 2: Email retrieved', email);
+        
+        if (email && email.error) {
+          log('Email has error', email.error);
+          showError(email.error);
           return;
         }
+        if (!email || !email.body) {
+          log('No email body found');
+          showError('No email selected. Please open an email first.');
+          return;
+        }
+        
+        log('Step 3: Calling summarizeEmail with body length:', email.body.length);
         google.script.run
-          .withSuccessHandler((result) => showResult(result.summary || result))
-          .withFailureHandler((error) => showError(error))
+          .withSuccessHandler((result) => {
+            log('Step 4: summarizeEmail success', result);
+            if (result && result.error) {
+              log('Result contains error', result.error);
+              showError(result.error);
+            } else {
+              log('Step 5: Displaying summary');
+              showResult(result.summary || result || 'Summary generated successfully');
+            }
+          })
+          .withFailureHandler((error) => {
+            log('Step 4: summarizeEmail failed', error);
+            showError(error);
+          })
           .summarizeEmail(email.body);
       } catch (error) {
+        log('Exception in handleSummarize', error);
         showError(error);
       }
     }
 
     async function handleReply() {
+      log('=== handleReply called ===');
       showLoading();
       try {
+        log('Getting current email...');
         const email = await getCurrentEmail();
-        if (!email) {
-          showError('No email selected');
+        log('Email retrieved', email);
+        
+        if (email && email.error) {
+          showError(email.error);
           return;
         }
+        if (!email || !email.body) {
+          showError('No email selected. Please open an email first.');
+          return;
+        }
+        
+        log('Calling generateReply...');
         google.script.run
           .withSuccessHandler((result) => {
-            const replies = result.replies || result;
-            const html = Array.isArray(replies)
-              ? replies.map(r => '<div style="margin-bottom: 12px; padding: 8px; background: #f8fafc; border-radius: 4px;">' + r + '</div>').join('')
-              : '<div>' + replies + '</div>';
-            showResult(html);
+            log('generateReply success', result);
+            if (result && result.error) {
+              showError(result.error);
+            } else {
+              const replies = result.replies || result;
+              const html = Array.isArray(replies)
+                ? replies.map(r => '<div style="margin-bottom: 12px; padding: 8px; background: #f8fafc; border-radius: 4px;">' + r + '</div>').join('')
+                : '<div>' + replies + '</div>';
+              showResult(html);
+            }
           })
-          .withFailureHandler((error) => showError(error))
+          .withFailureHandler((error) => {
+            log('generateReply failed', error);
+            showError(error);
+          })
           .generateReply(email.body, 'friendly');
       } catch (error) {
+        log('Exception in handleReply', error);
         showError(error);
       }
     }
 
     async function handleFollowUp() {
+      log('=== handleFollowUp called ===');
       showLoading();
       try {
+        log('Getting current email...');
         const email = await getCurrentEmail();
-        if (!email) {
-          showError('No email selected');
+        log('Email retrieved', email);
+        
+        if (email && email.error) {
+          showError(email.error);
           return;
         }
+        if (!email || !email.body) {
+          showError('No email selected. Please open an email first.');
+          return;
+        }
+        
+        log('Calling generateFollowUp...');
         google.script.run
-          .withSuccessHandler((result) => showResult(result.followUp || result))
-          .withFailureHandler((error) => showError(error))
+          .withSuccessHandler((result) => {
+            log('generateFollowUp success', result);
+            if (result && result.error) {
+              showError(result.error);
+            } else {
+              showResult(result.followUp || result || 'Follow-up generated successfully');
+            }
+          })
+          .withFailureHandler((error) => {
+            log('generateFollowUp failed', error);
+            showError(error);
+          })
           .generateFollowUp(email.body);
       } catch (error) {
+        log('Exception in handleFollowUp', error);
         showError(error);
       }
     }
 
     async function handleMeeting() {
+      log('=== handleMeeting called ===');
       showLoading();
       try {
         const email = await getCurrentEmail();
+        log('Email retrieved', email);
         if (!email) {
           showError('No email selected');
           return;
         }
+        log('Calling suggestMeetingTimes...');
         google.script.run
-          .withSuccessHandler((result) => showResult(JSON.stringify(result, null, 2)))
-          .withFailureHandler((error) => showError(error))
+          .withSuccessHandler((result) => {
+            log('suggestMeetingTimes success', result);
+            showResult(JSON.stringify(result, null, 2));
+          })
+          .withFailureHandler((error) => {
+            log('suggestMeetingTimes failed', error);
+            showError(error);
+          })
           .suggestMeetingTimes(email.body);
       } catch (error) {
+        log('Exception in handleMeeting', error);
         showError(error);
       }
     }
 
     async function handleExplain() {
+      log('=== handleExplain called ===');
       showLoading();
       try {
         const email = await getCurrentEmail();
+        log('Email retrieved', email);
         if (!email) {
           showError('No email selected');
           return;
         }
+        log('Calling rewriteText...');
         google.script.run
-          .withSuccessHandler((result) => showResult(result.rewritten || result))
-          .withFailureHandler((error) => showError(error))
+          .withSuccessHandler((result) => {
+            log('rewriteText success', result);
+            showResult(result.rewritten || result);
+          })
+          .withFailureHandler((error) => {
+            log('rewriteText failed', error);
+            showError(error);
+          })
           .rewriteText(email.body, 'Explain this email in simple, easy-to-understand words');
       } catch (error) {
+        log('Exception in handleExplain', error);
         showError(error);
+      }
+    }
+    
+    // Test function to check if everything is working
+    function testConnection() {
+      log('=== Testing connection ===');
+      log('Google Script API:', typeof google !== 'undefined' ? 'Available' : 'NOT AVAILABLE');
+      log('Google Script Run:', typeof google !== 'undefined' && typeof google.script !== 'undefined' && typeof google.script.run !== 'undefined' ? 'Available' : 'NOT AVAILABLE');
+      
+      if (typeof google !== 'undefined' && typeof google.script !== 'undefined') {
+        log('Calling testAPIConnection...');
+        google.script.run
+          .withSuccessHandler((result) => {
+            log('testAPIConnection result', result);
+            showResult('Connection test: ' + JSON.stringify(result, null, 2));
+          })
+          .withFailureHandler((error) => {
+            log('testAPIConnection failed', error);
+            showError('Connection test failed: ' + error);
+          })
+          .testAPIConnection();
+      } else {
+        showError('Google Script API not available. Are you running this in Gmail?');
       }
     }
   </script>

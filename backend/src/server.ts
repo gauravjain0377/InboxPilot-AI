@@ -58,6 +58,21 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
+app.get('/api', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'InboxPilot AI Backend API',
+    version: '1.0.0',
+    endpoints: {
+      auth: '/api/auth',
+      gmail: '/api/gmail',
+      ai: '/api/ai',
+      calendar: '/api/calendar',
+      analytics: '/api/analytics'
+    }
+  });
+});
+
 app.get('/health', (req, res) => {
   res.json({ success: true, message: 'InboxPilot API is running' });
 });
