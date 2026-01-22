@@ -179,28 +179,72 @@ InboxPilot-AI/
 
 ### Backend (Render)
 
-1. Create a new Web Service on [Render](https://render.com)
-2. Connect your repository
-3. Set build command: `npm install && npm run build`
-4. Set start command: `npm start`
-5. Add environment variables
-6. Update `GOOGLE_REDIRECT_URI` to your Render URL
+1. Create a new **Web Service** on [Render](https://render.com)
+2. Connect your GitHub repository
+3. Configure the service:
+   - **Name**: `inboxpilot-backend`
+   - **Root Directory**: `backend`
+   - **Runtime**: Node
+   - **Build Command**: `npm install --include=dev && npm run build`
+   - **Start Command**: `npm start`
+
+4. Add environment variables in Render Dashboard:
+   ```
+   NODE_ENV=production
+   PORT=5000
+   GOOGLE_CLIENT_ID=your-client-id
+   GOOGLE_CLIENT_SECRET=your-client-secret
+   GOOGLE_REDIRECT_URI=https://your-backend.onrender.com/api/auth/google/callback
+   GEMINI_API_KEY=your-gemini-api-key
+   MONGO_URI=mongodb+srv://...
+   JWT_SECRET=your-secure-random-string-min-32-chars
+   ENCRYPTION_KEY=your-32-byte-hex-string
+   ENCRYPTION_IV=your-16-byte-hex-string
+   FRONTEND_URL=https://your-frontend.vercel.app
+   ```
+
+5. Click **Deploy**
 
 ### Frontend (Vercel)
 
 1. Import project on [Vercel](https://vercel.com)
-2. Set `NEXT_PUBLIC_API_URL` to your backend URL
-3. Deploy!
+2. Configure the project:
+   - **Framework Preset**: Next.js
+   - **Root Directory**: `frontend`
 
-### Environment Variables for Production
+3. Add environment variable:
+   ```
+   NEXT_PUBLIC_API_URL=https://your-backend.onrender.com/api
+   ```
 
-Backend:
-- Update `GOOGLE_REDIRECT_URI` to production URL
-- Update `FRONTEND_URL` to production frontend URL
-- Use MongoDB Atlas for `MONGO_URI`
+4. Click **Deploy**
 
-Frontend:
-- Update `NEXT_PUBLIC_API_URL` to production backend URL
+### Post-Deployment Setup
+
+1. **Update Google Cloud Console**:
+   - Add your Render backend URL to **Authorized redirect URIs**:
+     `https://your-backend.onrender.com/api/auth/google/callback`
+   - Add your Vercel frontend URL to **Authorized JavaScript origins**:
+     `https://your-frontend.vercel.app`
+
+2. **Verify the deployment**:
+   - Visit your backend health check: `https://your-backend.onrender.com/health`
+   - Visit your frontend: `https://your-frontend.vercel.app`
+
+### Environment Variables Summary
+
+| Variable | Where | Description |
+|----------|-------|-------------|
+| `GOOGLE_CLIENT_ID` | Backend | From Google Cloud Console |
+| `GOOGLE_CLIENT_SECRET` | Backend | From Google Cloud Console |
+| `GOOGLE_REDIRECT_URI` | Backend | Backend OAuth callback URL |
+| `GEMINI_API_KEY` | Backend | From Google AI Studio |
+| `MONGO_URI` | Backend | MongoDB Atlas connection string |
+| `JWT_SECRET` | Backend | Random secure string (32+ chars) |
+| `ENCRYPTION_KEY` | Backend | 32-byte hex string |
+| `ENCRYPTION_IV` | Backend | 16-byte hex string |
+| `FRONTEND_URL` | Backend | Your Vercel frontend URL |
+| `NEXT_PUBLIC_API_URL` | Frontend | Your Render backend URL + /api |
 
 ## Troubleshooting
 

@@ -42,6 +42,7 @@ export default function InboxPage() {
   
   // For undo functionality
   const pendingActionRef = useRef<{ type: 'trash' | 'archive'; email: Email; timeout: NodeJS.Timeout } | null>(null);
+  const pendingReplyRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetchEmails();
@@ -52,6 +53,9 @@ export default function InboxPage() {
     return () => {
       if (pendingActionRef.current) {
         clearTimeout(pendingActionRef.current.timeout);
+      }
+      if (pendingReplyRef.current) {
+        clearTimeout(pendingReplyRef.current);
       }
     };
   }, []);
@@ -236,34 +240,58 @@ export default function InboxPage() {
     setShowSendModal(true);
   };
 
+  const cancelPendingReply = () => {
+    if (pendingReplyRef.current) {
+      clearTimeout(pendingReplyRef.current);
+      pendingReplyRef.current = null;
+      setSendingReply(false);
+      setToast({ message: 'Reply cancelled', type: 'success' });
+    }
+  };
+
   const sendReply = async () => {
     if (!selectedEmail || !replyBody.trim()) return;
 
-    try {
-      setSendingReply(true);
-      
-      // Get signature from localStorage
-      const signature = localStorage.getItem('emailSignature') || '';
-      const bodyWithSignature = signature 
-        ? `${replyBody.trim()}\n\n${signature}`
-        : replyBody.trim();
-      
-      await api.post(`/gmail/message/${selectedEmail.gmailId}/reply`, {
-        body: bodyWithSignature,
-      });
+    setShowSendModal(false);
+    setSendingReply(true);
+    
+    // Get signature from localStorage
+    const signature = localStorage.getItem('emailSignature') || '';
+    const bodyWithSignature = signature 
+      ? `${replyBody.trim()}\n\n${signature}`
+      : replyBody.trim();
 
-      setShowReply(false);
-      setReplyBody('');
-      setAiResult(null);
-      setShowSendModal(false);
-      setToast({ message: 'Reply sent successfully!', type: 'success' });
-    } catch (err: any) {
-      console.error('Error sending reply:', err);
-      setShowSendModal(false);
-      setToast({ message: err?.response?.data?.message || 'Failed to send reply', type: 'error' });
-    } finally {
-      setSendingReply(false);
-    }
+    const emailId = selectedEmail.gmailId;
+
+    // Show toast with undo option
+    setToast({
+      message: 'Sending reply...',
+      type: 'success',
+      action: {
+        label: 'Undo',
+        onClick: cancelPendingReply,
+      },
+    });
+
+    // Delay the actual send to allow undo
+    pendingReplyRef.current = setTimeout(async () => {
+      try {
+        await api.post(`/gmail/message/${emailId}/reply`, {
+          body: bodyWithSignature,
+        });
+
+        pendingReplyRef.current = null;
+        setShowReply(false);
+        setReplyBody('');
+        setAiResult(null);
+        setToast({ message: 'Reply sent successfully!', type: 'success' });
+      } catch (err: any) {
+        console.error('Error sending reply:', err);
+        setToast({ message: err?.response?.data?.message || 'Failed to send reply', type: 'error' });
+      } finally {
+        setSendingReply(false);
+      }
+    }, 4000);
   };
 
   const generateAISummary = async () => {
@@ -404,6 +432,8 @@ export default function InboxPage() {
               activeTab={activeTab}
               onSelectEmail={selectEmail}
               onToggleStar={toggleStar}
+              onArchive={archiveEmail}
+              onTrash={trashEmail}
               onRetry={fetchEmails}
             />
           </div>

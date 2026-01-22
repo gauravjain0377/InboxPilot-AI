@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUserStore } from '@/store/userStore';
 import api from '@/lib/axios';
@@ -44,6 +44,9 @@ function ComposeContent() {
   // Toast and Modal states
   const [toast, setToast] = useState<ToastState | null>(null);
   const [showSendModal, setShowSendModal] = useState(false);
+  
+  // For undo send functionality
+  const pendingSendRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -66,6 +69,15 @@ function ComposeContent() {
         replySubject.startsWith('Re:') ? replySubject : `Re: ${replySubject}`
       );
   }, [user, router, searchParams]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pendingSendRef.current) {
+        clearTimeout(pendingSendRef.current);
+      }
+    };
+  }, []);
 
   const enhanceWithAI = async () => {
     if (!body.trim()) {
@@ -113,42 +125,64 @@ function ComposeContent() {
     setShowSendModal(true);
   };
 
-  const sendEmail = async () => {
-    try {
-      setSending(true);
-
-      // Get signature from localStorage
-      const signature = localStorage.getItem('emailSignature') || '';
-      const bodyWithSignature = signature 
-        ? `${body.trim()}\n\n${signature}`
-        : body.trim();
-
-      // Build recipients array
-      const recipients: string[] = to.split(',').map(e => e.trim()).filter(Boolean);
-      const ccRecipients: string[] = cc ? cc.split(',').map(e => e.trim()).filter(Boolean) : [];
-      const bccRecipients: string[] = bcc ? bcc.split(',').map(e => e.trim()).filter(Boolean) : [];
-
-      await api.post('/gmail/send', {
-        to: recipients.join(', '),
-        cc: ccRecipients.length > 0 ? ccRecipients.join(', ') : undefined,
-        bcc: bccRecipients.length > 0 ? bccRecipients.join(', ') : undefined,
-        subject: subject.trim(),
-        body: bodyWithSignature,
-      });
-
-      setShowSendModal(false);
-      setToast({ message: 'Email sent successfully!', type: 'success' });
-
-      setTimeout(() => {
-        router.push('/inbox');
-      }, 1500);
-    } catch (err: any) {
-      console.error('Error sending email:', err);
-      setShowSendModal(false);
-      setToast({ message: err?.response?.data?.message || 'Failed to send email', type: 'error' });
-    } finally {
+  const cancelPendingSend = () => {
+    if (pendingSendRef.current) {
+      clearTimeout(pendingSendRef.current);
+      pendingSendRef.current = null;
       setSending(false);
+      setToast({ message: 'Send cancelled', type: 'success' });
     }
+  };
+
+  const sendEmail = async () => {
+    setShowSendModal(false);
+    setSending(true);
+
+    // Get signature from localStorage
+    const signature = localStorage.getItem('emailSignature') || '';
+    const bodyWithSignature = signature 
+      ? `${body.trim()}\n\n${signature}`
+      : body.trim();
+
+    // Build recipients
+    const recipients: string[] = to.split(',').map(e => e.trim()).filter(Boolean);
+    const ccRecipients: string[] = cc ? cc.split(',').map(e => e.trim()).filter(Boolean) : [];
+    const bccRecipients: string[] = bcc ? bcc.split(',').map(e => e.trim()).filter(Boolean) : [];
+
+    // Show toast with undo option
+    setToast({
+      message: 'Sending email...',
+      type: 'success',
+      action: {
+        label: 'Undo',
+        onClick: cancelPendingSend,
+      },
+    });
+
+    // Delay the actual send to allow undo
+    pendingSendRef.current = setTimeout(async () => {
+      try {
+        await api.post('/gmail/send', {
+          to: recipients.join(', '),
+          cc: ccRecipients.length > 0 ? ccRecipients.join(', ') : undefined,
+          bcc: bccRecipients.length > 0 ? bccRecipients.join(', ') : undefined,
+          subject: subject.trim(),
+          body: bodyWithSignature,
+        });
+
+        pendingSendRef.current = null;
+        setToast({ message: 'Email sent successfully!', type: 'success' });
+
+        setTimeout(() => {
+          router.push('/inbox');
+        }, 1000);
+      } catch (err: any) {
+        console.error('Error sending email:', err);
+        setToast({ message: err?.response?.data?.message || 'Failed to send email', type: 'error' });
+      } finally {
+        setSending(false);
+      }
+    }, 4000);
   };
 
   if (!user) return null;
@@ -180,8 +214,12 @@ function ComposeContent() {
               disabled={sending}
               className="bg-gray-900 hover:bg-gray-800 text-white min-w-[90px]"
             >
-              <Send className="h-4 w-4 mr-2" />
-              Send
+              {sending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}
+              {sending ? 'Sending...' : 'Send'}
             </Button>
           </div>
         </div>
@@ -216,10 +254,9 @@ function ComposeContent() {
         onClose={() => setShowSendModal(false)}
         title="Send Email"
         description={`Send this email to ${to}${cc ? `, Cc: ${cc}` : ''}${bcc ? `, Bcc: ${bcc}` : ''}?`}
-        confirmText={sending ? 'Sending...' : 'Send Email'}
+        confirmText="Send Email"
         cancelText="Cancel"
         onConfirm={sendEmail}
-        loading={sending}
       />
 
       {/* Toast Notification */}
