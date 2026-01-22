@@ -1,95 +1,105 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, Settings as SettingsIcon, Sparkles } from 'lucide-react';
-import api from '@/lib/axios';
+import { Toast } from '@/components/ui/toast';
+import { Modal } from '@/components/ui/modal';
+import { Save, Mail, CheckCircle2, Loader2 } from 'lucide-react';
 import { useUserStore } from '@/store/userStore';
+import AppShell from '@/components/layout/AppShell';
+import api from '@/lib/axios';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, token } = useUserStore();
+  const { user } = useUserStore();
   const [defaultTone, setDefaultTone] = useState<'formal' | 'friendly' | 'assertive' | 'short'>('friendly');
   const [signature, setSignature] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  // Load saved preferences on mount
   useEffect(() => {
-    if (!user) {
-      router.push('/login');
+    const savedTone = localStorage.getItem('defaultTone');
+    const savedSignature = localStorage.getItem('emailSignature');
+    
+    if (savedTone) {
+      setDefaultTone(savedTone as any);
     }
-  }, [user, router]);
+    if (savedSignature) {
+      setSignature(savedSignature);
+    }
+  }, []);
+
+  const handleSaveClick = () => {
+    setShowSaveModal(true);
+  };
 
   const savePreferences = async () => {
     try {
       setSaving(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      alert('Preferences saved successfully!');
+      
+      // Save to localStorage
+      localStorage.setItem('defaultTone', defaultTone);
+      localStorage.setItem('emailSignature', signature);
+      
+      // Try to save to backend if available
+      try {
+        await api.post('/analytics/preferences', {
+          defaultTone,
+          signature,
+        });
+      } catch (e) {
+        // Backend save failed, but local save succeeded
+        console.log('Backend save not available, saved locally');
+      }
+      
+      setShowSaveModal(false);
+      setToast({ message: 'Settings saved successfully!', type: 'success' });
     } catch (error) {
       console.error('Error saving preferences:', error);
-      alert('Failed to save preferences');
+      setToast({ message: 'Failed to save settings', type: 'error' });
     } finally {
       setSaving(false);
     }
   };
 
-  if (!user) return null;
-
   return (
-    <div className="min-h-screen bg-slate-50">
-      <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard')} className="text-slate-600">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <h1 className="text-xl font-semibold text-slate-900">Settings</h1>
-          </div>
-        </div>
-      </nav>
+    <AppShell>
+      <div className="max-w-2xl mx-auto py-8 px-4">
+        <h1 className="text-xl font-semibold text-gray-900 mb-6">Settings</h1>
 
-      <div className="container mx-auto px-6 py-8 max-w-3xl">
-        <div className="grid gap-6">
+        <div className="space-y-6">
           {/* AI Preferences */}
-          <Card className="border border-slate-200 bg-white shadow-sm">
-            <CardHeader className="bg-slate-50 border-b border-slate-200">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
-                <Sparkles className="h-4 w-4 text-slate-600" />
+          <Card className="border-gray-200 bg-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-900">
                 AI Preferences
               </CardTitle>
-              <CardDescription className="text-sm text-slate-500">
-                Configure how AI generates your email content
+              <CardDescription className="text-sm text-gray-500">
+                Configure AI behavior for email generation
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6 pt-6">
-              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                  <span className="text-sm font-semibold text-slate-700">AI Provider</span>
-                </div>
-                <p className="text-sm text-slate-600">
-                  Currently using <strong className="text-slate-900">Gemini AI</strong> for all AI-powered features
-                </p>
-              </div>
-
+            <CardContent>
               <div>
-                <Label htmlFor="defaultTone" className="text-slate-700 font-medium text-sm">Default Tone</Label>
+                <Label htmlFor="defaultTone" className="text-gray-700 font-medium text-sm">
+                  Default Tone
+                </Label>
                 <select
                   id="defaultTone"
                   value={defaultTone}
                   onChange={(e) => setDefaultTone(e.target.value as any)}
-                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 mt-1"
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 mt-1.5"
                 >
-                  <option value="formal">Formal - Professional and business-like</option>
-                  <option value="friendly">Friendly - Warm and approachable</option>
-                  <option value="assertive">Assertive - Direct and confident</option>
-                  <option value="short">Short - Brief and concise</option>
+                  <option value="formal">Formal - Professional</option>
+                  <option value="friendly">Friendly - Warm</option>
+                  <option value="assertive">Assertive - Direct</option>
+                  <option value="short">Short - Concise</option>
                 </select>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-gray-500 mt-1.5">
                   This tone will be used by default when generating AI replies
                 </p>
               </div>
@@ -97,98 +107,110 @@ export default function SettingsPage() {
           </Card>
 
           {/* Email Signature */}
-          <Card className="border border-slate-200 bg-white shadow-sm">
-            <CardHeader className="bg-slate-50 border-b border-slate-200">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
-                <SettingsIcon className="h-4 w-4 text-slate-600" />
+          <Card className="border-gray-200 bg-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                <Mail className="h-4 w-4 text-gray-600" />
                 Email Signature
               </CardTitle>
-              <CardDescription className="text-sm text-slate-500">
-                Add a signature that will be automatically appended to your emails
+              <CardDescription className="text-sm text-gray-500">
+                Automatically appended to all outgoing emails
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 pt-6">
-              <div>
-                <Label htmlFor="signature" className="text-slate-700 font-medium text-sm">Signature</Label>
-                <textarea
-                  id="signature"
-                  value={signature}
-                  onChange={(e) => setSignature(e.target.value)}
-                  className="w-full min-h-[120px] rounded-md border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent mt-1"
-                  placeholder="Your email signature..."
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  This signature will be added to all AI-generated emails
-                </p>
-              </div>
+            <CardContent>
+              <textarea
+                id="signature"
+                value={signature}
+                onChange={(e) => setSignature(e.target.value)}
+                className="w-full min-h-[100px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300"
+                placeholder="Best regards,&#10;Your Name&#10;your@email.com"
+              />
+              <p className="text-xs text-gray-500 mt-1.5">
+                This signature will be added at the end of every email you send
+              </p>
             </CardContent>
           </Card>
 
-          {/* Gmail Account */}
-          <Card className="border border-slate-200 bg-white shadow-sm">
-            <CardHeader className="bg-slate-50 border-b border-slate-200">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
-                <SettingsIcon className="h-4 w-4 text-slate-600" />
-                Gmail Account
+          {/* Connected Account */}
+          <Card className="border-gray-200 bg-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                Connected Account
               </CardTitle>
-              <CardDescription className="text-sm text-slate-500">
-                Your connected Gmail account
-              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 pt-6">
-              <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-200">
-                <p className="text-sm font-medium text-slate-900 mb-2">
-                  Gmail Account Connected
-                </p>
-                <p className="text-xs text-slate-600 mb-4">
-                  Your account <span className="font-semibold">{user.email}</span> is connected. 
-                  You can access your inbox, compose emails, and use AI features.
-                </p>
-                <div className="flex gap-2">
-                  <Button 
-                    type="button" 
-                    size="sm" 
-                    onClick={() => router.push('/inbox')}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    Open Inbox
-                  </Button>
-                  <Button 
-                    type="button" 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => router.push('/compose')}
-                    className="border-slate-300"
-                  >
-                    Compose Email
-                  </Button>
+            <CardContent>
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center">
+                    <Mail className="h-4 w-4 text-gray-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900 text-sm">Gmail Connected</p>
+                    <p className="text-xs text-gray-500">{user?.email}</p>
+                  </div>
                 </div>
               </div>
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                <p className="text-xs text-slate-600">
-                  <strong>Note:</strong> All emails sent through InboxPilot will appear in your Gmail&apos;s Sent folder. 
-                  Replies will be part of the same conversation thread.
-                </p>
+              <div className="mt-4 flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => router.push('/inbox')}
+                  className="bg-gray-900 hover:bg-gray-800 text-white"
+                >
+                  Open Inbox
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => router.push('/compose')}
+                  className="border-gray-200"
+                >
+                  Compose
+                </Button>
               </div>
             </CardContent>
           </Card>
 
           {/* Save Button */}
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => router.push('/dashboard')} className="border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 bg-white">
+          <div className="flex justify-end gap-3 pt-2">
+            <Button 
+              variant="outline" 
+              onClick={() => router.push('/dashboard')}
+              className="border-gray-200"
+            >
               Cancel
             </Button>
-            <Button 
-              onClick={savePreferences}
-              disabled={saving}
-              className="bg-slate-900 hover:bg-slate-800 text-white"
+            <Button
+              onClick={handleSaveClick}
+              className="bg-gray-900 hover:bg-gray-800 text-white"
             >
               <Save className="h-4 w-4 mr-2" />
-              {saving ? 'Saving...' : 'Save Preferences'}
+              Save Settings
             </Button>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Save Confirmation Modal */}
+      <Modal
+        isOpen={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        title="Save Settings"
+        description="Are you sure you want to save these settings? Your preferences will be applied immediately."
+        confirmText={saving ? 'Saving...' : 'Save'}
+        cancelText="Cancel"
+        onConfirm={savePreferences}
+        loading={saving}
+      />
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+    </AppShell>
   );
 }
