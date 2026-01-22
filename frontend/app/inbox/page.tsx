@@ -420,7 +420,7 @@ export default function InboxPage() {
 
   return (
     <AppShell>
-      <div className="h-[calc(100vh-56px)] flex relative">
+      <div className="h-[calc(100vh-56px)] flex relative overflow-hidden">
         {/* Mobile Sidebar Overlay */}
         {showMobileSidebar && (
           <div 
@@ -434,7 +434,7 @@ export default function InboxPage() {
           fixed lg:relative inset-y-0 left-0 z-50 lg:z-auto
           transform transition-transform duration-300 ease-in-out
           ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          lg:block
+          lg:block top-14 lg:top-0
         `}>
           <EmailSidebar
             activeTab={activeTab}
@@ -451,22 +451,22 @@ export default function InboxPage() {
 
         {/* Email List - Full width on mobile when no email selected */}
         <div className={`
-          flex-1 lg:flex-none lg:w-80 bg-white border-r border-gray-200 flex flex-col
+          flex-1 lg:flex-none lg:w-80 bg-white border-r border-gray-200 flex flex-col min-h-0 overflow-hidden
           ${mobileViewingEmail ? 'hidden lg:flex' : 'flex'}
         `}>
           {/* Mobile Header with Menu Button */}
-          <div className="flex items-center gap-2 p-3 border-b border-gray-100 lg:hidden">
+          <div className="flex items-center gap-2 p-2 sm:p-3 border-b border-gray-100 lg:hidden shrink-0">
             <button
               onClick={() => setShowMobileSidebar(true)}
-              className="p-2 hover:bg-gray-100 rounded-lg"
+              className="p-2 hover:bg-gray-100 rounded-lg shrink-0"
             >
               <Menu className="h-5 w-5 text-gray-600" />
             </button>
-            <div className="flex-1 relative">
+            <div className="flex-1 relative min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 type="text"
-                placeholder="Search emails..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 h-9 bg-white border-gray-200 text-sm placeholder:text-gray-400 w-full"
@@ -475,7 +475,7 @@ export default function InboxPage() {
           </div>
 
           {/* Desktop Search */}
-          <div className="p-3 border-b border-gray-100 hidden lg:block">
+          <div className="p-3 border-b border-gray-100 hidden lg:block shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
@@ -489,13 +489,13 @@ export default function InboxPage() {
           </div>
 
           {/* List Header */}
-          <div className="px-4 py-2 border-b border-gray-100">
+          <div className="px-3 sm:px-4 py-2 border-b border-gray-100 shrink-0">
             <h2 className="font-medium text-gray-900 text-sm capitalize">{activeTab}</h2>
             <p className="text-xs text-gray-400">{filteredEmails.length} emails</p>
           </div>
 
           {/* Email List */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto min-h-0">
             <EmailList
               emails={filteredEmails}
               selectedEmail={selectedEmail}
@@ -513,9 +513,9 @@ export default function InboxPage() {
 
         {/* Email Viewer - Full screen on mobile when email selected */}
         <div className={`
-          flex-1 flex flex-col
+          flex-1 flex flex-col min-h-0 overflow-hidden
           ${mobileViewingEmail ? 'flex' : 'hidden lg:flex'}
-          ${mobileViewingEmail ? 'absolute inset-0 z-30 lg:relative lg:z-auto bg-white' : ''}
+          ${mobileViewingEmail ? 'fixed inset-0 top-14 z-30 lg:relative lg:top-0 lg:z-auto bg-white' : ''}
         `}>
           <EmailViewer
             email={selectedEmail}

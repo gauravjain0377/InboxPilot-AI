@@ -27,53 +27,55 @@ export default function AIActionsBar({
   return (
     <>
       {/* AI Actions Buttons */}
-      <div className="px-4 py-2 border-b border-gray-100 bg-gray-50/50 shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-gray-500 mr-1">
+      <div className="px-2 sm:px-4 py-2 border-b border-gray-100 bg-gray-50/50 shrink-0 overflow-x-auto">
+        <div className="flex items-center gap-1 sm:gap-2 min-w-max">
+          <span className="text-xs font-medium text-gray-500 mr-1 shrink-0">
             <Sparkles className="h-3 w-3 inline mr-1" />
-            AI:
+            <span className="hidden sm:inline">AI:</span>
           </span>
           <Button
             size="sm"
             variant="ghost"
             onClick={onGenerateSummary}
             disabled={aiLoading !== null}
-            className="text-xs h-7 px-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            className="text-xs h-7 px-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 shrink-0"
           >
             {aiLoading === 'summary' ? (
               <Loader2 className="h-3 w-3 mr-1 animate-spin" />
             ) : (
               <Wand2 className="h-3 w-3 mr-1" />
             )}
-            Summarize
+            <span className="hidden sm:inline">Summarize</span>
+            <span className="sm:hidden">Sum</span>
           </Button>
           <Button
             size="sm"
             variant="ghost"
             onClick={() => onGenerateReply('friendly')}
             disabled={aiLoading !== null}
-            className="text-xs h-7 px-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            className="text-xs h-7 px-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 shrink-0"
           >
             {aiLoading === 'reply' ? (
               <Loader2 className="h-3 w-3 mr-1 animate-spin" />
             ) : (
               <Reply className="h-3 w-3 mr-1" />
             )}
-            Generate Reply
+            Reply
           </Button>
           <Button
             size="sm"
             variant="ghost"
             onClick={onGenerateFollowUp}
             disabled={aiLoading !== null}
-            className="text-xs h-7 px-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            className="text-xs h-7 px-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 shrink-0"
           >
             {aiLoading === 'followup' ? (
               <Loader2 className="h-3 w-3 mr-1 animate-spin" />
             ) : (
               <Clock className="h-3 w-3 mr-1" />
             )}
-            Follow-up
+            <span className="hidden sm:inline">Follow-up</span>
+            <span className="sm:hidden">Follow</span>
           </Button>
         </div>
       </div>
@@ -81,16 +83,16 @@ export default function AIActionsBar({
       {/* AI Result - Collapsible */}
       {aiResult && (
         <div
-          className={`px-4 py-3 border-b shrink-0 ${
+          className={`px-3 sm:px-4 py-2 sm:py-3 border-b shrink-0 max-h-40 overflow-y-auto ${
             aiResult.type === 'error'
               ? 'bg-red-50 border-red-100'
               : 'bg-gray-50 border-gray-100'
           }`}
         >
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-2 sm:gap-3">
             <div className="flex-1 min-w-0">
               <p
-                className={`text-xs font-medium mb-1.5 ${
+                className={`text-xs font-medium mb-1 sm:mb-1.5 ${
                   aiResult.type === 'error' ? 'text-red-600' : 'text-gray-500'
                 }`}
               >
@@ -100,7 +102,7 @@ export default function AIActionsBar({
                 {aiResult.type === 'error' && 'Error'}
               </p>
               <p
-                className={`text-sm whitespace-pre-wrap leading-relaxed ${
+                className={`text-xs sm:text-sm whitespace-pre-wrap leading-relaxed ${
                   aiResult.type === 'error' ? 'text-red-600' : 'text-gray-700'
                 }`}
               >

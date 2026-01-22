@@ -234,9 +234,9 @@ export default function EmailViewer({
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-white">
+    <div className="flex-1 flex flex-col overflow-hidden bg-white h-full max-h-full">
       {/* Email Header - Gmail Style */}
-      <div className="px-4 sm:px-6 py-4 border-b border-gray-200 shrink-0">
+      <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 shrink-0">
         {/* Mobile Back Button + Subject */}
         <div className="flex items-start justify-between gap-2 sm:gap-4 mb-4">
           <div className="flex items-start gap-2 flex-1 min-w-0">
@@ -275,20 +275,20 @@ export default function EmailViewer({
         </div>
 
         {/* Sender Info */}
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-2 sm:gap-3">
           {/* Avatar */}
-          <div className={`w-10 h-10 rounded-full ${getAvatarColor(email.from)} flex items-center justify-center text-white text-sm font-medium shrink-0 shadow-sm`}>
+          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full ${getAvatarColor(email.from)} flex items-center justify-center text-white text-xs sm:text-sm font-medium shrink-0 shadow-sm`}>
             {getInitials(email.from)}
           </div>
           
           {/* Sender Details */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-medium text-gray-900">{formatSenderName(email.from)}</span>
-                <span className="text-sm text-gray-500">&lt;{extractEmail(email.from)}&gt;</span>
+            <div className="flex items-start sm:items-center justify-between gap-1 sm:gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-0 sm:gap-2 min-w-0">
+                <span className="font-medium text-gray-900 text-sm sm:text-base truncate">{formatSenderName(email.from)}</span>
+                <span className="text-xs sm:text-sm text-gray-500 truncate hidden sm:inline">&lt;{extractEmail(email.from)}&gt;</span>
               </div>
-              <span className="text-sm text-gray-500 shrink-0">{formatShortDate(email.date)}</span>
+              <span className="text-xs sm:text-sm text-gray-500 shrink-0">{formatShortDate(email.date)}</span>
             </div>
             
             {/* To Line with Expandable Details */}
@@ -353,25 +353,26 @@ export default function EmailViewer({
 
       {/* Image Toggle Banner */}
       {hasHtmlContent && (
-        <div className="px-6 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <ImageIcon className="w-4 h-4" />
-            <span>Images in this message</span>
+        <div className="px-3 sm:px-6 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
+            <ImageIcon className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Images in this message</span>
+            <span className="sm:hidden">Images</span>
           </div>
           <button
             onClick={() => setShowImages(!showImages)}
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            className="text-xs sm:text-sm text-blue-600 hover:text-blue-700 font-medium shrink-0"
           >
-            {showImages ? 'Hide images' : 'Show images'}
+            {showImages ? 'Hide' : 'Show'}
           </button>
         </div>
       )}
 
       {/* Email Body */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
         <div 
           ref={contentRef}
-          className="email-content p-6"
+          className="email-content p-3 sm:p-6"
           dangerouslySetInnerHTML={{ __html: displayContent || '<p class="text-gray-500">Loading email content...</p>' }}
         />
       </div>
