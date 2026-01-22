@@ -206,14 +206,14 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-100 rounded-full mb-8"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-900 rounded-full mb-8"
             >
               <motion.div
                 animate={{ scale: [1, 1.2, 1] }}
                 transition={{ duration: 2, repeat: Infinity }}
                 className="w-2 h-2 bg-blue-500 rounded-full"
               />
-              <span className="text-sm text-blue-700 font-medium">Powered by Advanced AI</span>
+              <span className="text-sm text-white font-medium">Trusted by 10,000+ professionals</span>
             </motion.div>
 
             {/* Heading */}
