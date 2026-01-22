@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Mail, Archive, Trash2, Reply, MoreHorizontal, Download, ExternalLink, ChevronDown, ChevronUp, Image as ImageIcon } from 'lucide-react';
+import { Mail, Archive, Trash2, Reply, MoreHorizontal, Download, ExternalLink, ChevronDown, ChevronUp, Image as ImageIcon, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Email } from './types';
 import AIActionsBar from './AIActionsBar';
@@ -25,6 +25,8 @@ interface EmailViewerProps {
   onCopyToClipboard: (text: string) => void;
   onClearAiResult: () => void;
   copiedToClipboard: boolean;
+  onBack?: () => void;
+  showBackButton?: boolean;
 }
 
 // Function to check if content is HTML
@@ -121,6 +123,8 @@ export default function EmailViewer({
   onCopyToClipboard,
   onClearAiResult,
   copiedToClipboard,
+  onBack,
+  showBackButton,
 }: EmailViewerProps) {
   const [showImages, setShowImages] = useState(true);
   const [showDetails, setShowDetails] = useState(false);
@@ -232,30 +236,40 @@ export default function EmailViewer({
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-white">
       {/* Email Header - Gmail Style */}
-      <div className="px-6 py-4 border-b border-gray-200 shrink-0">
-        {/* Subject */}
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <h1 className="text-xl font-normal text-gray-900 leading-tight flex-1">
-            {email.subject || '(No subject)'}
-          </h1>
+      <div className="px-4 sm:px-6 py-4 border-b border-gray-200 shrink-0">
+        {/* Mobile Back Button + Subject */}
+        <div className="flex items-start justify-between gap-2 sm:gap-4 mb-4">
+          <div className="flex items-start gap-2 flex-1 min-w-0">
+            {showBackButton && (
+              <button
+                onClick={onBack}
+                className="p-2 -ml-2 hover:bg-gray-100 rounded-full shrink-0 lg:hidden"
+              >
+                <ArrowLeft className="h-5 w-5 text-gray-600" />
+              </button>
+            )}
+            <h1 className="text-lg sm:text-xl font-normal text-gray-900 leading-tight flex-1 break-words">
+              {email.subject || '(No subject)'}
+            </h1>
+          </div>
           <div className="flex items-center gap-1 shrink-0">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onArchive(email)}
-              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 h-9 w-9 p-0 rounded-full"
+              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 h-8 w-8 sm:h-9 sm:w-9 p-0 rounded-full"
               title="Archive"
             >
-              <Archive className="h-5 w-5" />
+              <Archive className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onTrash(email)}
-              className="text-gray-500 hover:text-red-600 hover:bg-red-50 h-9 w-9 p-0 rounded-full"
+              className="text-gray-500 hover:text-red-600 hover:bg-red-50 h-8 w-8 sm:h-9 sm:w-9 p-0 rounded-full"
               title="Delete"
             >
-              <Trash2 className="h-5 w-5" />
+              <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
           </div>
         </div>

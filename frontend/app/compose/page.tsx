@@ -191,7 +191,7 @@ function ComposeContent() {
     <AppShell>
       <div className="max-w-3xl mx-auto py-6 px-4">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h1 className="text-xl font-semibold text-gray-900">New Message</h1>
           <div className="flex items-center gap-2">
             <Button
@@ -199,20 +199,21 @@ function ComposeContent() {
               size="sm"
               onClick={enhanceWithAI}
               disabled={enhancing || !body.trim()}
-              className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+              className="border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 flex-1 sm:flex-none"
             >
               {enhancing ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Wand2 className="h-4 w-4 mr-2" />
               )}
-              AI Enhance
+              <span className="hidden sm:inline">AI Enhance</span>
+              <span className="sm:hidden">Enhance</span>
             </Button>
             <Button
               size="sm"
               onClick={handleSendClick}
               disabled={sending}
-              className="bg-gray-900 hover:bg-gray-800 text-white min-w-[90px]"
+              className="bg-gray-900 hover:bg-gray-800 text-white min-w-[80px] sm:min-w-[90px] flex-1 sm:flex-none"
             >
               {sending ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

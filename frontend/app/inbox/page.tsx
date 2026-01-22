@@ -10,7 +10,7 @@ import { Email, EmailTab } from '@/components/inbox/types';
 import { Input } from '@/components/ui/input';
 import { Toast } from '@/components/ui/toast';
 import { Modal } from '@/components/ui/modal';
-import { Search } from 'lucide-react';
+import { Search, Menu, X } from 'lucide-react';
 
 interface ToastState {
   message: string;
@@ -35,6 +35,10 @@ export default function InboxPage() {
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<EmailTab>('inbox');
+  
+  // Mobile state
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [mobileViewingEmail, setMobileViewingEmail] = useState(false);
   
   // Toast and Modal states
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -91,6 +95,8 @@ export default function InboxPage() {
   const selectEmail = async (email: Email) => {
     try {
       setSelectedEmail(email);
+      setMobileViewingEmail(true); // Show email viewer on mobile
+      setShowMobileSidebar(false); // Hide sidebar on mobile
       setShowReply(false);
       setAiResult(null);
       setReplyBody('');
@@ -119,6 +125,12 @@ export default function InboxPage() {
     } catch (err) {
       console.error('Error selecting email:', err);
     }
+  };
+
+  // Back to list on mobile
+  const handleBackToList = () => {
+    setMobileViewingEmail(false);
+    setSelectedEmail(null);
   };
 
   const toggleStar = async (email: Email, e: React.MouseEvent) => {
@@ -161,6 +173,7 @@ export default function InboxPage() {
     setEmails((prev) => prev.filter((e) => e.gmailId !== email.gmailId));
     if (selectedEmail?.gmailId === email.gmailId) {
       setSelectedEmail(null);
+      setMobileViewingEmail(false);
     }
 
     // Set up delayed action with undo option
@@ -206,6 +219,7 @@ export default function InboxPage() {
     setEmails((prev) => prev.filter((e) => e.gmailId !== email.gmailId));
     if (selectedEmail?.gmailId === email.gmailId) {
       setSelectedEmail(null);
+      setMobileViewingEmail(false);
     }
 
     // Set up delayed action with undo option
@@ -406,20 +420,62 @@ export default function InboxPage() {
 
   return (
     <AppShell>
-      <div className="h-[calc(100vh-56px)] flex">
-        {/* Sidebar */}
-        <EmailSidebar
-          activeTab={activeTab}
-          unreadCount={unreadCount}
-          syncing={syncing}
-          onTabChange={setActiveTab}
-          onSync={syncEmails}
-        />
+      <div className="h-[calc(100vh-56px)] flex relative">
+        {/* Mobile Sidebar Overlay */}
+        {showMobileSidebar && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            onClick={() => setShowMobileSidebar(false)}
+          />
+        )}
 
-        {/* Email List */}
-        <div className="w-80 bg-white border-r border-gray-200 flex flex-col shrink-0">
-          {/* Search */}
-          <div className="p-3 border-b border-gray-100">
+        {/* Sidebar - Hidden on mobile by default, shown as overlay */}
+        <div className={`
+          fixed lg:relative inset-y-0 left-0 z-50 lg:z-auto
+          transform transition-transform duration-300 ease-in-out
+          ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          lg:block
+        `}>
+          <EmailSidebar
+            activeTab={activeTab}
+            unreadCount={unreadCount}
+            syncing={syncing}
+            onTabChange={(tab) => {
+              setActiveTab(tab);
+              setShowMobileSidebar(false);
+            }}
+            onSync={syncEmails}
+            onClose={() => setShowMobileSidebar(false)}
+          />
+        </div>
+
+        {/* Email List - Full width on mobile when no email selected */}
+        <div className={`
+          flex-1 lg:flex-none lg:w-80 bg-white border-r border-gray-200 flex flex-col
+          ${mobileViewingEmail ? 'hidden lg:flex' : 'flex'}
+        `}>
+          {/* Mobile Header with Menu Button */}
+          <div className="flex items-center gap-2 p-3 border-b border-gray-100 lg:hidden">
+            <button
+              onClick={() => setShowMobileSidebar(true)}
+              className="p-2 hover:bg-gray-100 rounded-lg"
+            >
+              <Menu className="h-5 w-5 text-gray-600" />
+            </button>
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search emails..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9 bg-white border-gray-200 text-sm placeholder:text-gray-400 w-full"
+              />
+            </div>
+          </div>
+
+          {/* Desktop Search */}
+          <div className="p-3 border-b border-gray-100 hidden lg:block">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
@@ -455,26 +511,34 @@ export default function InboxPage() {
           </div>
         </div>
 
-        {/* Email Viewer */}
-        <EmailViewer
-          email={selectedEmail}
-          showReply={showReply}
-          replyBody={replyBody}
-          sendingReply={sendingReply}
-          aiLoading={aiLoading}
-          aiResult={aiResult}
-          onArchive={archiveEmail}
-          onTrash={trashEmail}
-          onSetShowReply={setShowReply}
-          onSetReplyBody={setReplyBody}
-          onSendReply={handleSendReplyClick}
-          onGenerateSummary={generateAISummary}
-          onGenerateReply={generateAIReply}
-          onGenerateFollowUp={generateFollowUp}
-          onCopyToClipboard={copyToClipboard}
-          onClearAiResult={clearAiResult}
-          copiedToClipboard={copiedToClipboard}
-        />
+        {/* Email Viewer - Full screen on mobile when email selected */}
+        <div className={`
+          flex-1 flex flex-col
+          ${mobileViewingEmail ? 'flex' : 'hidden lg:flex'}
+          ${mobileViewingEmail ? 'absolute inset-0 z-30 lg:relative lg:z-auto bg-white' : ''}
+        `}>
+          <EmailViewer
+            email={selectedEmail}
+            showReply={showReply}
+            replyBody={replyBody}
+            sendingReply={sendingReply}
+            aiLoading={aiLoading}
+            aiResult={aiResult}
+            onArchive={archiveEmail}
+            onTrash={trashEmail}
+            onSetShowReply={setShowReply}
+            onSetReplyBody={setReplyBody}
+            onSendReply={handleSendReplyClick}
+            onGenerateSummary={generateAISummary}
+            onGenerateReply={generateAIReply}
+            onGenerateFollowUp={generateFollowUp}
+            onCopyToClipboard={copyToClipboard}
+            onClearAiResult={clearAiResult}
+            copiedToClipboard={copiedToClipboard}
+            onBack={handleBackToList}
+            showBackButton={mobileViewingEmail}
+          />
+        </div>
       </div>
 
       {/* Send Reply Confirmation Modal */}

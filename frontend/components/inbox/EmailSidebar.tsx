@@ -1,6 +1,6 @@
 'use client';
 
-import { Inbox, Star, Send, RefreshCw } from 'lucide-react';
+import { Inbox, Star, Send, RefreshCw, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmailTab } from './types';
 
@@ -10,6 +10,7 @@ interface EmailSidebarProps {
   syncing: boolean;
   onTabChange: (tab: EmailTab) => void;
   onSync: () => void;
+  onClose?: () => void;
 }
 
 export default function EmailSidebar({
@@ -18,6 +19,7 @@ export default function EmailSidebar({
   syncing,
   onTabChange,
   onSync,
+  onClose,
 }: EmailSidebarProps) {
   const tabs = [
     { id: 'inbox' as EmailTab, label: 'Inbox', icon: Inbox, count: unreadCount },
@@ -26,7 +28,20 @@ export default function EmailSidebar({
   ];
 
   return (
-    <aside className="w-48 bg-white border-r border-gray-200 p-3 shrink-0 flex flex-col">
+    <aside className="w-48 bg-white border-r border-gray-200 p-3 shrink-0 flex flex-col h-full">
+      {/* Mobile Close Button */}
+      {onClose && (
+        <div className="flex items-center justify-between mb-3 lg:hidden">
+          <span className="font-medium text-gray-900 text-sm">Menu</span>
+          <button
+            onClick={onClose}
+            className="p-1.5 hover:bg-gray-100 rounded-lg"
+          >
+            <X className="h-5 w-5 text-gray-500" />
+          </button>
+        </div>
+      )}
+      
       <div className="mb-3">
         <Button
           variant="outline"
