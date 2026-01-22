@@ -95,9 +95,13 @@ export default function InboxPage() {
       setAiResult(null);
       setReplyBody('');
 
-      if (!email.body) {
+      if (!email.body && !email.htmlBody) {
         const { data } = await api.get(`/gmail/message/${email.gmailId}/full`);
-        const fullEmail = { ...email, body: data.email.body };
+        const fullEmail = { 
+          ...email, 
+          body: data.email.body,
+          htmlBody: data.email.htmlBody 
+        };
         setSelectedEmail(fullEmail);
         setEmails((prev) =>
           prev.map((e) => (e.gmailId === email.gmailId ? fullEmail : e))

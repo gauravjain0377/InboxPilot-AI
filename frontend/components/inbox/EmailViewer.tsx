@@ -26,45 +26,20 @@ interface EmailViewerProps {
   copiedToClipboard: boolean;
 }
 
-// Function to strip HTML and extract plain text
-function stripHtml(html: string): string {
-  // Create a temporary element to parse HTML
-  if (typeof window === 'undefined') {
-    // Server-side: basic regex stripping
-    return html
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-  
-  // Client-side: use DOM parser
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  return doc.body.textContent || '';
-}
-
 // Function to check if content is HTML
 function isHtml(str: string): boolean {
   return /<[a-z][\s\S]*>/i.test(str);
 }
 
-// Function to format email body for display
-function formatEmailBody(body: string | undefined): string {
-  if (!body) return '';
-  
-  // If it looks like HTML, strip it
-  if (isHtml(body)) {
-    return stripHtml(body);
-  }
-  
-  return body;
+// Function to sanitize HTML for safe rendering
+function sanitizeHtml(html: string): string {
+  // Remove potentially dangerous elements but keep formatting
+  return html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, '')
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+="[^"]*"/gi, '')
+    .replace(/on\w+='[^']*'/gi, '');
 }
 
 export default function EmailViewer({
@@ -91,6 +66,15 @@ export default function EmailViewer({
     return match ? match[1].trim().replace(/"/g, '') : from;
   };
 
+  const getInitials = (from: string) => {
+    const name = formatSenderName(from);
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
   if (!email) {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-400 bg-gray-50/50">
@@ -103,43 +87,77 @@ export default function EmailViewer({
     );
   }
 
-  const displayBody = formatEmailBody(email.body || email.snippet);
+  // Prefer htmlBody for rich formatting, fall back to body or snippet
+  const htmlContent = email.htmlBody || '';
+  const textContent = email.body || email.snippet || '';
+  const hasHtmlContent = htmlContent && isHtml(htmlContent);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-white">
       {/* Email Header */}
-      <div className="p-4 border-b border-gray-100 shrink-0">
+      <div className="p-5 border-b border-gray-100 shrink-0">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">
+            <h2 className="text-xl font-semibold text-gray-900 mb-3">
               {email.subject || '(No subject)'}
             </h2>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="font-medium text-gray-700">{formatSenderName(email.from)}</span>
-              <span className="text-gray-300">•</span>
-              <span className="text-gray-500">{new Date(email.date).toLocaleString()}</span>
+            <div className="flex items-start gap-3">
+              {/* Avatar */}
+              <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white text-sm font-medium shrink-0">
+                {getInitials(email.from)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-gray-900">{formatSenderName(email.from)}</span>
+                  <span className="text-sm text-gray-500">
+                    &lt;{email.from.match(/<([^>]+)>/)?.[1] || email.from}&gt;
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mt-0.5 text-sm text-gray-500">
+                  <span>{new Date(email.date).toLocaleDateString('en-US', { 
+                    weekday: 'short',
+                    month: 'short', 
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                  })}</span>
+                </div>
+                <p className="text-sm text-gray-500 mt-1">
+                  to {email.to?.join(', ') || 'me'}
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-gray-400 mt-1">
-              To: {email.to?.join(', ')}
-            </p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onArchive(email)}
-              className="text-gray-400 hover:text-gray-600 h-8 w-8 p-0"
-            >
-              <Archive className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onTrash(email)}
-              className="text-gray-400 hover:text-red-500 h-8 w-8 p-0"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            {/* Archive Button with Tooltip */}
+            <div className="relative group">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onArchive(email)}
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 h-9 w-9 p-0"
+              >
+                <Archive className="h-5 w-5" />
+              </Button>
+              <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 text-xs font-medium text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                Archive
+              </span>
+            </div>
+            {/* Delete Button with Tooltip */}
+            <div className="relative group">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onTrash(email)}
+                className="text-gray-400 hover:text-red-500 hover:bg-red-50 h-9 w-9 p-0"
+              >
+                <Trash2 className="h-5 w-5" />
+              </Button>
+              <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 text-xs font-medium text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                Delete
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -157,11 +175,24 @@ export default function EmailViewer({
       />
 
       {/* Email Body */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="max-w-2xl">
-          <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-            {displayBody || 'Loading email content...'}
-          </p>
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-5">
+          {hasHtmlContent ? (
+            <div 
+              className="email-content prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(htmlContent) }}
+              style={{
+                fontFamily: 'Arial, sans-serif',
+                fontSize: '14px',
+                lineHeight: '1.6',
+                color: '#333',
+              }}
+            />
+          ) : (
+            <pre className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap font-sans">
+              {textContent || 'Loading email content...'}
+            </pre>
+          )}
         </div>
       </div>
 
@@ -176,6 +207,105 @@ export default function EmailViewer({
         onSendReply={onSendReply}
         onGenerateReply={onGenerateReply}
       />
+
+      {/* Email Content Styles - Gmail-like appearance */}
+      <style jsx global>{`
+        .email-content {
+          word-break: break-word;
+          font-family: 'Google Sans', Roboto, Arial, sans-serif;
+          font-size: 14px;
+          line-height: 1.5;
+          color: #202124;
+        }
+        .email-content img {
+          max-width: 100%;
+          height: auto;
+          display: inline-block;
+        }
+        .email-content a {
+          color: #1a73e8;
+          text-decoration: none;
+        }
+        .email-content a:hover {
+          text-decoration: underline;
+        }
+        .email-content table {
+          border-collapse: collapse;
+          max-width: 100%;
+        }
+        .email-content td, .email-content th {
+          vertical-align: top;
+        }
+        .email-content blockquote {
+          border-left: 3px solid #dadce0;
+          margin: 16px 0;
+          padding-left: 12px;
+          color: #5f6368;
+        }
+        .email-content p {
+          margin: 0 0 12px 0;
+        }
+        .email-content h1, .email-content h2, .email-content h3 {
+          margin: 20px 0 12px 0;
+          font-weight: 500;
+          color: #202124;
+        }
+        .email-content h1 { font-size: 24px; }
+        .email-content h2 { font-size: 20px; }
+        .email-content h3 { font-size: 16px; }
+        .email-content ul, .email-content ol {
+          margin: 12px 0;
+          padding-left: 24px;
+        }
+        .email-content li {
+          margin: 6px 0;
+        }
+        .email-content hr {
+          border: none;
+          border-top: 1px solid #dadce0;
+          margin: 20px 0;
+        }
+        .email-content pre {
+          background: #f8f9fa;
+          padding: 12px;
+          border-radius: 8px;
+          overflow-x: auto;
+          font-size: 13px;
+          font-family: 'Google Sans Mono', monospace;
+        }
+        .email-content code {
+          background: #f8f9fa;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 13px;
+          font-family: 'Google Sans Mono', monospace;
+        }
+        /* Gmail-specific styles */
+        .email-content div[style*="border-left"] {
+          border-left-color: #dadce0 !important;
+        }
+        .email-content .gmail_quote {
+          color: #5f6368;
+          border-left: 1px solid #dadce0;
+          margin-left: 0;
+          padding-left: 12px;
+        }
+        /* Center alignment for email headers/logos */
+        .email-content center,
+        .email-content [align="center"] {
+          text-align: center;
+        }
+        /* Responsive images */
+        .email-content img[width] {
+          width: auto;
+          max-width: 100%;
+        }
+        /* Button styles often found in marketing emails */
+        .email-content a[style*="background"] {
+          display: inline-block;
+          border-radius: 4px;
+        }
+      `}</style>
     </div>
   );
 }

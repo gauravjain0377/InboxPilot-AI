@@ -1,10 +1,18 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Mail, Sparkles, Clock, TrendingUp } from 'lucide-react';
-import { formatTime } from './utils';
 import { DashboardStats } from './types';
 
 interface StatsGridProps {
   stats: DashboardStats;
+}
+
+function formatTime(minutes: number): string {
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
 
 export default function StatsGrid({ stats }: StatsGridProps) {

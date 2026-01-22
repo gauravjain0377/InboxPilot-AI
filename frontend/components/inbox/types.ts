@@ -6,6 +6,7 @@ export interface Email {
   to: string[];
   subject: string;
   body?: string;
+  htmlBody?: string;
   snippet?: string;
   date: string;
   isRead: boolean;

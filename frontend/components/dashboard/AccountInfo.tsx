@@ -2,11 +2,18 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { User, Settings } from 'lucide-react';
-import { formatDate } from './utils';
 import { DashboardStats } from './types';
 
 interface AccountInfoProps {
   stats: DashboardStats;
+}
+
+function formatDate(dateString: string): string {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 export default function AccountInfo({ stats }: AccountInfoProps) {

@@ -3,7 +3,7 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { X, Sparkles, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Sparkles, Check } from 'lucide-react';
 
 type Tone = 'formal' | 'friendly' | 'assertive' | 'short';
 
