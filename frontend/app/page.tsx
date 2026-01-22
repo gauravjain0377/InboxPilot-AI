@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import { Mail, Sparkles, Clock, TrendingUp, Zap, Shield, ArrowRight, Check, Star, Inbox, Reply, Brain, Play } from 'lucide-react';
+import { ContactModal } from '@/components/ui/contact-modal';
 
 // Typewriter Effect Component
 const TypewriterText = ({ texts, className }: { texts: string[], className?: string }) => {
@@ -109,6 +110,7 @@ export default function LandingPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: containerRef });
   const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
+  const [showContactModal, setShowContactModal] = useState(false);
 
   const features = [
     {
@@ -543,12 +545,21 @@ export default function LandingPage() {
             <p className="text-neutral-500">
               &copy; 2026 InboxPilot AI. Crafted with care.
             </p>
-            <a href="mailto:gjain0229@gmail.com" className="text-neutral-500 hover:text-neutral-900 transition-colors text-sm">
+            <button 
+              onClick={() => setShowContactModal(true)}
+              className="text-neutral-500 hover:text-neutral-900 transition-colors text-sm"
+            >
               Contact
-            </a>
+            </button>
           </div>
         </div>
       </footer>
+
+      {/* Contact Modal */}
+      <ContactModal 
+        isOpen={showContactModal} 
+        onClose={() => setShowContactModal(false)} 
+      />
     </div>
   );
 }

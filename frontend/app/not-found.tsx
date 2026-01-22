@@ -1,12 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Mail, Home, ArrowLeft, Search } from 'lucide-react';
 import { useUserStore } from '@/store/userStore';
+import { ContactModal } from '@/components/ui/contact-modal';
 
 export default function NotFound() {
   const { user } = useUserStore();
+  const [showContactModal, setShowContactModal] = useState(false);
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4 font-sans relative overflow-hidden">
@@ -101,11 +104,20 @@ export default function NotFound() {
           className="mt-12 text-sm text-neutral-400"
         >
           Need help?{' '}
-          <a href="mailto:gjain0229@gmail.com" className="text-neutral-600 hover:text-neutral-900 underline">
+          <button 
+            onClick={() => setShowContactModal(true)}
+            className="text-neutral-600 hover:text-neutral-900 underline"
+          >
             Contact Support
-          </a>
+          </button>
         </motion.p>
       </div>
+
+      {/* Contact Modal */}
+      <ContactModal 
+        isOpen={showContactModal} 
+        onClose={() => setShowContactModal(false)} 
+      />
     </div>
   );
 }

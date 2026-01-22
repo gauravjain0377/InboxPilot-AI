@@ -10,6 +10,7 @@ import { Modal } from '@/components/ui/modal';
 import { Save, Mail, CheckCircle2, LogOut, AlertTriangle } from 'lucide-react';
 import { useUserStore } from '@/store/userStore';
 import AppShell from '@/components/layout/AppShell';
+import { ContactModal } from '@/components/ui/contact-modal';
 
 interface ToastState {
   message: string;
@@ -24,6 +25,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
 
@@ -219,13 +221,13 @@ export default function SettingsPage() {
                 <p className="text-sm text-gray-600 mb-3">
                   If you have any questions, issues, or feedback, feel free to contact us.
                 </p>
-                <a
-                  href="mailto:gjain0229@gmail.com"
+                <button
+                  onClick={() => setShowContactModal(true)}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors"
                 >
                   <Mail className="h-4 w-4" />
-                  Email Support
-                </a>
+                  Contact Support
+                </button>
               </div>
             </CardContent>
           </Card>
@@ -295,6 +297,12 @@ export default function SettingsPage() {
           onClose={() => setToast(null)}
         />
       )}
+
+      {/* Contact Modal */}
+      <ContactModal 
+        isOpen={showContactModal} 
+        onClose={() => setShowContactModal(false)} 
+      />
     </AppShell>
   );
 }
