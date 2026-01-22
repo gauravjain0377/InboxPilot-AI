@@ -7,19 +7,25 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Toast } from '@/components/ui/toast';
 import { Modal } from '@/components/ui/modal';
-import { Save, Mail, CheckCircle2, Loader2 } from 'lucide-react';
+import { Save, Mail, CheckCircle2, LogOut, AlertTriangle } from 'lucide-react';
 import { useUserStore } from '@/store/userStore';
 import AppShell from '@/components/layout/AppShell';
-import api from '@/lib/axios';
+
+interface ToastState {
+  message: string;
+  type: 'success' | 'error';
+}
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user } = useUserStore();
+  const { user, logout } = useUserStore();
   const [defaultTone, setDefaultTone] = useState<'formal' | 'friendly' | 'assertive' | 'short'>('friendly');
   const [signature, setSignature] = useState('');
   const [saving, setSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [toast, setToast] = useState<ToastState | null>(null);
 
   // Load saved preferences on mount
   useEffect(() => {
@@ -46,17 +52,6 @@ export default function SettingsPage() {
       localStorage.setItem('defaultTone', defaultTone);
       localStorage.setItem('emailSignature', signature);
       
-      // Try to save to backend if available
-      try {
-        await api.post('/analytics/preferences', {
-          defaultTone,
-          signature,
-        });
-      } catch (e) {
-        // Backend save failed, but local save succeeded
-        console.log('Backend save not available, saved locally');
-      }
-      
       setShowSaveModal(false);
       setToast({ message: 'Settings saved successfully!', type: 'success' });
     } catch (error) {
@@ -64,6 +59,34 @@ export default function SettingsPage() {
       setToast({ message: 'Failed to save settings', type: 'error' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDisconnectClick = () => {
+    setShowDisconnectModal(true);
+  };
+
+  const disconnectGmail = async () => {
+    try {
+      setDisconnecting(true);
+      
+      // Clear all user data
+      localStorage.removeItem('defaultTone');
+      localStorage.removeItem('emailSignature');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user-storage');
+      
+      // Logout the user
+      logout();
+      
+      setShowDisconnectModal(false);
+      
+      // Redirect to login
+      router.push('/login');
+    } catch (error) {
+      console.error('Error disconnecting Gmail:', error);
+      setDisconnecting(false);
+      setToast({ message: 'Failed to disconnect Gmail', type: 'error' });
     }
   };
 
@@ -145,13 +168,13 @@ export default function SettingsPage() {
                   <div className="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center">
                     <Mail className="h-4 w-4 text-gray-600" />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <p className="font-medium text-gray-900 text-sm">Gmail Connected</p>
                     <p className="text-xs text-gray-500">{user?.email}</p>
                   </div>
                 </div>
               </div>
-              <div className="mt-4 flex gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   onClick={() => router.push('/inbox')}
@@ -166,6 +189,15 @@ export default function SettingsPage() {
                   className="border-gray-200"
                 >
                   Compose
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleDisconnectClick}
+                  className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Disconnect Gmail
                 </Button>
               </div>
             </CardContent>
@@ -202,6 +234,31 @@ export default function SettingsPage() {
         onConfirm={savePreferences}
         loading={saving}
       />
+
+      {/* Disconnect Gmail Modal */}
+      <Modal
+        isOpen={showDisconnectModal}
+        onClose={() => setShowDisconnectModal(false)}
+        title="Disconnect Gmail"
+        confirmText={disconnecting ? 'Disconnecting...' : 'Disconnect'}
+        cancelText="Cancel"
+        onConfirm={disconnectGmail}
+        confirmVariant="destructive"
+        loading={disconnecting}
+      >
+        <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-100 mb-4">
+          <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-red-800">Warning</p>
+            <p className="text-sm text-red-700 mt-1">
+              This will disconnect your Gmail account and log you out. You will need to sign in again to use InboxPilot AI.
+            </p>
+          </div>
+        </div>
+        <p className="text-sm text-gray-600">
+          All your local settings and preferences will be cleared.
+        </p>
+      </Modal>
 
       {/* Toast Notification */}
       {toast && (

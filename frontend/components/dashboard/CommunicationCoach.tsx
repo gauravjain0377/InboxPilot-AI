@@ -44,7 +44,7 @@ export default function CommunicationCoach({ communication }: CommunicationCoach
           <div className="space-y-1">
             <p className="text-xs uppercase tracking-wide text-slate-500">AI assist rate</p>
             <p className="text-xl font-semibold text-slate-900">{Math.round((communication.aiReplyRate || 0) * 100)}%</p>
-            <p className="text-xs text-slate-500">Percent of replies generated with InboxPilot</p>
+            <p className="text-xs text-slate-500">Percent of replies generated with InboxPilot AI</p>
           </div>
         </div>
       </CardContent>

@@ -3,23 +3,27 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { X, Sparkles, Check } from 'lucide-react';
+import { X, Sparkles, Check, ChevronDown, ChevronUp } from 'lucide-react';
 
 type Tone = 'formal' | 'friendly' | 'assertive' | 'short';
 
 interface ComposeFormProps {
   to: string;
   cc: string;
+  bcc: string;
   subject: string;
   body: string;
   showCc: boolean;
+  showBcc: boolean;
   selectedTone: Tone;
   aiSuggestion: string | null;
   onToChange: (value: string) => void;
   onCcChange: (value: string) => void;
+  onBccChange: (value: string) => void;
   onSubjectChange: (value: string) => void;
   onBodyChange: (value: string) => void;
   onShowCcChange: (show: boolean) => void;
+  onShowBccChange: (show: boolean) => void;
   onToneChange: (tone: Tone) => void;
   onUseSuggestion: () => void;
   onDismissSuggestion: () => void;
@@ -28,16 +32,20 @@ interface ComposeFormProps {
 export default function ComposeForm({
   to,
   cc,
+  bcc,
   subject,
   body,
   showCc,
+  showBcc,
   selectedTone,
   aiSuggestion,
   onToChange,
   onCcChange,
+  onBccChange,
   onSubjectChange,
   onBodyChange,
   onShowCcChange,
+  onShowBccChange,
   onToneChange,
   onUseSuggestion,
   onDismissSuggestion,
@@ -55,18 +63,31 @@ export default function ComposeForm({
             value={to}
             onChange={(e) => onToChange(e.target.value)}
             placeholder="recipient@example.com"
-            className="flex-1 border-0 shadow-none focus-visible:ring-0 px-0 text-gray-900"
+            className="flex-1 border-0 shadow-none focus-visible:ring-0 px-0 text-gray-900 bg-transparent placeholder:text-gray-400"
           />
-          {!showCc && (
-            <button
-              onClick={() => onShowCcChange(true)}
-              className="text-xs text-gray-400 hover:text-gray-600"
-            >
-              Cc
-            </button>
-          )}
+          <div className="flex items-center gap-2 text-xs">
+            {!showCc && (
+              <button
+                type="button"
+                onClick={() => onShowCcChange(true)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                Cc
+              </button>
+            )}
+            {!showBcc && (
+              <button
+                type="button"
+                onClick={() => onShowBccChange(true)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                Bcc
+              </button>
+            )}
+          </div>
         </div>
 
+        {/* CC Field */}
         {showCc && (
           <div className="flex items-center px-4 py-3 border-t border-gray-100">
             <Label className="w-14 text-sm text-gray-500">Cc</Label>
@@ -75,14 +96,39 @@ export default function ComposeForm({
               value={cc}
               onChange={(e) => onCcChange(e.target.value)}
               placeholder="cc@example.com"
-              className="flex-1 border-0 shadow-none focus-visible:ring-0 px-0 text-gray-900"
+              className="flex-1 border-0 shadow-none focus-visible:ring-0 px-0 text-gray-900 bg-transparent placeholder:text-gray-400"
             />
             <button
+              type="button"
               onClick={() => {
                 onShowCcChange(false);
                 onCcChange('');
               }}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* BCC Field */}
+        {showBcc && (
+          <div className="flex items-center px-4 py-3 border-t border-gray-100">
+            <Label className="w-14 text-sm text-gray-500">Bcc</Label>
+            <Input
+              type="email"
+              value={bcc}
+              onChange={(e) => onBccChange(e.target.value)}
+              placeholder="bcc@example.com"
+              className="flex-1 border-0 shadow-none focus-visible:ring-0 px-0 text-gray-900 bg-transparent placeholder:text-gray-400"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                onShowBccChange(false);
+                onBccChange('');
+              }}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
@@ -99,7 +145,7 @@ export default function ComposeForm({
             value={subject}
             onChange={(e) => onSubjectChange(e.target.value)}
             placeholder="Email subject"
-            className="flex-1 border-0 shadow-none focus-visible:ring-0 px-0 font-medium text-gray-900"
+            className="flex-1 border-0 shadow-none focus-visible:ring-0 px-0 font-medium text-gray-900 bg-transparent placeholder:text-gray-400"
           />
         </div>
       </div>
@@ -119,6 +165,7 @@ export default function ComposeForm({
             </div>
             <div className="flex gap-2 shrink-0">
               <Button
+                type="button"
                 size="sm"
                 variant="outline"
                 onClick={onDismissSuggestion}
@@ -127,6 +174,7 @@ export default function ComposeForm({
                 Dismiss
               </Button>
               <Button
+                type="button"
                 size="sm"
                 onClick={onUseSuggestion}
                 className="text-xs h-8 bg-gray-900 hover:bg-gray-800 text-white"
@@ -145,7 +193,7 @@ export default function ComposeForm({
           value={body}
           onChange={(e) => onBodyChange(e.target.value)}
           placeholder="Write your message..."
-          className="w-full min-h-[280px] text-sm text-gray-700 leading-relaxed resize-none focus:outline-none placeholder:text-gray-400"
+          className="w-full min-h-[280px] text-sm text-gray-700 leading-relaxed resize-none focus:outline-none placeholder:text-gray-400 bg-transparent"
         />
       </div>
 
@@ -157,6 +205,7 @@ export default function ComposeForm({
             {tones.map((tone) => (
               <button
                 key={tone}
+                type="button"
                 onClick={() => onToneChange(tone)}
                 className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
                   selectedTone === tone

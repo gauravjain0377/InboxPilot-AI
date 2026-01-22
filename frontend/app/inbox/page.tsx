@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import api from '@/lib/axios';
 import AppShell from '@/components/layout/AppShell';
 import EmailSidebar from '@/components/inbox/EmailSidebar';
@@ -11,6 +11,15 @@ import { Input } from '@/components/ui/input';
 import { Toast } from '@/components/ui/toast';
 import { Modal } from '@/components/ui/modal';
 import { Search } from 'lucide-react';
+
+interface ToastState {
+  message: string;
+  type: 'success' | 'error';
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
+}
 
 export default function InboxPage() {
   const [emails, setEmails] = useState<Email[]>([]);
@@ -28,12 +37,24 @@ export default function InboxPage() {
   const [activeTab, setActiveTab] = useState<EmailTab>('inbox');
   
   // Toast and Modal states
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
   const [showSendModal, setShowSendModal] = useState(false);
+  
+  // For undo functionality
+  const pendingActionRef = useRef<{ type: 'trash' | 'archive'; email: Email; timeout: NodeJS.Timeout } | null>(null);
 
   useEffect(() => {
     fetchEmails();
   }, [activeTab]);
+
+  // Cleanup pending actions on unmount
+  useEffect(() => {
+    return () => {
+      if (pendingActionRef.current) {
+        clearTimeout(pendingActionRef.current.timeout);
+      }
+    };
+  }, []);
 
   const fetchEmails = async () => {
     try {
@@ -109,37 +130,105 @@ export default function InboxPage() {
           prev ? { ...prev, isStarred: !prev.isStarred } : null
         );
       }
+      
+      setToast({ 
+        message: email.isStarred ? 'Removed from starred' : 'Added to starred', 
+        type: 'success' 
+      });
     } catch (err) {
       console.error('Error toggling star:', err);
+      setToast({ message: 'Failed to update star', type: 'error' });
     }
   };
 
   const trashEmail = async (email: Email) => {
-    try {
-      await api.post(`/gmail/message/${email.gmailId}/trash`);
-      setEmails((prev) => prev.filter((e) => e.gmailId !== email.gmailId));
-      if (selectedEmail?.gmailId === email.gmailId) {
-        setSelectedEmail(null);
-      }
-      setToast({ message: 'Email moved to trash', type: 'success' });
-    } catch (err) {
-      console.error('Error trashing email:', err);
-      setToast({ message: 'Failed to trash email', type: 'error' });
+    // Cancel any pending action
+    if (pendingActionRef.current) {
+      clearTimeout(pendingActionRef.current.timeout);
+      pendingActionRef.current = null;
     }
+
+    // Optimistically remove from UI
+    const removedEmail = email;
+    setEmails((prev) => prev.filter((e) => e.gmailId !== email.gmailId));
+    if (selectedEmail?.gmailId === email.gmailId) {
+      setSelectedEmail(null);
+    }
+
+    // Set up delayed action with undo option
+    const timeout = setTimeout(async () => {
+      try {
+        await api.post(`/gmail/message/${email.gmailId}/trash`);
+        pendingActionRef.current = null;
+      } catch (err) {
+        console.error('Error trashing email:', err);
+        // Restore email on error
+        setEmails((prev) => [removedEmail, ...prev]);
+        setToast({ message: 'Failed to move to trash', type: 'error' });
+      }
+    }, 4000);
+
+    pendingActionRef.current = { type: 'trash', email: removedEmail, timeout };
+
+    setToast({
+      message: 'Email moved to trash',
+      type: 'success',
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          if (pendingActionRef.current) {
+            clearTimeout(pendingActionRef.current.timeout);
+            pendingActionRef.current = null;
+          }
+          setEmails((prev) => [removedEmail, ...prev]);
+        },
+      },
+    });
   };
 
   const archiveEmail = async (email: Email) => {
-    try {
-      await api.post(`/gmail/message/${email.gmailId}/archive`);
-      setEmails((prev) => prev.filter((e) => e.gmailId !== email.gmailId));
-      if (selectedEmail?.gmailId === email.gmailId) {
-        setSelectedEmail(null);
-      }
-      setToast({ message: 'Email archived', type: 'success' });
-    } catch (err) {
-      console.error('Error archiving email:', err);
-      setToast({ message: 'Failed to archive email', type: 'error' });
+    // Cancel any pending action
+    if (pendingActionRef.current) {
+      clearTimeout(pendingActionRef.current.timeout);
+      pendingActionRef.current = null;
     }
+
+    // Optimistically remove from UI
+    const removedEmail = email;
+    setEmails((prev) => prev.filter((e) => e.gmailId !== email.gmailId));
+    if (selectedEmail?.gmailId === email.gmailId) {
+      setSelectedEmail(null);
+    }
+
+    // Set up delayed action with undo option
+    const timeout = setTimeout(async () => {
+      try {
+        await api.post(`/gmail/message/${email.gmailId}/archive`);
+        pendingActionRef.current = null;
+      } catch (err) {
+        console.error('Error archiving email:', err);
+        // Restore email on error
+        setEmails((prev) => [removedEmail, ...prev]);
+        setToast({ message: 'Failed to archive', type: 'error' });
+      }
+    }, 4000);
+
+    pendingActionRef.current = { type: 'archive', email: removedEmail, timeout };
+
+    setToast({
+      message: 'Email archived',
+      type: 'success',
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          if (pendingActionRef.current) {
+            clearTimeout(pendingActionRef.current.timeout);
+            pendingActionRef.current = null;
+          }
+          setEmails((prev) => [removedEmail, ...prev]);
+        },
+      },
+    });
   };
 
   const handleSendReplyClick = () => {
@@ -291,10 +380,10 @@ export default function InboxPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 type="text"
-                placeholder="Search..."
+                placeholder="Search emails..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9 bg-gray-50 border-gray-200 text-sm"
+                className="pl-9 h-9 bg-white border-gray-200 text-sm placeholder:text-gray-400"
               />
             </div>
           </div>
@@ -347,7 +436,7 @@ export default function InboxPage() {
         isOpen={showSendModal}
         onClose={() => setShowSendModal(false)}
         title="Send Reply"
-        description="Are you sure you want to send this reply? This action cannot be undone."
+        description="Are you sure you want to send this reply?"
         confirmText={sendingReply ? 'Sending...' : 'Send Reply'}
         cancelText="Cancel"
         onConfirm={sendReply}
@@ -359,6 +448,7 @@ export default function InboxPage() {
         <Toast
           message={toast.message}
           type={toast.type}
+          action={toast.action}
           onClose={() => setToast(null)}
         />
       )}

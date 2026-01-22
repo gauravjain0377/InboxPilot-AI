@@ -192,13 +192,13 @@ export const createDraft = async (req: AuthRequest, res: Response, next: NextFun
 
 export const sendMessage = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { to, subject, body, threadId, inReplyTo, references } = req.body;
+    const { to, subject, body, threadId, inReplyTo, references, cc, bcc } = req.body;
     if (!to || !subject || !body) throw new AppError('Missing required fields', 400);
 
     const user = await User.findById(req.user?.userId);
     if (!user) throw new AppError('User not found', 404);
 
-    const message = await gmailService.sendMessage(user, to, subject, body, threadId, inReplyTo, references);
+    const message = await gmailService.sendMessage(user, to, subject, body, threadId, inReplyTo, references, cc, bcc);
 
     res.json({ success: true, message });
   } catch (error) {

@@ -13,6 +13,15 @@ import { Send, Wand2, Loader2 } from 'lucide-react';
 
 type Tone = 'formal' | 'friendly' | 'assertive' | 'short';
 
+interface ToastState {
+  message: string;
+  type: 'success' | 'error';
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
+}
+
 function ComposeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -20,9 +29,11 @@ function ComposeContent() {
 
   const [to, setTo] = useState('');
   const [cc, setCc] = useState('');
+  const [bcc, setBcc] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [showCc, setShowCc] = useState(false);
+  const [showBcc, setShowBcc] = useState(false);
 
   const [sending, setSending] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
@@ -31,7 +42,7 @@ function ComposeContent() {
   const [selectedTone, setSelectedTone] = useState<Tone>('friendly');
 
   // Toast and Modal states
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
   const [showSendModal, setShowSendModal] = useState(false);
 
   useEffect(() => {
@@ -112,8 +123,15 @@ function ComposeContent() {
         ? `${body.trim()}\n\n${signature}`
         : body.trim();
 
+      // Build recipients array
+      const recipients: string[] = to.split(',').map(e => e.trim()).filter(Boolean);
+      const ccRecipients: string[] = cc ? cc.split(',').map(e => e.trim()).filter(Boolean) : [];
+      const bccRecipients: string[] = bcc ? bcc.split(',').map(e => e.trim()).filter(Boolean) : [];
+
       await api.post('/gmail/send', {
-        to: to.trim(),
+        to: recipients.join(', '),
+        cc: ccRecipients.length > 0 ? ccRecipients.join(', ') : undefined,
+        bcc: bccRecipients.length > 0 ? bccRecipients.join(', ') : undefined,
         subject: subject.trim(),
         body: bodyWithSignature,
       });
@@ -172,16 +190,20 @@ function ComposeContent() {
         <ComposeForm
           to={to}
           cc={cc}
+          bcc={bcc}
           subject={subject}
           body={body}
           showCc={showCc}
+          showBcc={showBcc}
           selectedTone={selectedTone}
           aiSuggestion={aiSuggestion}
           onToChange={setTo}
           onCcChange={setCc}
+          onBccChange={setBcc}
           onSubjectChange={setSubject}
           onBodyChange={setBody}
           onShowCcChange={setShowCc}
+          onShowBccChange={setShowBcc}
           onToneChange={setSelectedTone}
           onUseSuggestion={useSuggestion}
           onDismissSuggestion={() => setAiSuggestion(null)}
@@ -193,7 +215,7 @@ function ComposeContent() {
         isOpen={showSendModal}
         onClose={() => setShowSendModal(false)}
         title="Send Email"
-        description={`Send this email to ${to}?`}
+        description={`Send this email to ${to}${cc ? `, Cc: ${cc}` : ''}${bcc ? `, Bcc: ${bcc}` : ''}?`}
         confirmText={sending ? 'Sending...' : 'Send Email'}
         cancelText="Cancel"
         onConfirm={sendEmail}
@@ -205,6 +227,7 @@ function ComposeContent() {
         <Toast
           message={toast.message}
           type={toast.type}
+          action={toast.action}
           onClose={() => setToast(null)}
         />
       )}

@@ -202,7 +202,17 @@ export class GmailService {
     }
   }
 
-  async sendMessage(user: IUser, to: string, subject: string, body: string, threadId?: string, inReplyTo?: string, references?: string) {
+  async sendMessage(
+    user: IUser, 
+    to: string, 
+    subject: string, 
+    body: string, 
+    threadId?: string, 
+    inReplyTo?: string, 
+    references?: string,
+    cc?: string,
+    bcc?: string
+  ) {
     try {
       const oauth2Client = this.getOAuth2Client(user);
       const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
@@ -218,6 +228,12 @@ export class GmailService {
         'MIME-Version: 1.0',
         'Content-Type: text/plain; charset=utf-8',
       ];
+
+      // Add CC header if provided
+      if (cc) headers.push(`Cc: ${cc}`);
+      
+      // Add BCC header if provided
+      if (bcc) headers.push(`Bcc: ${bcc}`);
 
       // Add reply headers if this is a reply (keeps email in same thread)
       if (inReplyTo) headers.push(`In-Reply-To: ${inReplyTo}`);

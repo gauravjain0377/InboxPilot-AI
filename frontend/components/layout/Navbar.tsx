@@ -68,7 +68,7 @@ export default function Navbar() {
                   <Mail className="h-4 w-4 text-white" />
                 </div>
                 <span className="text-lg font-semibold text-gray-900 hidden sm:block">
-                  InboxPilot
+                  InboxPilot AI
                 </span>
               </Link>
             </div>
