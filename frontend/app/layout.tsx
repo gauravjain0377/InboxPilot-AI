@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   title: 'InboxPilot AI - Executive Email Assistant',
   description: 'AI-powered email management and automation platform',
   verification: {
-    google: 'XPwEIn0pr1bUY7JNhmdijjuNL_V91MqSja6JIjr4xq4',
+    google: 'WsjSLWusN_atn6Sr3Y7QyCEzoqucF980hWxZpjdo05w',
   },
 };
 
