@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Star, MailOpen, Loader2, AlertCircle, Archive, Trash2, Paperclip } from 'lucide-react';
+import { Star, MailOpen, Loader2, AlertCircle, Archive, Trash2, Paperclip, Briefcase, Calendar, MessageSquare, Tag, Mail, DollarSign, Users, Package, Bell, Megaphone, FileText, AlertTriangle, ArrowDown, ArrowUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Email, EmailTab } from './types';
 
@@ -17,6 +17,27 @@ interface EmailListProps {
   onTrash?: (email: Email) => void;
   onRetry: () => void;
 }
+
+// Category styling configuration
+const CATEGORY_STYLES: Record<string, { bg: string; text: string; icon: any; shortName?: string }> = {
+  'Work': { bg: 'bg-blue-100', text: 'text-blue-700', icon: Briefcase, shortName: 'Work' },
+  'Task': { bg: 'bg-purple-100', text: 'text-purple-700', icon: FileText, shortName: 'Task' },
+  'Meeting': { bg: 'bg-indigo-100', text: 'text-indigo-700', icon: Calendar, shortName: 'Meet' },
+  'Reply Needed': { bg: 'bg-orange-100', text: 'text-orange-700', icon: MessageSquare, shortName: 'Reply' },
+  'Newsletter': { bg: 'bg-cyan-100', text: 'text-cyan-700', icon: Mail, shortName: 'News' },
+  'Promotion': { bg: 'bg-pink-100', text: 'text-pink-700', icon: Megaphone, shortName: 'Promo' },
+  'Finance': { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: DollarSign, shortName: 'Finance' },
+  'Social': { bg: 'bg-violet-100', text: 'text-violet-700', icon: Users, shortName: 'Social' },
+  'Update': { bg: 'bg-gray-100', text: 'text-gray-700', icon: Bell, shortName: 'Update' },
+  'Shipping': { bg: 'bg-amber-100', text: 'text-amber-700', icon: Package, shortName: 'Ship' },
+};
+
+// Priority styling
+const PRIORITY_STYLES: Record<string, { bg: string; text: string; border: string; icon: any; label: string; shortLabel: string }> = {
+  'high': { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', icon: ArrowUp, label: 'High Priority', shortLabel: 'High' },
+  'medium': { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200', icon: null, label: 'Medium', shortLabel: 'Med' },
+  'low': { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200', icon: ArrowDown, label: 'Low Priority', shortLabel: 'Low' },
+};
 
 export default function EmailList({
   emails,
@@ -79,17 +100,14 @@ export default function EmailList({
     return colors[hash % colors.length];
   };
 
-  const getPriorityColor = (priority?: string) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-red-100 text-red-700';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-700';
-      case 'low':
-        return 'bg-green-100 text-green-700';
-      default:
-        return '';
-    }
+  const getCategoryStyle = (category?: string) => {
+    if (!category) return null;
+    return CATEGORY_STYLES[category] || { bg: 'bg-gray-100', text: 'text-gray-600', icon: Tag };
+  };
+
+  const getPriorityStyle = (priority?: string) => {
+    if (!priority) return PRIORITY_STYLES['medium'];
+    return PRIORITY_STYLES[priority] || PRIORITY_STYLES['medium'];
   };
 
   const handleArchiveClick = (e: React.MouseEvent, email: Email) => {
@@ -239,30 +257,52 @@ export default function EmailList({
                   {email.subject || '(No subject)'}
                 </p>
 
-                {/* Snippet */}
-                <p className="text-xs text-gray-500 truncate mt-0.5 leading-relaxed">
+                {/* Snippet - Hidden on very small screens when there are tags */}
+                <p className={`text-xs text-gray-500 truncate mt-0.5 leading-relaxed ${
+                  (email.priority && email.priority !== 'medium') || email.category ? 'hidden sm:block' : ''
+                }`}>
                   {email.snippet}
                 </p>
 
-                {/* Tags Row */}
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  {/* Priority Badge */}
+                {/* Tags Row - Responsive */}
+                <div className="flex items-center gap-1 sm:gap-1.5 mt-1 sm:mt-1.5 flex-wrap">
+                  {/* Priority Badge - Show for high and low */}
                   {email.priority && email.priority !== 'medium' && (
-                    <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${getPriorityColor(email.priority)}`}>
-                      {email.priority === 'high' ? 'Important' : 'Low Priority'}
-                    </span>
+                    (() => {
+                      const style = getPriorityStyle(email.priority);
+                      const Icon = style.icon;
+                      return (
+                        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold rounded-full border ${style.bg} ${style.text} ${style.border}`}>
+                          {Icon && <Icon className="w-2.5 h-2.5" />}
+                          <span className="hidden sm:inline">{style.label}</span>
+                          <span className="sm:hidden">{style.shortLabel}</span>
+                        </span>
+                      );
+                    })()
                   )}
                   
-                  {/* Category Badge */}
+                  {/* Category Badge with Icon */}
                   {email.category && (
-                    <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-100 text-blue-700">
-                      {email.category}
-                    </span>
+                    (() => {
+                      const style = getCategoryStyle(email.category);
+                      if (!style) return null;
+                      const Icon = style.icon;
+                      return (
+                        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded-full ${style.bg} ${style.text}`}>
+                          <Icon className="w-2.5 h-2.5" />
+                          <span className="hidden sm:inline">{email.category}</span>
+                          <span className="sm:hidden">{style.shortName || email.category}</span>
+                        </span>
+                      );
+                    })()
                   )}
                   
                   {/* Attachment indicator */}
                   {email.labels?.includes('ATTACHMENT') && (
-                    <Paperclip className="w-3 h-3 text-gray-400" />
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] text-gray-500 bg-gray-100 rounded-full">
+                      <Paperclip className="w-2.5 h-2.5" />
+                      <span className="hidden sm:inline">Attachment</span>
+                    </span>
                   )}
                 </div>
               </div>

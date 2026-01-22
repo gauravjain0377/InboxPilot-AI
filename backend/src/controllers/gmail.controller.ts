@@ -73,14 +73,39 @@ export const getMessages = async (req: AuthRequest, res: Response, next: NextFun
               }
             }
           } else {
-            // Update status fields from Gmail
+            // Re-categorize existing emails that don't have a category yet
+            let needsUpdate = false;
+            const updateData: any = {
+              labels: emailData.labels,
+              isRead: emailData.isRead,
+              isStarred: emailData.isStarred,
+            };
+
+            // If no category or priority is 'medium' (default), re-evaluate
+            if (!metadata.category || metadata.priority === 'medium') {
+              const classification = ruleEngine.evaluateRules(rules, {
+                from: emailData.from,
+                to: emailData.to,
+                subject: emailData.subject,
+                snippet: emailData.snippet,
+              });
+
+              if (classification.category && !metadata.category) {
+                updateData.category = classification.category;
+                metadata.category = classification.category;
+                needsUpdate = true;
+              }
+              if (classification.priority && classification.priority !== 'medium') {
+                updateData.priority = classification.priority;
+                metadata.priority = classification.priority;
+                needsUpdate = true;
+              }
+            }
+
+            // Update status fields and category/priority if needed
             await Email.updateOne(
               { gmailId: emailData.id, userId: user._id },
-              {
-                labels: emailData.labels,
-                isRead: emailData.isRead,
-                isStarred: emailData.isStarred,
-              }
+              updateData
             );
           }
           
