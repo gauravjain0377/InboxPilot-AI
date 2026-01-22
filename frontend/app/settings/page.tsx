@@ -203,6 +203,33 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {/* Contact Support */}
+          <Card className="border-gray-200 bg-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                <Mail className="h-4 w-4 text-gray-600" />
+                Contact Support
+              </CardTitle>
+              <CardDescription className="text-sm text-gray-500">
+                Need help? Reach out to us
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                <p className="text-sm text-gray-600 mb-3">
+                  If you have any questions, issues, or feedback, feel free to contact us.
+                </p>
+                <a
+                  href="mailto:gjain0229@gmail.com"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <Mail className="h-4 w-4" />
+                  Email Support
+                </a>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Save Button */}
           <div className="flex justify-end gap-3 pt-2">
             <Button 

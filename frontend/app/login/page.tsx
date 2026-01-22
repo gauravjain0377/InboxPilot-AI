@@ -119,7 +119,7 @@ export default function LoginPage() {
               <div className="w-11 h-11 bg-white rounded-xl flex items-center justify-center">
                 <Mail className="h-5 w-5 text-neutral-900" />
               </div>
-              <span className="text-xl font-bold font-display tracking-tight">InboxPilot</span>
+              <span className="text-xl font-bold font-display tracking-tight">InboxPilot AI</span>
             </Link>
             
             {/* Main Content - Centered */}
@@ -206,7 +206,7 @@ export default function LoginPage() {
               <div className="w-12 h-12 bg-neutral-900 rounded-xl flex items-center justify-center">
                 <Mail className="h-6 w-6 text-white" />
               </div>
-              <span className="text-2xl font-bold text-neutral-900 font-display tracking-tight">InboxPilot</span>
+              <span className="text-2xl font-bold text-neutral-900 font-display tracking-tight">InboxPilot AI</span>
             </div>
 
             {/* Login Card */}

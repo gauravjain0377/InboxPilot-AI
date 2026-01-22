@@ -169,7 +169,7 @@ export default function LandingPage() {
               <Mail className="h-5 w-5 text-white" />
             </div>
             <span className="text-xl font-bold text-neutral-900 font-display tracking-tight">
-              InboxPilot
+              InboxPilot AI
             </span>
           </Link>
 
@@ -538,18 +538,14 @@ export default function LandingPage() {
               <div className="w-10 h-10 bg-neutral-900 rounded-xl flex items-center justify-center">
                 <Mail className="h-5 w-5 text-white" />
               </div>
-              <span className="text-lg font-bold text-neutral-900 font-display">InboxPilot</span>
+              <span className="text-lg font-bold text-neutral-900 font-display">InboxPilot AI</span>
             </div>
             <p className="text-neutral-500">
               &copy; 2026 InboxPilot AI. Crafted with care.
             </p>
-            <div className="flex gap-6">
-              {['Privacy', 'Terms', 'Contact'].map((item) => (
-                <a key={item} href="#" className="text-neutral-500 hover:text-neutral-900 transition-colors text-sm">
-                  {item}
-                </a>
-              ))}
-            </div>
+            <a href="mailto:gjain0229@gmail.com" className="text-neutral-500 hover:text-neutral-900 transition-colors text-sm">
+              Contact
+            </a>
           </div>
         </div>
       </footer>

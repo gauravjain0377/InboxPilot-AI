@@ -4,36 +4,54 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUserStore } from '@/store/userStore';
 import api from '@/lib/axios';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Mail } from 'lucide-react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import { motion } from 'framer-motion';
 
-// Wrap the actual callback component in Suspense so Next.js
-// doesn't try to prerender it without browser APIs like useSearchParams.
+// Loading Spinner Component
+const LoadingSpinner = () => (
+  <div className="relative w-16 h-16">
+    <motion.div
+      className="absolute inset-0 border-4 border-neutral-200 rounded-full"
+    />
+    <motion.div
+      className="absolute inset-0 border-4 border-transparent border-t-neutral-900 rounded-full"
+      animate={{ rotate: 360 }}
+      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+    />
+  </div>
+);
+
+// Wrap the actual callback component in Suspense
 export default function AuthCallbackPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md border border-slate-200 bg-white shadow-lg">
-            <CardHeader className="text-center space-y-2">
-              <CardTitle className="text-2xl font-bold text-slate-900">
-                Completing Authentication
-              </CardTitle>
-              <CardDescription className="text-slate-600">
-                Setting up your account...
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center justify-center space-y-6 py-8">
-              <Loader2 className="h-12 w-12 text-slate-700 animate-spin" />
-            </CardContent>
-          </Card>
-        </div>
-      }
-    >
+    <Suspense fallback={<AuthLoadingState />}>
       <AuthCallbackContent />
     </Suspense>
+  );
+}
+
+function AuthLoadingState() {
+  return (
+    <div className="min-h-screen bg-white flex items-center justify-center p-4 font-sans">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-sm"
+      >
+        <div className="bg-white rounded-3xl p-10 shadow-xl shadow-neutral-200/50 border border-neutral-100 text-center">
+          <div className="flex justify-center mb-6">
+            <LoadingSpinner />
+          </div>
+          <h2 className="text-xl font-bold text-neutral-900 mb-2 font-display tracking-tight">
+            Completing Authentication
+          </h2>
+          <p className="text-neutral-500 text-sm">
+            Setting up your account...
+          </p>
+        </div>
+      </motion.div>
+    </div>
   );
 }
 
@@ -56,10 +74,8 @@ function AuthCallbackContent() {
     }
 
     if (token && email) {
-      // Store token
       setToken(token);
       
-      // Try to fetch user info from backend
       api.get('/analytics/dashboard')
         .then((response) => {
           const userInfo = response.data.stats?.userInfo;
@@ -71,7 +87,6 @@ function AuthCallbackContent() {
               picture: userInfo.picture,
             });
           } else {
-            // Fallback to email only
             setUser({
               id: '',
               email: decodeURIComponent(email),
@@ -83,7 +98,6 @@ function AuthCallbackContent() {
         })
         .catch((err) => {
           console.error('Error fetching user info:', err);
-          // Still set user with email and redirect
           setUser({
             id: '',
             email: decodeURIComponent(email),
@@ -99,48 +113,93 @@ function AuthCallbackContent() {
   }, [searchParams, setToken, setUser, router]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md border border-slate-200 bg-white shadow-lg">
-        <CardHeader className="text-center space-y-2">
-          <CardTitle className="text-2xl font-bold text-slate-900">
-            {status === 'loading' && 'Completing Authentication'}
-            {status === 'success' && 'Authentication Successful'}
+    <div className="min-h-screen bg-white flex items-center justify-center p-4 font-sans">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-sm"
+      >
+        <div className="bg-white rounded-3xl p-10 shadow-xl shadow-neutral-200/50 border border-neutral-100 text-center">
+          {/* Logo */}
+          <div className="flex justify-center mb-8">
+            <div className="w-12 h-12 bg-neutral-900 rounded-xl flex items-center justify-center">
+              <Mail className="h-6 w-6 text-white" />
+            </div>
+          </div>
+
+          {/* Status Icon */}
+          <div className="flex justify-center mb-6">
+            {status === 'loading' && <LoadingSpinner />}
+            
+            {status === 'success' && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center"
+              >
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  <CheckCircle2 className="h-8 w-8 text-green-600" />
+                </motion.div>
+              </motion.div>
+            )}
+            
+            {status === 'error' && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center"
+              >
+                <XCircle className="h-8 w-8 text-red-600" />
+              </motion.div>
+            )}
+          </div>
+
+          {/* Title */}
+          <h2 className="text-xl font-bold text-neutral-900 mb-2 font-display tracking-tight">
+            {status === 'loading' && 'Authenticating...'}
+            {status === 'success' && 'Welcome!'}
             {status === 'error' && 'Authentication Failed'}
-          </CardTitle>
-          <CardDescription className="text-slate-600">
+          </h2>
+
+          {/* Description */}
+          <p className="text-neutral-500 text-sm mb-6">
             {status === 'loading' && 'Setting up your account...'}
             {status === 'success' && 'Redirecting to your dashboard...'}
             {status === 'error' && error}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center justify-center space-y-6 py-8">
-          {status === 'loading' && (
-            <Loader2 className="h-12 w-12 text-slate-700 animate-spin" />
-          )}
+          </p>
+
+          {/* Progress bar for success */}
           {status === 'success' && (
-            <div className="space-y-4">
-              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
-                <CheckCircle2 className="h-8 w-8 text-slate-900" />
-              </div>
-              <p className="text-sm text-slate-600 text-center">
-                You will be redirected shortly...
-              </p>
+            <div className="w-full h-1 bg-neutral-100 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-green-500"
+                initial={{ width: 0 }}
+                animate={{ width: '100%' }}
+                transition={{ duration: 1.5, ease: "linear" }}
+              />
             </div>
           )}
+
+          {/* Error action */}
           {status === 'error' && (
-            <div className="space-y-4">
-              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center">
-                <XCircle className="h-8 w-8 text-red-600" />
-              </div>
-              <Link href="/login">
-                <Button className="bg-slate-900 hover:bg-slate-800 text-white">
-                  Try Again
-                </Button>
-              </Link>
-            </div>
+            <Link href="/login">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full bg-neutral-900 hover:bg-neutral-800 text-white h-12 rounded-xl font-medium transition-colors"
+              >
+                Try Again
+              </motion.button>
+            </Link>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </motion.div>
     </div>
   );
 }
