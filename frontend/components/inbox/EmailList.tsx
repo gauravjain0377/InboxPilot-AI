@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Star, MailOpen, Loader2, AlertCircle, Archive, Trash2 } from 'lucide-react';
+import { Star, MailOpen, Loader2, AlertCircle, Archive, Trash2, Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Email, EmailTab } from './types';
 
@@ -44,14 +44,52 @@ export default function EmailList({
       return 'Yesterday';
     } else if (days < 7) {
       return date.toLocaleDateString([], { weekday: 'short' });
-    } else {
+    } else if (date.getFullYear() === now.getFullYear()) {
       return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    } else {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' });
     }
   };
 
   const formatSenderName = (from: string) => {
     const match = from.match(/^([^<]+)/);
-    return match ? match[1].trim().replace(/"/g, '') : from;
+    const name = match ? match[1].trim().replace(/"/g, '') : from;
+    // Truncate long names
+    return name.length > 20 ? name.slice(0, 20) + '...' : name;
+  };
+
+  const getInitials = (from: string) => {
+    const match = from.match(/^([^<]+)/);
+    const name = match ? match[1].trim().replace(/"/g, '') : from;
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const getAvatarColor = (from: string) => {
+    const colors = [
+      'bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-yellow-500',
+      'bg-lime-500', 'bg-green-500', 'bg-emerald-500', 'bg-teal-500',
+      'bg-cyan-500', 'bg-sky-500', 'bg-blue-500', 'bg-indigo-500',
+      'bg-violet-500', 'bg-purple-500', 'bg-fuchsia-500', 'bg-pink-500',
+    ];
+    const hash = from.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[hash % colors.length];
+  };
+
+  const getPriorityColor = (priority?: string) => {
+    switch (priority) {
+      case 'high':
+        return 'bg-red-100 text-red-700';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-700';
+      case 'low':
+        return 'bg-green-100 text-green-700';
+      default:
+        return '';
+    }
   };
 
   const handleArchiveClick = (e: React.MouseEvent, email: Email) => {
@@ -66,18 +104,22 @@ export default function EmailList({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-3" />
+        <p className="text-sm text-gray-500">Loading emails...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4 text-center">
-        <AlertCircle className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-        <p className="text-sm text-gray-600 mb-3">{error}</p>
-        <Button size="sm" variant="outline" onClick={onRetry} className="text-xs">
+      <div className="p-6 text-center">
+        <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-red-50 flex items-center justify-center">
+          <AlertCircle className="h-6 w-6 text-red-400" />
+        </div>
+        <p className="text-sm text-gray-700 font-medium mb-1">Failed to load emails</p>
+        <p className="text-xs text-gray-500 mb-4">{error}</p>
+        <Button size="sm" variant="outline" onClick={onRetry} className="text-sm">
           Try Again
         </Button>
       </div>
@@ -86,9 +128,16 @@ export default function EmailList({
 
   if (emails.length === 0) {
     return (
-      <div className="p-8 text-center text-gray-500">
-        <MailOpen className="h-10 w-10 mx-auto mb-3 text-gray-300" />
-        <p className="text-sm">No emails</p>
+      <div className="p-8 text-center">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+          <MailOpen className="h-8 w-8 text-gray-400" />
+        </div>
+        <p className="text-sm font-medium text-gray-700">No emails here</p>
+        <p className="text-xs text-gray-500 mt-1">
+          {activeTab === 'inbox' && 'Your inbox is empty'}
+          {activeTab === 'sent' && 'No sent messages'}
+          {activeTab === 'starred' && 'No starred messages'}
+        </p>
       </div>
     );
   }
@@ -96,7 +145,8 @@ export default function EmailList({
   return (
     <div className="divide-y divide-gray-100">
       {emails.map((email) => {
-        const showActions = hoveredEmail === email.gmailId;
+        const isSelected = selectedEmail?.gmailId === email.gmailId;
+        const isHovered = hoveredEmail === email.gmailId;
 
         return (
           <div
@@ -104,77 +154,124 @@ export default function EmailList({
             onClick={() => onSelectEmail(email)}
             onMouseEnter={() => setHoveredEmail(email.gmailId)}
             onMouseLeave={() => setHoveredEmail(null)}
-            className={`px-3 py-2.5 cursor-pointer transition-colors ${
-              selectedEmail?.gmailId === email.gmailId
-                ? 'bg-gray-100'
-                : 'hover:bg-gray-50'
-            } ${!email.isRead ? 'bg-white' : ''}`}
+            className={`
+              group relative px-3 py-3 cursor-pointer transition-all duration-150
+              ${isSelected 
+                ? 'bg-blue-50 border-l-2 border-l-blue-500' 
+                : 'hover:bg-gray-50 border-l-2 border-l-transparent'
+              }
+              ${!email.isRead ? 'bg-white' : 'bg-gray-50/50'}
+            `}
           >
-            <div className="flex items-start gap-2.5">
-              <button
-                onClick={(e) => onToggleStar(email, e)}
-                className="mt-0.5 shrink-0"
-              >
-                <Star
-                  className={`h-4 w-4 ${
-                    email.isStarred
-                      ? 'fill-gray-900 text-gray-900'
-                      : 'text-gray-300 hover:text-gray-400'
-                  }`}
-                />
-              </button>
+            <div className="flex items-start gap-3">
+              {/* Avatar or Star */}
+              <div className="relative shrink-0 mt-0.5">
+                {/* Avatar - hidden on hover */}
+                <div 
+                  className={`w-8 h-8 rounded-full ${getAvatarColor(email.from)} flex items-center justify-center text-white text-xs font-medium transition-opacity ${isHovered ? 'opacity-0' : 'opacity-100'}`}
+                >
+                  {getInitials(email.from)}
+                </div>
+                {/* Star button - shown on hover or when starred */}
+                <button
+                  onClick={(e) => onToggleStar(email, e)}
+                  className={`absolute inset-0 flex items-center justify-center transition-opacity ${isHovered || email.isStarred ? 'opacity-100' : 'opacity-0'}`}
+                >
+                  <Star
+                    className={`h-5 w-5 transition-colors ${
+                      email.isStarred
+                        ? 'fill-yellow-400 text-yellow-400'
+                        : 'text-gray-400 hover:text-yellow-400'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Email Content */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
+                {/* Sender and Date Row */}
+                <div className="flex items-center justify-between gap-2 mb-0.5">
                   <span
                     className={`text-sm truncate ${
-                      !email.isRead ? 'font-semibold text-gray-900' : 'text-gray-700'
+                      !email.isRead ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'
                     }`}
                   >
                     {formatSenderName(email.from)}
                   </span>
+                  
+                  {/* Actions or Date */}
                   <div className="flex items-center gap-1 shrink-0">
-                    {/* Action buttons on hover with text labels */}
-                    {showActions && (onArchive || onTrash) && (
-                      <div className="flex items-center gap-1 mr-2">
+                    {isHovered && (onArchive || onTrash) ? (
+                      <div className="flex items-center gap-0.5">
                         {onArchive && (
                           <button
                             onClick={(e) => handleArchiveClick(e, email)}
-                            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors"
+                            className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                            title="Archive"
                           >
-                            <Archive className="h-3 w-3" />
-                            <span>Archive</span>
+                            <Archive className="h-4 w-4" />
                           </button>
                         )}
                         {onTrash && (
                           <button
                             onClick={(e) => handleTrashClick(e, email)}
-                            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors"
+                            className="p-1.5 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            title="Delete"
                           >
-                            <Trash2 className="h-3 w-3" />
-                            <span>Delete</span>
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         )}
                       </div>
-                    )}
-                    {!showActions && (
-                      <span className="text-xs text-gray-400">
+                    ) : (
+                      <span className={`text-xs ${!email.isRead ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
                         {formatDate(email.date)}
                       </span>
                     )}
                   </div>
                 </div>
+
+                {/* Subject */}
                 <p
-                  className={`text-sm truncate mt-0.5 ${
-                    !email.isRead ? 'font-medium text-gray-900' : 'text-gray-600'
+                  className={`text-sm truncate ${
+                    !email.isRead ? 'font-medium text-gray-900' : 'text-gray-700'
                   }`}
                 >
                   {email.subject || '(No subject)'}
                 </p>
-                <p className="text-xs text-gray-400 truncate mt-0.5">
+
+                {/* Snippet */}
+                <p className="text-xs text-gray-500 truncate mt-0.5 leading-relaxed">
                   {email.snippet}
                 </p>
+
+                {/* Tags Row */}
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  {/* Priority Badge */}
+                  {email.priority && email.priority !== 'medium' && (
+                    <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${getPriorityColor(email.priority)}`}>
+                      {email.priority === 'high' ? 'Important' : 'Low Priority'}
+                    </span>
+                  )}
+                  
+                  {/* Category Badge */}
+                  {email.category && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-100 text-blue-700">
+                      {email.category}
+                    </span>
+                  )}
+                  
+                  {/* Attachment indicator */}
+                  {email.labels?.includes('ATTACHMENT') && (
+                    <Paperclip className="w-3 h-3 text-gray-400" />
+                  )}
+                </div>
               </div>
             </div>
+
+            {/* Unread indicator dot */}
+            {!email.isRead && (
+              <div className="absolute left-1 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-blue-500" />
+            )}
           </div>
         );
       })}

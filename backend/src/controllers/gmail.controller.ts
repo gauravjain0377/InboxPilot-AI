@@ -3,13 +3,10 @@ import { AuthRequest } from '../middlewares/auth.js';
 import { GmailService } from '../services/gmail.service.js';
 import { User } from '../models/User.js';
 import { Email } from '../models/Email.js';
-import { Preferences } from '../models/Preferences.js';
-import { RuleEngine } from '../services/ruleEngine.js';
 import { AppError } from '../utils/errorHandler.js';
 import { logger } from '../utils/logger.js';
 
 const gmailService = new GmailService();
-const ruleEngine = new RuleEngine();
 
 export const getMessages = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -23,11 +20,38 @@ export const getMessages = async (req: AuthRequest, res: Response, next: NextFun
 
     const { messages, nextPageToken, resultSizeEstimate } = await gmailService.getMessages(user, maxResults, pageToken, labelIds);
 
+    // Fetch email details directly from Gmail - NO MongoDB storage
     const emailDetails = await Promise.all(
       messages.map(async (msg: any) => {
         try {
           const emailData = await gmailService.getMessage(user, msg.id);
-          return emailData;
+          
+          // Get AI metadata from DB if exists (lightweight - only stores AI data)
+          const aiMetadata = await Email.findOne({ gmailId: emailData.id, userId: user._id })
+            .select('priority category aiSummary aiSuggestions')
+            .lean();
+          
+          return {
+            gmailId: emailData.id,
+            threadId: emailData.threadId,
+            from: emailData.from,
+            to: emailData.to,
+            cc: emailData.cc,
+            bcc: emailData.bcc,
+            subject: emailData.subject,
+            snippet: emailData.snippet,
+            date: emailData.date,
+            labels: emailData.labels,
+            isRead: emailData.isRead,
+            isStarred: emailData.isStarred,
+            isImportant: emailData.isImportant,
+            isSent: emailData.isSent,
+            // Include AI metadata if available
+            priority: aiMetadata?.priority || 'medium',
+            category: aiMetadata?.category,
+            aiSummary: aiMetadata?.aiSummary,
+            aiSuggestions: aiMetadata?.aiSuggestions,
+          };
         } catch (error) {
           logger.error(`Error fetching message ${msg.id}:`, error);
           return null;
@@ -37,63 +61,9 @@ export const getMessages = async (req: AuthRequest, res: Response, next: NextFun
 
     const validEmails = emailDetails.filter((e) => e !== null);
 
-    // Save emails to database with error handling
-    for (const emailData of validEmails) {
-      if (!emailData) continue;
-
-      try {
-        const existingEmail = await Email.findOne({ gmailId: emailData.id, userId: user._id });
-        
-        if (existingEmail) {
-          // Update existing email with latest data
-          await Email.updateOne(
-            { gmailId: emailData.id, userId: user._id },
-            {
-              labels: emailData.labels,
-              isRead: emailData.isRead,
-              isStarred: emailData.isStarred,
-            }
-          );
-          continue;
-        }
-
-        const preferences = await Preferences.findOne({ userId: user._id });
-        const rules = preferences?.rules || [];
-        const classification = ruleEngine.evaluateRules(rules, emailData);
-
-        await Email.create({
-          userId: user._id,
-          gmailId: emailData.id,
-          threadId: emailData.threadId,
-          from: emailData.from,
-          to: emailData.to,
-          cc: emailData.cc,
-          bcc: emailData.bcc,
-          subject: emailData.subject,
-          body: emailData.body,
-          snippet: emailData.snippet,
-          date: emailData.date,
-          labels: emailData.labels,
-          priority: classification.priority || 'medium',
-          category: classification.category,
-          isRead: emailData.isRead,
-          isStarred: emailData.isStarred,
-        });
-      } catch (dbError: any) {
-        if (dbError.code !== 11000) {
-          logger.warn(`Skipping email ${emailData.id} due to database error`);
-        }
-      }
-    }
-
-    // Return emails with body included
-    const dbEmails = await Email.find({ userId: user._id })
-      .sort({ date: -1 })
-      .limit(maxResults);
-
     res.json({ 
       success: true, 
-      emails: dbEmails, 
+      emails: validEmails, 
       nextPageToken,
       totalEstimate: resultSizeEstimate 
     });
@@ -107,36 +77,45 @@ export const getMessage = async (req: AuthRequest, res: Response, next: NextFunc
     const user = await User.findById(req.user?.userId);
     if (!user) throw new AppError('User not found', 404);
 
-    // First try to get from database
-    let email = await Email.findOne({ gmailId: req.params.id, userId: user._id });
+    // Always fetch fresh from Gmail API - no MongoDB storage for email content
+    const gmailEmail = await gmailService.getMessage(user, req.params.id);
     
-    // If not in database or body is missing, fetch from Gmail
-    if (!email || !email.body) {
-      const gmailEmail = await gmailService.getMessage(user, req.params.id);
-      
-      if (email) {
-        // Update existing email with body
-        await Email.updateOne(
-          { gmailId: req.params.id, userId: user._id },
-          { body: gmailEmail.body }
-        );
-        email = await Email.findOne({ gmailId: req.params.id, userId: user._id });
-      } else {
-        // Return Gmail data directly
-        res.json({ success: true, email: gmailEmail });
-        return;
-      }
-    }
+    // Get AI metadata from DB if exists (lightweight)
+    const aiMetadata = await Email.findOne({ gmailId: req.params.id, userId: user._id })
+      .select('priority category aiSummary aiSuggestions')
+      .lean();
+
+    // Combine Gmail data with AI metadata
+    const email = {
+      gmailId: gmailEmail.id,
+      threadId: gmailEmail.threadId,
+      from: gmailEmail.from,
+      to: gmailEmail.to,
+      cc: gmailEmail.cc,
+      bcc: gmailEmail.bcc,
+      subject: gmailEmail.subject,
+      body: gmailEmail.body,
+      htmlBody: gmailEmail.htmlBody,
+      snippet: gmailEmail.snippet,
+      date: gmailEmail.date,
+      labels: gmailEmail.labels,
+      isRead: gmailEmail.isRead,
+      isStarred: gmailEmail.isStarred,
+      isImportant: gmailEmail.isImportant,
+      isSent: gmailEmail.isSent,
+      messageId: gmailEmail.messageId,
+      inReplyTo: gmailEmail.inReplyTo,
+      references: gmailEmail.references,
+      // Include AI metadata if available
+      priority: aiMetadata?.priority || 'medium',
+      category: aiMetadata?.category,
+      aiSummary: aiMetadata?.aiSummary,
+      aiSuggestions: aiMetadata?.aiSuggestions,
+    };
 
     // Mark as read in Gmail
     try {
       await gmailService.markAsRead(user, req.params.id);
-      if (email) {
-        await Email.updateOne(
-          { gmailId: req.params.id, userId: user._id },
-          { isRead: true }
-        );
-      }
     } catch (e) {
       logger.warn('Could not mark email as read:', e);
     }
@@ -152,8 +131,39 @@ export const getFullMessage = async (req: AuthRequest, res: Response, next: Next
     const user = await User.findById(req.user?.userId);
     if (!user) throw new AppError('User not found', 404);
 
-    // Always fetch fresh from Gmail for full message
-    const email = await gmailService.getMessage(user, req.params.id);
+    // Always fetch fresh from Gmail for full message with HTML
+    const gmailEmail = await gmailService.getMessage(user, req.params.id);
+    
+    // Get AI metadata from DB if exists
+    const aiMetadata = await Email.findOne({ gmailId: req.params.id, userId: user._id })
+      .select('priority category aiSummary aiSuggestions')
+      .lean();
+
+    const email = {
+      gmailId: gmailEmail.id,
+      threadId: gmailEmail.threadId,
+      from: gmailEmail.from,
+      to: gmailEmail.to,
+      cc: gmailEmail.cc,
+      bcc: gmailEmail.bcc,
+      subject: gmailEmail.subject,
+      body: gmailEmail.body,
+      htmlBody: gmailEmail.htmlBody,
+      snippet: gmailEmail.snippet,
+      date: gmailEmail.date,
+      labels: gmailEmail.labels,
+      isRead: gmailEmail.isRead,
+      isStarred: gmailEmail.isStarred,
+      isImportant: gmailEmail.isImportant,
+      isSent: gmailEmail.isSent,
+      messageId: gmailEmail.messageId,
+      inReplyTo: gmailEmail.inReplyTo,
+      references: gmailEmail.references,
+      priority: aiMetadata?.priority || 'medium',
+      category: aiMetadata?.category,
+      aiSummary: aiMetadata?.aiSummary,
+      aiSuggestions: aiMetadata?.aiSuggestions,
+    };
     
     res.json({ success: true, email });
   } catch (error) {
@@ -229,11 +239,8 @@ export const markAsRead = async (req: AuthRequest, res: Response, next: NextFunc
     const user = await User.findById(req.user?.userId);
     if (!user) throw new AppError('User not found', 404);
 
+    // Update directly in Gmail - no MongoDB storage needed
     await gmailService.markAsRead(user, req.params.id);
-    await Email.updateOne(
-      { gmailId: req.params.id, userId: user._id },
-      { isRead: true }
-    );
 
     res.json({ success: true });
   } catch (error) {
@@ -246,11 +253,8 @@ export const markAsUnread = async (req: AuthRequest, res: Response, next: NextFu
     const user = await User.findById(req.user?.userId);
     if (!user) throw new AppError('User not found', 404);
 
+    // Update directly in Gmail - no MongoDB storage needed
     await gmailService.markAsUnread(user, req.params.id);
-    await Email.updateOne(
-      { gmailId: req.params.id, userId: user._id },
-      { isRead: false }
-    );
 
     res.json({ success: true });
   } catch (error) {
@@ -263,11 +267,8 @@ export const starMessage = async (req: AuthRequest, res: Response, next: NextFun
     const user = await User.findById(req.user?.userId);
     if (!user) throw new AppError('User not found', 404);
 
+    // Update directly in Gmail - no MongoDB storage needed
     await gmailService.starMessage(user, req.params.id);
-    await Email.updateOne(
-      { gmailId: req.params.id, userId: user._id },
-      { isStarred: true }
-    );
 
     res.json({ success: true });
   } catch (error) {
@@ -280,11 +281,8 @@ export const unstarMessage = async (req: AuthRequest, res: Response, next: NextF
     const user = await User.findById(req.user?.userId);
     if (!user) throw new AppError('User not found', 404);
 
+    // Update directly in Gmail - no MongoDB storage needed
     await gmailService.unstarMessage(user, req.params.id);
-    await Email.updateOne(
-      { gmailId: req.params.id, userId: user._id },
-      { isStarred: false }
-    );
 
     res.json({ success: true });
   } catch (error) {
@@ -297,7 +295,10 @@ export const trashMessage = async (req: AuthRequest, res: Response, next: NextFu
     const user = await User.findById(req.user?.userId);
     if (!user) throw new AppError('User not found', 404);
 
+    // Update directly in Gmail - optionally delete AI metadata
     await gmailService.trashMessage(user, req.params.id);
+    
+    // Remove AI metadata if exists
     await Email.deleteOne({ gmailId: req.params.id, userId: user._id });
 
     res.json({ success: true });

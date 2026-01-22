@@ -68,38 +68,59 @@ export const verifyAPIKey = async (req: AuthRequest, res: Response, next: NextFu
 
 export const summarize = async (req: AuthRequest | any, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { emailId, emailBody, subject, from } = req.body;
+    const { emailId, gmailId, emailBody, threadId, subject, from } = req.body;
 
-    if (!emailId && !emailBody) {
-      throw new AppError('Email ID or email body required', 400);
+    if (!emailId && !gmailId && !emailBody) {
+      throw new AppError('Email ID, Gmail ID, or email body required', 400);
     }
 
     const user = await getUserFromRequest(req);
     let emailContent: string;
-    let emailDoc: any = null;
+    let actualGmailId: string | null = null;
+    let actualThreadId: string | null = threadId || null;
 
     if (emailBody) {
+      // Direct content from Gmail Add-on or web
       emailContent = emailBody;
-    } else {
-      emailDoc = await Email.findOne({ _id: emailId, userId: user._id });
-      if (!emailDoc) throw new AppError('Email not found', 404);
-
-      const fullMessage = await gmailService.getMessage(user, emailDoc.gmailId);
+      actualGmailId = gmailId || null;
+    } else if (gmailId) {
+      // Fetch from Gmail using gmailId
+      const fullMessage = await gmailService.getMessage(user, gmailId);
       emailContent = fullMessage.body || fullMessage.snippet || '';
+      actualGmailId = gmailId;
+      actualThreadId = fullMessage.threadId;
+    } else {
+      // Legacy: Try to find by _id in metadata
+      const emailDoc = await Email.findOne({ _id: emailId, userId: user._id });
+      if (emailDoc) {
+        const fullMessage = await gmailService.getMessage(user, emailDoc.gmailId);
+        emailContent = fullMessage.body || fullMessage.snippet || '';
+        actualGmailId = emailDoc.gmailId;
+        actualThreadId = emailDoc.threadId;
+      } else {
+        throw new AppError('Email not found', 404);
+      }
     }
 
     const summary = await aiService.summarizeEmail(emailContent);
 
-    if (emailDoc) {
-      emailDoc.aiSummary = summary;
-      await emailDoc.save();
+    // Save AI metadata to lightweight model
+    if (actualGmailId) {
+      await Email.findOneAndUpdate(
+        { gmailId: actualGmailId, userId: user._id },
+        { 
+          gmailId: actualGmailId,
+          threadId: actualThreadId || actualGmailId,
+          aiSummary: summary,
+        },
+        { upsert: true, new: true }
+      );
     }
 
     await AIUsage.create({
       userId: user._id,
       action: 'summarize',
       source: emailBody ? 'addon' : 'web',
-      emailId: emailDoc?._id,
       subjectSnippet: subject?.slice(0, 200),
       fromSnippet: from?.slice(0, 200),
     });
@@ -112,24 +133,38 @@ export const summarize = async (req: AuthRequest | any, res: Response, next: Nex
 
 export const generateReply = async (req: AuthRequest | any, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { emailId, emailBody, tone, userContext, subject, from } = req.body;
+    const { emailId, gmailId, emailBody, threadId, tone, userContext, subject, from } = req.body;
 
-    if (!emailId && !emailBody) {
-      throw new AppError('Email ID or email body required', 400);
+    if (!emailId && !gmailId && !emailBody) {
+      throw new AppError('Email ID, Gmail ID, or email body required', 400);
     }
     
     const user = await getUserFromRequest(req);
     let emailContent: string;
-    let emailDoc: any = null;
+    let actualGmailId: string | null = null;
+    let actualThreadId: string | null = threadId || null;
     
     if (emailBody) {
+      // Direct content from Gmail Add-on or web
       emailContent = emailBody;
-    } else {
-      emailDoc = await Email.findOne({ _id: emailId, userId: user._id });
-      if (!emailDoc) throw new AppError('Email not found', 404);
-
-      const fullMessage = await gmailService.getMessage(user, emailDoc.gmailId);
+      actualGmailId = gmailId || null;
+    } else if (gmailId) {
+      // Fetch from Gmail using gmailId
+      const fullMessage = await gmailService.getMessage(user, gmailId);
       emailContent = fullMessage.body || fullMessage.snippet || '';
+      actualGmailId = gmailId;
+      actualThreadId = fullMessage.threadId;
+    } else {
+      // Legacy: Try to find by _id in metadata
+      const emailDoc = await Email.findOne({ _id: emailId, userId: user._id });
+      if (emailDoc) {
+        const fullMessage = await gmailService.getMessage(user, emailDoc.gmailId);
+        emailContent = fullMessage.body || fullMessage.snippet || '';
+        actualGmailId = emailDoc.gmailId;
+        actualThreadId = emailDoc.threadId;
+      } else {
+        throw new AppError('Email not found', 404);
+      }
     }
 
     if (userContext && userContext.trim()) {
@@ -140,13 +175,21 @@ export const generateReply = async (req: AuthRequest | any, res: Response, next:
     const signature = user?.preferences?.signature || '';
     const replies = await aiService.generateReply(emailContent, selectedTone, signature);
 
-    if (emailDoc) {
-      emailDoc.aiSuggestions = replies.map((draft) => ({
-        tone: selectedTone,
-        draft,
-        generatedAt: new Date(),
-      }));
-      await emailDoc.save();
+    // Save AI metadata to lightweight model
+    if (actualGmailId) {
+      await Email.findOneAndUpdate(
+        { gmailId: actualGmailId, userId: user._id },
+        { 
+          gmailId: actualGmailId,
+          threadId: actualThreadId || actualGmailId,
+          aiSuggestions: replies.map((draft) => ({
+            tone: selectedTone,
+            draft,
+            generatedAt: new Date(),
+          })),
+        },
+        { upsert: true, new: true }
+      );
     }
 
     const firstDraft = Array.isArray(replies) ? replies[0] : replies;
@@ -154,7 +197,6 @@ export const generateReply = async (req: AuthRequest | any, res: Response, next:
       userId: user._id,
       action: 'reply',
       source: emailBody ? 'addon' : 'web',
-      emailId: emailDoc?._id,
       tone: selectedTone,
       subjectSnippet: subject?.slice(0, 200),
       fromSnippet: from?.slice(0, 200),
@@ -192,24 +234,38 @@ export const rewrite = async (req: AuthRequest | any, res: Response, next: NextF
 
 export const generateFollowUp = async (req: AuthRequest | any, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { emailId, emailBody, subject, from } = req.body;
+    const { emailId, gmailId, emailBody, threadId, subject, from } = req.body;
     
-    if (!emailId && !emailBody) {
-      throw new AppError('Email ID or email body required', 400);
+    if (!emailId && !gmailId && !emailBody) {
+      throw new AppError('Email ID, Gmail ID, or email body required', 400);
     }
 
     const user = await getUserFromRequest(req);
     let emailContent: string;
-    let emailDoc: any = null;
+    let actualGmailId: string | null = null;
+    let actualThreadId: string | null = threadId || null;
     
     if (emailBody) {
+      // Direct content from Gmail Add-on or web
       emailContent = emailBody;
-    } else {
-      emailDoc = await Email.findOne({ _id: emailId, userId: user._id });
-      if (!emailDoc) throw new AppError('Email not found', 404);
-
-      const fullMessage = await gmailService.getMessage(user, emailDoc.gmailId);
+      actualGmailId = gmailId || null;
+    } else if (gmailId) {
+      // Fetch from Gmail using gmailId
+      const fullMessage = await gmailService.getMessage(user, gmailId);
       emailContent = fullMessage.body || fullMessage.snippet || '';
+      actualGmailId = gmailId;
+      actualThreadId = fullMessage.threadId;
+    } else {
+      // Legacy: Try to find by _id in metadata
+      const emailDoc = await Email.findOne({ _id: emailId, userId: user._id });
+      if (emailDoc) {
+        const fullMessage = await gmailService.getMessage(user, emailDoc.gmailId);
+        emailContent = fullMessage.body || fullMessage.snippet || '';
+        actualGmailId = emailDoc.gmailId;
+        actualThreadId = emailDoc.threadId;
+      } else {
+        throw new AppError('Email not found', 404);
+      }
     }
 
     const followUp = await aiService.generateFollowUp(emailContent);
@@ -218,7 +274,6 @@ export const generateFollowUp = async (req: AuthRequest | any, res: Response, ne
       userId: user._id,
       action: 'followup',
       source: emailBody ? 'addon' : 'web',
-      emailId: emailDoc?._id,
       subjectSnippet: subject?.slice(0, 200),
       fromSnippet: from?.slice(0, 200),
       draftLength: followUp.length,

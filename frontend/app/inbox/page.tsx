@@ -305,6 +305,10 @@ export default function InboxPage() {
       setAiLoading('summary');
       const { data } = await api.post('/ai/summarize', {
         emailBody: selectedEmail.body,
+        gmailId: selectedEmail.gmailId,
+        threadId: selectedEmail.threadId,
+        subject: selectedEmail.subject,
+        from: selectedEmail.from,
       });
       setAiResult({ type: 'summary', content: data.summary });
     } catch (err: any) {
@@ -325,6 +329,10 @@ export default function InboxPage() {
       setAiLoading('reply');
       const { data } = await api.post('/ai/reply', {
         emailBody: selectedEmail.body,
+        gmailId: selectedEmail.gmailId,
+        threadId: selectedEmail.threadId,
+        subject: selectedEmail.subject,
+        from: selectedEmail.from,
         tone,
       });
       const reply = Array.isArray(data.replies)
@@ -351,6 +359,10 @@ export default function InboxPage() {
       setAiLoading('followup');
       const { data } = await api.post('/ai/followup', {
         emailBody: selectedEmail.body,
+        gmailId: selectedEmail.gmailId,
+        threadId: selectedEmail.threadId,
+        subject: selectedEmail.subject,
+        from: selectedEmail.from,
       });
       setAiResult({ type: 'followup', content: data.followUp });
       setReplyBody(data.followUp);

@@ -10,86 +10,41 @@ const gmailService = new GmailService();
 const ruleEngine = new RuleEngine();
 
 export const startEmailSyncCron = () => {
-  // Run every 15 minutes - automatically sync emails for all users
-  cron.schedule('*/15 * * * *', async () => {
+  // Cron job disabled - emails are now fetched directly from Gmail API
+  // This eliminates MongoDB storage overhead for email content
+  // Only AI metadata (summaries, classifications) are stored in MongoDB
+  
+  logger.info('Email sync cron job is disabled - emails are fetched directly from Gmail');
+  
+  // Optional: Run a lightweight cleanup job to remove old AI metadata
+  cron.schedule('0 0 * * *', async () => {
     try {
-      logger.info('Starting automatic email sync...');
+      logger.info('Running AI metadata cleanup...');
       
-      // Get all users with Gmail access
-      const users = await User.find({});
-      logger.info(`Found ${users.length} users to sync`);
+      // Clean up AI metadata older than 30 days that has no AI data
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
-      for (const user of users) {
-        try {
-          await syncUserEmails(user);
-        } catch (error: any) {
-          logger.error(`Error syncing emails for user ${user.email}:`, error);
-          // Continue with other users
-        }
+      const result = await Email.deleteMany({
+        createdAt: { $lt: thirtyDaysAgo },
+        aiSummary: { $exists: false },
+        aiSuggestions: { $size: 0 },
+      });
+      
+      if (result.deletedCount > 0) {
+        logger.info(`Cleaned up ${result.deletedCount} old email metadata records`);
       }
-      
-      logger.info('Email sync completed');
     } catch (error) {
-      logger.error('Error in email sync cron:', error);
+      logger.error('Error in metadata cleanup cron:', error);
     }
   });
-
-  logger.info('Email sync cron job started (runs every 15 minutes)');
+  
+  logger.info('AI metadata cleanup cron job started (runs daily at midnight)');
 };
 
+// Legacy function kept for reference - no longer stores full emails
 async function syncUserEmails(user: any) {
-  try {
-    // Fetch latest emails
-    const { messages } = await gmailService.getMessages(user, 50);
-    
-    if (!messages || messages.length === 0) {
-      return;
-    }
-
-    // Get preferences for classification
-    const preferences = await Preferences.findOne({ userId: user._id });
-    const rules = preferences?.rules || [];
-
-    // Process each email
-    for (const msg of messages) {
-      try {
-        // Check if email already exists
-        const existingEmail = await Email.findOne({ gmailId: msg.id });
-        if (existingEmail) continue;
-
-        // Fetch full email details
-        const emailData = await gmailService.getMessage(user, msg.id);
-        
-        // Classify email with AI
-        const classification = ruleEngine.evaluateRules(rules, emailData);
-
-        // Save to database
-        await Email.create({
-          userId: user._id,
-          gmailId: emailData.id,
-          threadId: emailData.threadId,
-          from: emailData.from,
-          to: emailData.to,
-          cc: emailData.cc,
-          bcc: emailData.bcc,
-          subject: emailData.subject,
-          snippet: emailData.snippet,
-          body: emailData.body,
-          date: emailData.date,
-          labels: emailData.labels,
-          priority: classification.priority || 'medium',
-          category: classification.category,
-          isRead: emailData.isRead,
-          isStarred: emailData.isStarred,
-        });
-
-        logger.info(`Saved email ${emailData.id} for user ${user.email}`);
-      } catch (error: any) {
-        logger.error(`Error processing email ${msg.id}:`, error);
-      }
-    }
-  } catch (error: any) {
-    logger.error(`Error syncing emails for user ${user.email}:`, error);
-    throw error;
-  }
+  // This function is no longer used
+  // Emails are fetched directly from Gmail API on demand
+  logger.warn('syncUserEmails called but is deprecated - emails fetch directly from Gmail');
 }
