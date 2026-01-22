@@ -1,105 +1,124 @@
 # InboxPilot AI - Executive Email Assistant
 
-A full-stack AI-powered email management platform built with MERN stack, Next.js, and TypeScript. Includes **Gmail Chrome Extension** and **Gmail Add-on** for seamless integration directly into Gmail.
+A full-stack AI-powered email management platform built with Next.js, TypeScript, and Node.js. Access your Gmail inbox with AI-powered features directly from our beautiful web interface.
 
-## 🚀 Features
+## Features
 
-- **Gmail Integration**: OAuth2 authentication with Gmail API
-- **AI-Powered Replies**: Generate intelligent email replies using Gemini AI
-- **Email Management**: Categorize, prioritize, and organize emails automatically
-- **Calendar Integration**: Schedule meetings and suggest available time slots
-- **Follow-up Automation**: Track and manage email follow-ups
-- **Rule-Based Classification**: Automatically label and categorize emails
-- **Beautiful Dashboard**: Modern UI with analytics and insights
-- **Chrome Extension**: Direct Gmail integration with injected UI
-- **Gmail Add-on**: Sidebar panel in Gmail with AI features
+- **Full Gmail Access**: Read, compose, reply, and manage your emails from a modern web interface
+- **AI-Powered Replies**: Generate intelligent email replies with customizable tone (formal, friendly, assertive, short)
+- **Email Summarization**: Get instant AI summaries of long emails
+- **Smart Compose**: AI-enhanced email composition with tone adjustment
+- **Follow-up Generation**: Generate follow-up emails automatically
+- **Email Actions**: Star, archive, trash, and manage emails
+- **Beautiful Dashboard**: Modern analytics and insights about your email patterns
+- **Secure**: OAuth 2.0 authentication, encrypted tokens, your data stays private
 
-## 📋 Prerequisites
+## Tech Stack
 
-- Node.js 18+ and npm/yarn
-- MongoDB database
-- Google Cloud Project with Gmail and Calendar APIs enabled
-- Google Gemini API key (OpenAI removed - Gemini only)
+- **Frontend**: Next.js 14, React 18, TypeScript, Tailwind CSS
+- **Backend**: Node.js, Express.js, TypeScript
+- **Database**: MongoDB
+- **AI**: Google Gemini (free tier)
+- **Authentication**: Google OAuth 2.0
 
-## 🛠️ Setup
+## Prerequisites
 
-### Backend Setup
+- Node.js 18+ and npm
+- MongoDB (local or MongoDB Atlas)
+- Google Cloud Project with Gmail API enabled
+- Google Gemini API key (free)
 
-1. Navigate to the backend directory:
+## Quick Start
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/yourusername/InboxPilot-AI.git
+cd InboxPilot-AI
+```
+
+### 2. Backend Setup
+
 ```bash
 cd backend
-```
-
-2. Install dependencies:
-```bash
 npm install
-```
-
-3. Create a `.env` file in the `backend` directory:
-```env
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_REDIRECT_URI=http://localhost:5000/api/auth/google/callback
-
-GEMINI_API_KEY=your_gemini_api_key
-
-MONGO_URI=mongodb://localhost:27017/inboxpilot
-
-JWT_SECRET=your_jwt_secret_key
-ENCRYPTION_KEY=your_32_character_encryption_key_hex
-ENCRYPTION_IV=your_16_character_iv_hex
-
-PORT=5000
-NODE_ENV=development
-```
-
-4. Generate encryption keys:
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"
-```
-
-5. Run the backend:
-```bash
+cp .env.example .env
+# Edit .env with your values (see configuration section below)
 npm run dev
 ```
 
-### Frontend Setup
+### 3. Frontend Setup
 
-1. Navigate to the frontend directory:
 ```bash
 cd frontend
-```
-
-2. Install dependencies:
-```bash
 npm install
-```
-
-3. Create a `.env.local` file in the `frontend` directory:
-```env
-NEXT_PUBLIC_API_URL=http://localhost:5000/api
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your_nextauth_secret
-```
-
-4. Run the frontend:
-```bash
+cp .env.example .env.local
+# Edit .env.local with your values
 npm run dev
 ```
 
-## 🔑 Google OAuth Setup
+### 4. Open the App
+
+Visit `http://localhost:3000` and sign in with your Google account!
+
+## Configuration
+
+### Google OAuth Setup
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select an existing one
-3. Enable Gmail API and Google Calendar API
-4. Create OAuth 2.0 credentials
-5. Add authorized redirect URIs:
-   - `http://localhost:5000/api/auth/google/callback`
-   - `http://localhost:3000/api/auth/callback/google`
-6. Copy Client ID and Client Secret to your `.env` file
+3. Enable these APIs:
+   - Gmail API
+   - Google Calendar API
+4. Go to "APIs & Services" → "Credentials"
+5. Create "OAuth 2.0 Client ID" (Web application)
+6. Add authorized redirect URIs:
+   - `http://localhost:5000/api/auth/google/callback` (development)
+   - `https://your-backend.com/api/auth/google/callback` (production)
+7. Copy Client ID and Client Secret to your `.env` file
 
-## 📁 Project Structure
+### Gemini API Key
+
+1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Create a new API key (free tier available)
+3. Add to your backend `.env` file as `GEMINI_API_KEY`
+
+### Backend Environment Variables
+
+Create `backend/.env`:
+
+```env
+# Google OAuth
+GOOGLE_CLIENT_ID=your_client_id
+GOOGLE_CLIENT_SECRET=your_client_secret
+GOOGLE_REDIRECT_URI=http://localhost:5000/api/auth/google/callback
+
+# Gemini AI
+GEMINI_API_KEY=your_gemini_api_key
+
+# MongoDB
+MONGO_URI=mongodb://localhost:27017/inboxpilot
+
+# Security (generate using: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+JWT_SECRET=your_jwt_secret
+ENCRYPTION_KEY=your_32_byte_hex_key
+ENCRYPTION_IV=your_16_byte_hex_iv
+
+# Server
+PORT=5000
+NODE_ENV=development
+FRONTEND_URL=http://localhost:3000
+```
+
+### Frontend Environment Variables
+
+Create `frontend/.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
+```
+
+## Project Structure
 
 ```
 InboxPilot-AI/
@@ -109,108 +128,101 @@ InboxPilot-AI/
 │   │   ├── controllers/  # Route controllers
 │   │   ├── models/       # MongoDB models
 │   │   ├── routes/       # API routes
-│   │   ├── services/     # Business logic
+│   │   ├── services/     # Business logic (Gmail, AI)
 │   │   ├── utils/        # Utility functions
 │   │   ├── middlewares/  # Express middlewares
 │   │   └── cron/         # Scheduled tasks
 │   └── package.json
 ├── frontend/
 │   ├── app/              # Next.js app directory
+│   │   ├── page.tsx      # Landing page
+│   │   ├── login/        # Login page
+│   │   ├── dashboard/    # Dashboard
+│   │   ├── inbox/        # Email inbox
+│   │   ├── compose/      # Compose email
+│   │   └── settings/     # Settings
 │   ├── components/       # React components
-│   ├── lib/             # Utilities
-│   ├── store/           # Zustand store
+│   ├── lib/              # Utilities
+│   ├── store/            # Zustand store
 │   └── package.json
-├── extension/            # Chrome Extension
-│   ├── manifest.json
-│   ├── contentScript.js
-│   ├── injectedUI.js
-│   ├── background.js
-│   ├── styles.css
-│   └── utils/
-└── addon/                # Gmail Add-on
-    ├── main.gs
-    ├── sidebar.html
-    └── appsscript.json
+└── README.md
 ```
 
-## 🎯 API Endpoints
+## API Endpoints
 
 ### Authentication
 - `GET /api/auth/url` - Get Google OAuth URL
-- `POST /api/auth/google` - Complete OAuth flow
+- `GET /api/auth/google/callback` - OAuth callback
 
 ### Gmail
-- `GET /api/gmail/messages` - Get email messages
+- `GET /api/gmail/messages` - Get email list
 - `GET /api/gmail/message/:id` - Get specific email
-- `POST /api/gmail/draft` - Create draft
-- `POST /api/gmail/send` - Send email
-- `POST /api/gmail/watch` - Watch inbox for changes
+- `GET /api/gmail/message/:id/full` - Get full email with body
+- `GET /api/gmail/thread/:threadId` - Get email thread
+- `POST /api/gmail/send` - Send new email
+- `POST /api/gmail/message/:id/reply` - Reply to email
+- `POST /api/gmail/message/:id/read` - Mark as read
+- `POST /api/gmail/message/:id/star` - Star email
+- `POST /api/gmail/message/:id/trash` - Move to trash
+- `POST /api/gmail/message/:id/archive` - Archive email
 
 ### AI
 - `POST /api/ai/summarize` - Summarize email
 - `POST /api/ai/reply` - Generate reply
-- `POST /api/ai/rewrite` - Rewrite text
+- `POST /api/ai/rewrite` - Rewrite/enhance text
 - `POST /api/ai/followup` - Generate follow-up
 
-### Calendar
-- `GET /api/calendar/events` - Get calendar events
-- `GET /api/calendar/free-slots` - Get free time slots
-- `POST /api/calendar/event` - Create calendar event
-- `POST /api/calendar/suggest` - Suggest meeting times from email
+### Analytics
+- `GET /api/analytics/dashboard` - Dashboard stats
 
-### Gmail Extension
-- `POST /api/gmail/apply-label` - Apply label to email
+## Deployment
 
-## 🔌 Gmail Extension Setup
+### Backend (Render)
 
-### Chrome Extension
-
-1. Navigate to `chrome://extensions/`
-2. Enable "Developer mode"
-3. Click "Load unpacked"
-4. Select the `extension` folder
-5. The extension will inject AI features into Gmail
-
-**Features:**
-- Floating sidebar panel with AI actions
-- Compose toolbar with rewrite/expand/shorten
-- Email action buttons
-- Direct integration with backend API
-
-### Gmail Add-on (Google Apps Script)
-
-1. Go to [Google Apps Script](https://script.google.com/)
-2. Create a new project
-3. Copy `addon/main.gs` to `Code.gs`
-4. Create HTML file `sidebar.html` with addon contents
-5. Deploy as Gmail add-on
-
-**Features:**
-- Sidebar panel in Gmail
-- AI summarization and reply generation
-- Meeting suggestions
-- Follow-up automation
-
-## 🚀 Deployment
-
-### Backend (Render/Railway)
-1. Set environment variables
-2. Build: `npm run build`
-3. Start: `npm start`
+1. Create a new Web Service on [Render](https://render.com)
+2. Connect your repository
+3. Set build command: `npm install && npm run build`
+4. Set start command: `npm start`
+5. Add environment variables
+6. Update `GOOGLE_REDIRECT_URI` to your Render URL
 
 ### Frontend (Vercel)
-1. Connect your repository
-2. Set environment variables
-3. Deploy automatically
 
-### Extension
-1. Package extension folder
-2. Submit to Chrome Web Store (or use unpacked for development)
+1. Import project on [Vercel](https://vercel.com)
+2. Set `NEXT_PUBLIC_API_URL` to your backend URL
+3. Deploy!
 
-## 📝 License
+### Environment Variables for Production
+
+Backend:
+- Update `GOOGLE_REDIRECT_URI` to production URL
+- Update `FRONTEND_URL` to production frontend URL
+- Use MongoDB Atlas for `MONGO_URI`
+
+Frontend:
+- Update `NEXT_PUBLIC_API_URL` to production backend URL
+
+## Troubleshooting
+
+### "Failed to connect to server"
+- Make sure backend is running on port 5000
+- Check that MongoDB is running
+- Verify CORS settings allow your frontend URL
+
+### "OAuth error"
+- Verify redirect URI matches exactly in Google Console
+- Check Client ID and Secret are correct
+- Ensure Gmail API is enabled
+
+### "AI generation failed"
+- Verify Gemini API key is correct
+- Check API quota at Google AI Studio
+- Ensure key starts with "AIza"
+
+## License
 
 MIT
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request.

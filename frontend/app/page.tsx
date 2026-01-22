@@ -127,9 +127,9 @@ export default function LandingPage() {
                   <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
                     <Mail className="h-8 w-8 text-white" />
                   </div>
-                  <CardTitle className="text-slate-900 text-xl mb-2">Gmail Integration</CardTitle>
+                  <CardTitle className="text-slate-900 text-xl mb-2">Full Gmail Access</CardTitle>
                   <CardDescription className="text-slate-600">
-                    Works seamlessly inside your Gmail inbox with Chrome extension and Gmail add-on
+                    Read, reply, and manage your Gmail inbox directly from our beautiful web interface
                   </CardDescription>
                 </div>
               </CardHeader>
@@ -190,27 +190,27 @@ export default function LandingPage() {
               <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl font-bold text-white">1</span>
               </div>
-              <h4 className="font-semibold text-lg mb-2 text-slate-900">Connect Your Gmail</h4>
+              <h4 className="font-semibold text-lg mb-2 text-slate-900">Sign In with Google</h4>
               <p className="text-slate-600">
-                Grant secure access to your Gmail account with OAuth. Your credentials are encrypted.
+                Connect your Gmail account securely with OAuth. Your credentials are always encrypted.
               </p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl font-bold text-white">2</span>
               </div>
-              <h4 className="font-semibold text-lg mb-2 text-slate-900">Install Extension</h4>
+              <h4 className="font-semibold text-lg mb-2 text-slate-900">Access Your Inbox</h4>
               <p className="text-slate-600">
-                Add the Chrome extension or Gmail add-on to get AI features directly in your inbox.
+                View and manage all your emails in our beautiful, intuitive web interface.
               </p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl font-bold text-white">3</span>
               </div>
-              <h4 className="font-semibold text-lg mb-2 text-slate-900">Start Using AI</h4>
+              <h4 className="font-semibold text-lg mb-2 text-slate-900">Use AI Features</h4>
               <p className="text-slate-600">
-                Get AI replies, smart labels, priority detection, and more - all in your Gmail.
+                Summarize emails, generate smart replies, and send messages - all with AI assistance.
               </p>
             </div>
           </div>

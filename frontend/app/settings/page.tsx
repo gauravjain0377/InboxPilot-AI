@@ -124,50 +124,50 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Gmail Add-on Information */}
+          {/* Gmail Account */}
           <Card className="border border-slate-200 bg-white shadow-sm">
             <CardHeader className="bg-slate-50 border-b border-slate-200">
               <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
                 <SettingsIcon className="h-4 w-4 text-slate-600" />
-                Gmail Add-on
+                Gmail Account
               </CardTitle>
               <CardDescription className="text-sm text-slate-500">
-                Use InboxPilot AI features directly inside Gmail
+                Your connected Gmail account
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-200">
                 <p className="text-sm font-medium text-slate-900 mb-2">
-                  Your Gmail account is connected
+                  Gmail Account Connected
                 </p>
                 <p className="text-xs text-slate-600 mb-4">
-                  Your account <span className="font-semibold">{user.email}</span> is connected and ready to use.
-                  Install the Gmail Add-on to access AI features directly in Gmail.
+                  Your account <span className="font-semibold">{user.email}</span> is connected. 
+                  You can access your inbox, compose emails, and use AI features.
                 </p>
-                <div className="space-y-2 text-xs text-slate-600">
-                  <p className="font-medium">How to use:</p>
-                  <ol className="list-decimal list-inside space-y-1 ml-2">
-                    <li>Open Gmail in your browser</li>
-                    <li>Look for &quot;InboxPilot AI&quot; in the Gmail menu (top right)</li>
-                    <li>Click it to open the sidebar</li>
-                    <li>Select any email and use AI features like Summarize, Generate Reply, etc.</li>
-                  </ol>
-                </div>
-                <a
-                  href="https://mail.google.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-4 inline-block"
-                >
-                  <Button type="button" size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
-                    Open Gmail
+                <div className="flex gap-2">
+                  <Button 
+                    type="button" 
+                    size="sm" 
+                    onClick={() => router.push('/inbox')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Open Inbox
                   </Button>
-                </a>
+                  <Button 
+                    type="button" 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => router.push('/compose')}
+                    className="border-slate-300"
+                  >
+                    Compose Email
+                  </Button>
+                </div>
               </div>
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
                 <p className="text-xs text-slate-600">
-                  <strong>Note:</strong> The Gmail Add-on needs to be installed from Google Workspace Marketplace.
-                  Once installed, it will automatically recognize your connected Gmail account.
+                  <strong>Note:</strong> All emails sent through InboxPilot will appear in your Gmail&apos;s Sent folder. 
+                  Replies will be part of the same conversation thread.
                 </p>
               </div>
             </CardContent>

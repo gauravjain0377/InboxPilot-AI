@@ -1,5 +1,6 @@
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Zap, CheckCircle2, ExternalLink } from 'lucide-react';
+import { Mail, CheckCircle2, Inbox, Send, Sparkles } from 'lucide-react';
 import { DashboardStats } from './types';
 
 interface GmailIntegrationStatusProps {
@@ -11,11 +12,11 @@ export default function GmailIntegrationStatus({ stats }: GmailIntegrationStatus
     <Card className="border border-slate-200 bg-white shadow-sm">
       <CardHeader className="border-b border-slate-200 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Zap className="h-4 w-4 text-slate-700" />
-          <CardTitle className="text-base font-semibold text-slate-900">Gmail Add-on</CardTitle>
+          <Mail className="h-4 w-4 text-slate-700" />
+          <CardTitle className="text-base font-semibold text-slate-900">Gmail Connected</CardTitle>
         </div>
         <CardDescription className="text-xs sm:text-sm text-slate-500">
-          Use InboxPilot AI directly in Gmail
+          Manage your inbox with AI assistance
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-6 flex flex-col gap-4">
@@ -24,27 +25,33 @@ export default function GmailIntegrationStatus({ stats }: GmailIntegrationStatus
           <div className="flex-1">
             <p className="text-sm font-medium text-slate-900">Gmail Account Connected</p>
             <p className="text-xs text-slate-500">
-              Your Gmail account <span className="font-semibold">{stats.userInfo.email}</span> is connected.
-              Install the Gmail Add-on to use AI features directly in Gmail.
+              <span className="font-semibold">{stats.userInfo.email}</span> is connected. 
+              You can read, reply, and manage emails with AI assistance.
             </p>
           </div>
         </div>
         <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-sm font-medium text-slate-900 mb-2">How to use InboxPilot in Gmail:</p>
-          <ol className="text-xs text-slate-600 space-y-1 list-decimal list-inside">
-            <li>Open Gmail in your browser</li>
-            <li>Look for "InboxPilot AI" in the Gmail menu</li>
-            <li>Click it to open the sidebar with AI features</li>
-            <li>Select any email and use AI features like Summarize, Generate Reply, etc.</li>
-          </ol>
-          <a
-            href="https://mail.google.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
-          >
-            Open Gmail <ExternalLink className="h-3 w-3" />
-          </a>
+          <p className="text-sm font-medium text-slate-900 mb-3">Quick Actions</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              href="/inbox"
+              className="flex items-center gap-2 p-3 bg-white rounded-lg border border-blue-200 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+            >
+              <Inbox className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-slate-700">Open Inbox</span>
+            </Link>
+            <Link
+              href="/compose"
+              className="flex items-center gap-2 p-3 bg-white rounded-lg border border-blue-200 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+            >
+              <Send className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-slate-700">Compose</span>
+            </Link>
+          </div>
+          <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+            <Sparkles className="h-3 w-3" />
+            <span>AI features: Summarize, Generate Reply, Follow-up, and more</span>
+          </div>
         </div>
       </CardContent>
     </Card>

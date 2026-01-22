@@ -1,169 +1,355 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useUserStore } from '@/store/userStore';
 import api from '@/lib/axios';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Sparkles, ArrowLeft, Send, Wand2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Send,
+  Wand2,
+  Sparkles,
+  Loader2,
+  X,
+  Check,
+  Copy,
+  RefreshCw,
+} from 'lucide-react';
 
-export default function ComposePage() {
+type Tone = 'formal' | 'friendly' | 'assertive' | 'short';
+
+function ComposeContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useUserStore();
+  
   const [to, setTo] = useState('');
+  const [cc, setCc] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
-  const [tone, setTone] = useState<'formal' | 'friendly' | 'assertive' | 'short'>('friendly');
+  const [showCc, setShowCc] = useState(false);
+  
+  const [sending, setSending] = useState(false);
+  const [enhancing, setEnhancing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  
+  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
+  const [selectedTone, setSelectedTone] = useState<Tone>('friendly');
 
   useEffect(() => {
     if (!user) {
       router.push('/login');
+      return;
     }
-  }, [user, router]);
+    
+    // Pre-fill from URL params (for reply flow)
+    const replyTo = searchParams.get('replyTo');
+    const replySubject = searchParams.get('subject');
+    
+    if (replyTo) setTo(replyTo);
+    if (replySubject) setSubject(replySubject.startsWith('Re:') ? replySubject : `Re: ${replySubject}`);
+  }, [user, router, searchParams]);
 
-  const generateAISuggestion = async () => {
-    if (!body) return;
+  const enhanceWithAI = async () => {
+    if (!body.trim()) {
+      setError('Please write some content first');
+      return;
+    }
+    
     try {
-      setLoading(true);
+      setEnhancing(true);
+      setError(null);
+      
       const { data } = await api.post('/ai/rewrite', {
         text: body,
-        instruction: `Rewrite this email in a ${tone} tone`,
+        instruction: `Enhance and improve this email to be more ${selectedTone}. Make it clear, professional, and well-structured. Keep the same meaning but improve the writing.`,
       });
-      setAiSuggestions([data.rewritten]);
-    } catch (error) {
-      console.error('Error generating AI suggestion:', error);
+      
+      setAiSuggestion(data.rewritten);
+    } catch (err: any) {
+      console.error('Error enhancing email:', err);
+      setError(err?.response?.data?.message || 'Failed to enhance email');
     } finally {
-      setLoading(false);
+      setEnhancing(false);
+    }
+  };
+
+  const useSuggestion = () => {
+    if (aiSuggestion) {
+      setBody(aiSuggestion);
+      setAiSuggestion(null);
     }
   };
 
   const sendEmail = async () => {
-    if (!to || !subject || !body) return;
+    if (!to.trim()) {
+      setError('Please enter a recipient');
+      return;
+    }
+    if (!subject.trim()) {
+      setError('Please enter a subject');
+      return;
+    }
+    if (!body.trim()) {
+      setError('Please write your message');
+      return;
+    }
+    
     try {
-      setLoading(true);
-      await api.post('/gmail/send', { to, subject, body });
-      router.push('/inbox');
-    } catch (error) {
-      console.error('Error sending email:', error);
+      setSending(true);
+      setError(null);
+      
+      await api.post('/gmail/send', {
+        to: to.trim(),
+        subject: subject.trim(),
+        body: body.trim(),
+      });
+      
+      setSuccess(true);
+      
+      // Redirect after short delay
+      setTimeout(() => {
+        router.push('/inbox');
+      }, 1500);
+    } catch (err: any) {
+      console.error('Error sending email:', err);
+      setError(err?.response?.data?.message || 'Failed to send email');
     } finally {
-      setLoading(false);
+      setSending(false);
     }
   };
 
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard')} className="text-slate-600">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.back()}
+              className="text-gray-600 hover:text-gray-900"
+            >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
-            <h1 className="text-xl font-semibold text-slate-900">Compose Email</h1>
+            <h1 className="text-lg font-semibold text-gray-900">New Message</h1>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={enhanceWithAI}
+              disabled={enhancing || !body.trim()}
+              className="border-purple-200 text-purple-700 hover:bg-purple-50"
+            >
+              {enhancing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Wand2 className="h-4 w-4 mr-2" />
+              )}
+              AI Enhance
+            </Button>
+            <Button
+              size="sm"
+              onClick={sendEmail}
+              disabled={sending || success}
+              className="bg-blue-600 hover:bg-blue-700 text-white min-w-[100px]"
+            >
+              {sending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : success ? (
+                <Check className="h-4 w-4 mr-2" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}
+              {sending ? 'Sending...' : success ? 'Sent!' : 'Send'}
+            </Button>
           </div>
         </div>
-      </nav>
+      </header>
 
-      <div className="container mx-auto px-6 py-8 max-w-4xl">
-        <Card className="border border-slate-200 bg-white shadow-sm">
-          <CardHeader className="bg-slate-50 border-b border-slate-200">
-            <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
-              <Sparkles className="h-4 w-4 text-slate-600" />
-              New Email
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6 pt-6">
-            <div>
-              <Label htmlFor="to" className="text-slate-700 font-medium text-sm">To</Label>
-              <Input 
-                id="to" 
-                value={to} 
-                onChange={(e) => setTo(e.target.value)} 
+      <main className="max-w-4xl mx-auto py-6 px-4">
+        {/* Error/Success Messages */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+            <p className="text-sm text-red-700">{error}</p>
+            <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+        
+        {success && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-sm text-green-700 flex items-center">
+              <Check className="h-4 w-4 mr-2" />
+              Email sent successfully! Redirecting...
+            </p>
+          </div>
+        )}
+
+        {/* Compose Form */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          {/* Recipients */}
+          <div className="border-b border-gray-100">
+            <div className="flex items-center px-4 py-3">
+              <Label className="w-16 text-sm text-gray-500">To</Label>
+              <Input
+                type="email"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
                 placeholder="recipient@example.com"
-                className="mt-1 border-slate-300"
+                className="flex-1 border-0 shadow-none focus-visible:ring-0 px-0"
               />
-            </div>
-            <div>
-              <Label htmlFor="subject" className="text-slate-700 font-medium text-sm">Subject</Label>
-              <Input 
-                id="subject" 
-                value={subject} 
-                onChange={(e) => setSubject(e.target.value)} 
-                placeholder="Email subject"
-                className="mt-1 border-slate-300"
-              />
-            </div>
-            <div>
-              <Label htmlFor="body" className="text-slate-700 font-medium text-sm">Message</Label>
-              <textarea
-                id="body"
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                className="w-full min-h-[250px] rounded-md border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent mt-1"
-                placeholder="Write your message..."
-              />
-            </div>
-            <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
-              <select
-                value={tone}
-                onChange={(e) => setTone(e.target.value as any)}
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
-              >
-                <option value="formal">Formal</option>
-                <option value="friendly">Friendly</option>
-                <option value="assertive">Assertive</option>
-                <option value="short">Short</option>
-              </select>
-              <Button 
-                onClick={generateAISuggestion} 
-                variant="outline" 
-                disabled={loading || !body}
-                className="flex-1 border-slate-300"
-              >
-                <Wand2 className="h-4 w-4 mr-2" />
-                {loading ? 'Generating...' : 'AI Enhance'}
-              </Button>
-            </div>
-            {aiSuggestions.length > 0 && (
-              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                <p className="text-sm font-semibold mb-2 text-slate-900">✨ AI Suggestion:</p>
-                <p className="text-sm text-slate-700 mb-3 whitespace-pre-wrap">{aiSuggestions[0]}</p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setBody(aiSuggestions[0]);
-                    setAiSuggestions([]);
-                  }}
-                  className="border-slate-300 text-slate-700 hover:bg-slate-100"
+              {!showCc && (
+                <button
+                  onClick={() => setShowCc(true)}
+                  className="text-xs text-gray-400 hover:text-gray-600"
                 >
-                  Use This Suggestion
-                </Button>
+                  Cc
+                </button>
+              )}
+            </div>
+            
+            {showCc && (
+              <div className="flex items-center px-4 py-3 border-t border-gray-100">
+                <Label className="w-16 text-sm text-gray-500">Cc</Label>
+                <Input
+                  type="email"
+                  value={cc}
+                  onChange={(e) => setCc(e.target.value)}
+                  placeholder="cc@example.com"
+                  className="flex-1 border-0 shadow-none focus-visible:ring-0 px-0"
+                />
+                <button
+                  onClick={() => {
+                    setShowCc(false);
+                    setCc('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
             )}
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-              <Button variant="outline" onClick={() => router.push('/inbox')} className="border-slate-300">
-                Cancel
-              </Button>
-              <Button 
-                onClick={sendEmail} 
-                disabled={loading || !to || !subject || !body}
-                className="bg-slate-900 hover:bg-slate-800 text-white"
-              >
-                <Send className="h-4 w-4 mr-2" />
-                {loading ? 'Sending...' : 'Send Email'}
-              </Button>
+          </div>
+
+          {/* Subject */}
+          <div className="border-b border-gray-100">
+            <div className="flex items-center px-4 py-3">
+              <Label className="w-16 text-sm text-gray-500">Subject</Label>
+              <Input
+                type="text"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Email subject"
+                className="flex-1 border-0 shadow-none focus-visible:ring-0 px-0 font-medium"
+              />
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+
+          {/* AI Suggestion */}
+          {aiSuggestion && (
+            <div className="border-b border-gray-100 bg-gradient-to-r from-purple-50 to-blue-50 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-purple-700 mb-2 flex items-center">
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    AI Enhanced Version
+                  </p>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{aiSuggestion}</p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setAiSuggestion(null)}
+                    className="text-xs h-8"
+                  >
+                    Dismiss
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={useSuggestion}
+                    className="text-xs h-8 bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    <Check className="h-3 w-3 mr-1" />
+                    Use This
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Body */}
+          <div className="p-4">
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Write your message here..."
+              className="w-full min-h-[350px] text-sm text-gray-700 leading-relaxed resize-none focus:outline-none"
+            />
+          </div>
+
+          {/* AI Tone Options */}
+          <div className="border-t border-gray-100 px-4 py-3 bg-gray-50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">AI Tone:</span>
+                {(['formal', 'friendly', 'assertive', 'short'] as Tone[]).map((tone) => (
+                  <button
+                    key={tone}
+                    onClick={() => setSelectedTone(tone)}
+                    className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                      selectedTone === tone
+                        ? 'bg-purple-100 text-purple-700 font-medium'
+                        : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                    }`}
+                  >
+                    {tone.charAt(0).toUpperCase() + tone.slice(1)}
+                  </button>
+                ))}
+              </div>
+              
+              <div className="text-xs text-gray-400">
+                {body.length} characters
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Tips */}
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+          <h3 className="text-sm font-medium text-blue-900 mb-2">Tips for better emails</h3>
+          <ul className="text-xs text-blue-700 space-y-1">
+            <li>• Keep your subject line clear and specific</li>
+            <li>• Use the AI Enhance button to improve your writing</li>
+            <li>• Select a tone that matches your relationship with the recipient</li>
+            <li>• Proofread before sending</li>
+          </ul>
+        </div>
+      </main>
     </div>
+  );
+}
+
+export default function ComposePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    }>
+      <ComposeContent />
+    </Suspense>
   );
 }

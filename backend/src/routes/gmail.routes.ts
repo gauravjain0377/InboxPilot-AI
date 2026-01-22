@@ -3,8 +3,18 @@ import { authenticate } from '../middlewares/auth.js';
 import {
   getMessages,
   getMessage,
+  getFullMessage,
+  getThread,
   createDraft,
   sendMessage,
+  replyToMessage,
+  markAsRead,
+  markAsUnread,
+  starMessage,
+  unstarMessage,
+  trashMessage,
+  archiveMessage,
+  getLabels,
   watchInbox,
 } from '../controllers/gmail.controller.js';
 import { Email } from '../models/Email.js';
@@ -13,11 +23,28 @@ const router = Router();
 
 router.use(authenticate);
 
+// Message retrieval
 router.get('/messages', getMessages);
 router.get('/message/:id', getMessage);
+router.get('/message/:id/full', getFullMessage);
+router.get('/thread/:threadId', getThread);
+router.get('/labels', getLabels);
+
+// Message actions
 router.post('/draft', createDraft);
 router.post('/send', sendMessage);
+router.post('/message/:id/reply', replyToMessage);
+router.post('/message/:id/read', markAsRead);
+router.post('/message/:id/unread', markAsUnread);
+router.post('/message/:id/star', starMessage);
+router.post('/message/:id/unstar', unstarMessage);
+router.post('/message/:id/trash', trashMessage);
+router.post('/message/:id/archive', archiveMessage);
+
+// Notifications
 router.post('/watch', watchInbox);
+
+// Legacy endpoint for extension compatibility
 router.post('/apply-label', async (req: any, res, next) => {
   try {
     const { emailId, label, priority, category } = req.body;
@@ -30,14 +57,12 @@ router.post('/apply-label', async (req: any, res, next) => {
     const user = await User.findById(req.user?.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // Best-effort update of Email document so analytics & dashboard stay in sync
     try {
       const update: any = {};
 
       if (priority || category) {
         update.$set = {};
         if (priority) {
-          // Normalize priority to our enum values
           const normalizedPriority =
             priority === 'high' || priority === 'medium' || priority === 'low'
               ? priority
@@ -54,18 +79,15 @@ router.post('/apply-label', async (req: any, res, next) => {
       }
 
       if (Object.keys(update).length > 0) {
-        // Try matching by threadId first (what Gmail rows usually expose), then by gmailId
         await Email.updateMany(
           { userId: user._id, $or: [{ threadId: emailId }, { gmailId: emailId }] },
           update
         );
       }
     } catch (err) {
-      // Do not fail the request if analytics update fails – just log
       console.error('Error updating Email document for apply-label:', err);
     }
 
-    // Note: Gmail API label application would go here if/when you want to sync labels back to Gmail.
     res.json({ success: true, message: 'Label applied' });
   } catch (error) {
     next(error);
