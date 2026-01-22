@@ -17,6 +17,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'InboxPilot AI - Executive Email Assistant',
   description: 'AI-powered email management and automation platform',
+  verification: {
+    google: 'XPwEIn0pr1bUY7JNhmdijjuNL_V91MqSja6JIjr4xq4',
+  },
 };
 
 export default function RootLayout({

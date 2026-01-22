@@ -249,10 +249,14 @@ export default function LoginPage() {
                 ) : (
                   <>
                     {/* Google Icon */}
-                    <img 
+                    <Image 
                       src="/google.jpg" 
                       alt="Google" 
-                      className="w-5 h-5 object-contain"
+                      width={20}
+                      height={20}
+                      className="object-contain"
+                      priority
+                      unoptimized
                     />
                     <span className="font-semibold">Continue with Google</span>
                   </>
@@ -277,8 +281,32 @@ export default function LoginPage() {
                 <span>Email sign-in coming soon</span>
               </button>
 
+              {/* Terms Agreement */}
+              <div className="mt-6 text-center">
+                <p className="text-xs text-neutral-400 leading-relaxed">
+                  By signing in, you agree to our{' '}
+                  <a 
+                    href="/terms" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    Terms of Service
+                  </a>
+                  {' '}and{' '}
+                  <a 
+                    href="/privacy" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    Privacy Policy
+                  </a>
+                </p>
+              </div>
+
               {/* Security Note */}
-              <div className="mt-6 flex items-center justify-center gap-2 text-neutral-400">
+              <div className="mt-4 flex items-center justify-center gap-2 text-neutral-400">
                 <Shield className="w-4 h-4" />
                 <span className="text-xs">Secure sign-in with Google OAuth 2.0</span>
               </div>

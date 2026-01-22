@@ -185,6 +185,12 @@ export default function LandingPage() {
                 {item}
               </a>
             ))}
+            <Link
+              href="/privacy"
+              className="text-neutral-600 hover:text-neutral-900 transition-colors text-sm font-medium"
+            >
+              Privacy
+            </Link>
           </nav>
 
           <Link href="/login">
@@ -545,12 +551,20 @@ export default function LandingPage() {
             <p className="text-neutral-500">
               &copy; 2026 InboxPilot AI. Crafted with care.
             </p>
-            <button 
-              onClick={() => setShowContactModal(true)}
-              className="text-neutral-500 hover:text-neutral-900 transition-colors text-sm"
-            >
-              Contact
-            </button>
+            <div className="flex items-center gap-6">
+              <Link href="/privacy" className="text-neutral-500 hover:text-neutral-900 transition-colors text-sm">
+                Privacy Policy
+              </Link>
+              <Link href="/terms" className="text-neutral-500 hover:text-neutral-900 transition-colors text-sm">
+                Terms of Service
+              </Link>
+              <button 
+                onClick={() => setShowContactModal(true)}
+                className="text-neutral-500 hover:text-neutral-900 transition-colors text-sm"
+              >
+                Contact
+              </button>
+            </div>
           </div>
         </div>
       </footer>
