@@ -182,7 +182,7 @@ InboxPilot AI uses a **black, white & blue** theme. Typography: **Space Grotesk*
 #171717  Primary / Buttons
 #737373  Muted text
 #E5E5E5  Border
-██#3B82F6  Accent (blue)
+#3B82F6  Accent (blue)
 #EF4444  Destructive
 ```
 
