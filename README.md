@@ -51,7 +51,7 @@
 
 | Landing | Inbox | Dashboard |
 | :---: | :---: | :---: |
-| ![Landing](public/landing_page.png) | ![Inbox](public/inbox.png) | ![Dashboard](public/dashboard.png) |
+| ![Landing](frontend/public/landing_page.png) | ![Inbox](frontend/public/inbox.png) | ![Dashboard](frontend/public/dashboard.png) |
 
 ---
 
@@ -171,12 +171,12 @@ InboxPilot AI uses a **black, white & blue** theme. Typography: **Space Grotesk*
 ### Visual reference
 
 ```
-████████  #FFFFFF  Background
-████████  #171717  Primary / Buttons
-████████  #737373  Muted text
-████████  #E5E5E5  Border
-████████  #3B82F6  Accent (blue)
-████████  #EF4444  Destructive
+#FFFFFF  Background
+#171717  Primary / Buttons
+#737373  Muted text
+#E5E5E5  Border
+██#3B82F6  Accent (blue)
+#EF4444  Destructive
 ```
 
 ### Category & priority colors (emails)
@@ -217,9 +217,8 @@ InboxPilot-AI/
 │   │   └── settings/
 │   ├── components/         # UI, layout, inbox, dashboard
 │   ├── lib/                # Axios, utils
-│   └── store/              # Zustand (user)
-├── docs/
-│   └── screenshots/        # Optional: landing, inbox, dashboard
+│   ├── store/              # Zustand (user)
+│   └── public/             # logo, screenshots (landing, inbox, dashboard)
 └── README.md
 ```
 
@@ -272,6 +271,21 @@ InboxPilot-AI/
 ## Contributing
 
 Contributions are welcome. Open an issue or submit a pull request.
+
+---
+
+## Author
+
+**Gaurav Jain**
+
+| Platform   | Link |
+|------------|------|
+| **Portfolio** | [gauravjain.tech](https://www.gauravjain.tech/) |
+| **GitHub** | [@gauravjain0377](https://github.com/gauravjain0377) |
+| **LinkedIn** | [linkedin.com/in/this-is-gaurav-jain](https://www.linkedin.com/in/this-is-gaurav-jain/) |
+| **X (Twitter)** | [@gauravjain0377](https://x.com/gauravjain0377) |
+
+---
 
 <p align="center">
   <strong>InboxPilot AI</strong> — Smarter email, less noise.
