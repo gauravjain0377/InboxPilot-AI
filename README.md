@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="frontend/public/logo.png" alt="InboxPilot AI" width="120" height="120" />
+  <img src="https://raw.githubusercontent.com/gauravjain0377/InboxPilot-AI/main/frontend/public/logo.png" alt="InboxPilot AI" width="120" height="120" />
 </p>
 
 <h1 align="center">InboxPilot AI</h1>
@@ -49,9 +49,17 @@
 
 ## Screenshots
 
-| Landing | Inbox | Dashboard |
-| :---: | :---: | :---: |
-| ![Landing](frontend/public/landing_page.png) | ![Inbox](frontend/public/inbox.png) | ![Dashboard](frontend/public/dashboard.png) |
+**1. Landing**
+
+![Landing](https://raw.githubusercontent.com/gauravjain0377/InboxPilot-AI/main/frontend/public/landing_page.png)
+
+**2. Inbox**
+
+![Inbox](https://raw.githubusercontent.com/gauravjain0377/InboxPilot-AI/main/frontend/public/inbox.png)
+
+**3. Dashboard**
+
+![Dashboard](https://raw.githubusercontent.com/gauravjain0377/InboxPilot-AI/main/frontend/public/dashboard.png)
 
 ---
 
@@ -288,5 +296,5 @@ Contributions are welcome. Open an issue or submit a pull request.
 ---
 
 <p align="center">
-  <strong>InboxPilot AI</strong> — Smarter email, less noise.
+  <strong>InboxPilot AI</strong> ~ Smarter email, less noise.
 </p>
