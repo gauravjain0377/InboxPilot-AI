@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/gauravjain0377/InboxPilot-AI/main/frontend/public/logo.png" alt="InboxPilot AI" width="120" height="120" />
+  <img src="assets/logo.png" alt="InboxPilot AI" width="120" height="120" />
 </p>
 
 <h1 align="center">InboxPilot AI</h1>
@@ -21,16 +21,15 @@
   <img src="https://img.shields.io/badge/Node.js-18+-green?style=flat-square&logo=node.js" alt="Node.js" />
   <img src="https://img.shields.io/badge/MongoDB-Atlas-darkgreen?style=flat-square&logo=mongodb" alt="MongoDB" />
   <img src="https://img.shields.io/badge/Google-Gemini-orange?style=flat-square" alt="Gemini" />
-  <img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License" />
 </p>
 
----
+***
 
 ## Overview
 
 **InboxPilot AI** is a full-stack, AI-powered email management platform. Connect your Gmail, manage inbox/starred/sent from a modern web UI, and use AI for summaries, smart replies, follow-ups, and compose enhancements. Built with **Next.js**, **Express**, **MongoDB**, and **Google Gemini**.
 
----
+***
 
 ## Features
 
@@ -45,23 +44,23 @@
 | **Dashboard** | Analytics, priority breakdown, category stats |
 | **Secure auth** | Google OAuth 2.0, encrypted tokens |
 
----
+***
 
 ## Screenshots
 
 **1. Landing**
 
-![Landing](https://raw.githubusercontent.com/gauravjain0377/InboxPilot-AI/main/frontend/public/landing_page.png)
+![Landing](assets/landing_page.png)
 
 **2. Inbox**
 
-![Inbox](https://raw.githubusercontent.com/gauravjain0377/InboxPilot-AI/main/frontend/public/inbox.png)
+![Inbox](assets/inbox.png)
 
 **3. Dashboard**
 
-![Dashboard](https://raw.githubusercontent.com/gauravjain0377/InboxPilot-AI/main/frontend/public/dashboard.png)
+![Dashboard](assets/dashboard.png)
 
----
+***
 
 ## Tech Stack
 
@@ -73,7 +72,7 @@
 | **AI** | Google Gemini |
 | **Auth** | Google OAuth 2.0 |
 
----
+***
 
 ## Quick Start
 
@@ -113,7 +112,7 @@ npm run dev
 
 Visit **http://localhost:3000** and sign in with Google.
 
----
+***
 
 ## Configuration
 
@@ -158,7 +157,7 @@ FRONTEND_URL=http://localhost:3000
 NEXT_PUBLIC_API_URL=http://localhost:5000/api
 ```
 
----
+***
 
 ## Color Palette
 
@@ -200,7 +199,7 @@ InboxPilot AI uses a **black, white & blue** theme. Typography: **Space Grotesk*
 | Promotion | `#FCE7F3` / `#BE185D` | Pink |
 | Finance | `#D1FAE5` / `#047857` | Emerald |
 
----
+***
 
 ## Project Structure
 
@@ -226,11 +225,12 @@ InboxPilot-AI/
 │   ├── components/         # UI, layout, inbox, dashboard
 │   ├── lib/                # Axios, utils
 │   ├── store/              # Zustand (user)
-│   └── public/             # logo, screenshots (landing, inbox, dashboard)
+│   └── public/             # app assets (Next.js)
+├── assets/                 # README images (logo, screenshots)
 └── README.md
 ```
 
----
+***
 
 ## API Overview
 
@@ -241,7 +241,7 @@ InboxPilot-AI/
 | **AI** | `POST /api/ai/summarize`, `POST /api/ai/reply`, `POST /api/ai/rewrite`, `POST /api/ai/followup` |
 | **Analytics** | `GET /api/analytics/dashboard` |
 
----
+***
 
 ## Deployment
 
@@ -264,7 +264,7 @@ InboxPilot-AI/
 2. Add frontend origin to **Authorized JavaScript origins**.
 3. Verify: backend `/health`, frontend login → inbox.
 
----
+***
 
 ## Troubleshooting
 
@@ -274,13 +274,13 @@ InboxPilot-AI/
 | **OAuth error** | Redirect URI exact match, Gmail API enabled, Client ID/Secret correct |
 | **AI generation failed** | Valid `GEMINI_API_KEY`, quota in AI Studio |
 
----
+***
 
 ## Contributing
 
 Contributions are welcome. Open an issue or submit a pull request.
 
----
+***
 
 ## Author
 
@@ -293,7 +293,7 @@ Contributions are welcome. Open an issue or submit a pull request.
 | **LinkedIn** | [linkedin.com/in/this-is-gaurav-jain](https://www.linkedin.com/in/this-is-gaurav-jain/) |
 | **X (Twitter)** | [@gauravjain0377](https://x.com/gauravjain0377) |
 
----
+***
 
 <p align="center">
   <strong>InboxPilot AI</strong> ~ Smarter email, less noise.
