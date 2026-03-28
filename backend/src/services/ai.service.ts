@@ -336,34 +336,51 @@ export class AIService {
     const truncatedBody = originalEmail.length > 2000 ? originalEmail.substring(0, 2000) + '...' : originalEmail;
     
     // Build prompt with signature instruction if provided
-    let prompt = `${toneInstructions[tone]}. Email:\n\n${truncatedBody}\n\nReply:`;
+    let prompt = `Write exactly ONE ${toneInstructions[tone].toLowerCase()} ready to send. DO NOT provide multiple options. DO NOT include a "Subject:" line, "Re:", or any explanatory text before or after the email body.\n\nOriginal Email:\n${truncatedBody}\n\n`;
     
     if (signature && signature.trim()) {
-      prompt += `\n\nNote: Include the following signature at the end: ${signature.trim()}`;
+      prompt += `IMPORTANT: You must sign off with the exact following signature at the end: \n${signature.trim()}\n\n`;
     }
+
+    prompt += `Drafted Reply:\n`;
 
     // Generate only one reply for speed (user can regenerate if needed)
     const reply = await this.generate(prompt);
     
+    // Clean up the reply (remove markdown, options, etc)
+    let finalReply = this.cleanEnhancedText(reply);
+    
     // Ensure signature is appended if not already included
-    let finalReply = reply;
-    if (signature && signature.trim() && !reply.includes(signature.trim())) {
-      finalReply = `${reply}\n\n${signature.trim()}`;
+    if (signature && signature.trim() && !finalReply.includes(signature.trim())) {
+      finalReply = `${finalReply}\n\n${signature.trim()}`;
     }
     
     return [finalReply];
   }
 
-  async rewriteText(text: string, instruction: string): Promise<string> {
+  async rewriteText(text: string, instruction: string, userName?: string, userSignature?: string): Promise<string> {
+    const contextStr = [
+      userName ? `Sender Name: ${userName}` : '',
+      userSignature ? `Sender Signature:\n${userSignature}` : ''
+    ].filter(Boolean).join('\n');
+
+    const rules = `
+IMPORTANT RULES:
+1. DO NOT include a "Subject:" line under any circumstances. This is strictly the email body.
+2. DO NOT use generic bracketed placeholders like [Name] or [Your Name].
+3. ${userName ? `Whenever the sender's name is needed, use "${userName}".` : 'Do not sign off with a specific name if none is provided in the text.'}
+4. ${userSignature ? `Append the sender's signature exactly as provided at the very bottom.` : ''}
+    `.trim();
+
     // For enhance operations, be more direct - just return the enhanced text without explanations
     if (instruction.toLowerCase().includes('enhance') || instruction.toLowerCase().includes('improve')) {
-      const prompt = `Rewrite and enhance the following email text. ${instruction}\n\nReturn ONLY the enhanced email text, nothing else. No explanations, no options, no markdown formatting. Just the improved email text ready to send:\n\n${text}`;
+      const prompt = `Rewrite and enhance the following email text. ${instruction}\n\n${contextStr}\n\n${rules}\n\nReturn ONLY the enhanced email text, nothing else. No explanations, no options, no markdown formatting. Just the improved email text ready to send:\n\n${text}`;
       const result = await this.generate(prompt);
       // Clean up the result - remove any explanations or markdown
       return this.cleanEnhancedText(result);
     }
     
-    const prompt = `Rewrite the following text: ${instruction}\n\nText:\n${text}\n\nReturn only the rewritten text, no explanations.`;
+    const prompt = `Rewrite the following text: ${instruction}\n\n${contextStr}\n\n${rules}\n\nText:\n${text}\n\nReturn only the rewritten text, no explanations.`;
     const result = await this.generate(prompt);
     return this.cleanEnhancedText(result);
   }
@@ -399,10 +416,29 @@ export class AIService {
     return cleaned.trim();
   }
 
-  async generateFollowUp(originalEmail: string): Promise<string> {
+  async generateFollowUp(originalEmail: string, stepNumber: number = 1, delayDays: number = 2, tone: string = 'friendly', userName: string = '', recipientName: string = ''): Promise<string> {
     // Truncate email body if too long for faster processing
     const truncatedBody = originalEmail.length > 2000 ? originalEmail.substring(0, 2000) + '...' : originalEmail;
-    const prompt = `Generate a polite follow-up email:\n\n${truncatedBody}`;
+    
+    let toneInstruction = 'polite and friendly';
+    if (tone === 'formal') toneInstruction = 'formal and professional';
+    if (tone === 'assertive') toneInstruction = 'direct and assertive';
+    if (tone === 'short') toneInstruction = 'very brief and concise';
+    
+    let stepContext = '';
+    if (stepNumber === 1) {
+      stepContext = `It has been ${delayDays} days since the last email. This is the first follow-up. Just casually checking in.`;
+    } else if (stepNumber === 2) {
+      stepContext = `It has been another ${delayDays} days. This is the second follow-up. Try to bubble this up to the top of their inbox gently without being annoying.`;
+    } else {
+      stepContext = `This is follow-up #${stepNumber}. It has been ${delayDays} days since the last one. Be polite but try to get a clear yes/no/status.`;
+    }
+
+    // Attempt to extract sensible names if none are provided
+    const sender = userName || 'the sender';
+    const recipient = recipientName || 'them';
+
+    const prompt = `Generate a ${toneInstruction} follow-up email draft sent from ${sender} to ${recipient}.\nContext: ${stepContext}\n\nOriginal email context:\n${truncatedBody}\n\nIMPORTANT RULES:\n1. This is being sent as a REPLY in an existing thread. DO NOT include a "Subject:" line. DO NOT include "Re: ...". Just write the plain email body.\n2. Do NOT use fake bracketed placeholders like [Name] or [Your Name]. If you don't know the exact name, use a generic greeting like "Hi there," and just sign off without a name or use "${sender}" if provided.\n3. Return ONLY the email draft ready to send, strictly no explanations.`;
     return this.generate(prompt);
   }
 

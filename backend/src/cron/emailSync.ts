@@ -4,6 +4,8 @@ import { GmailService } from '../services/gmail.service.js';
 import { Email } from '../models/Email.js';
 import { Preferences } from '../models/Preferences.js';
 import { RuleEngine } from '../services/ruleEngine.js';
+import { ThreadState } from '../models/ThreadState.js';
+import { FollowUp } from '../models/FollowUp.js';
 import { logger } from '../utils/logger.js';
 
 const gmailService = new GmailService();
@@ -132,6 +134,22 @@ async function syncUserEmailMetadata(user: any) {
           priority: classification.priority || 'medium',
           category: classification.category,
         });
+        
+        // Follow-up Reply Detection Logic
+        if (!emailData.isSent && emailData.threadId) {
+          const threadState = await ThreadState.findOne({ userId: user._id, threadId: emailData.threadId });
+          if (threadState && threadState.status === 'FOLLOW_UP_PENDING') {
+            await ThreadState.updateOne(
+              { _id: threadState._id }, 
+              { status: 'REPLIED', hasReply: true, lastActivityTime: new Date() }
+            );
+            await FollowUp.updateMany(
+              { userId: user._id, threadId: emailData.threadId, status: { $in: ['pending', 'pending_review', 'snoozed'] } }, 
+              { status: 'cancelled' }
+            );
+            logger.info(`Reply detected for thread ${emailData.threadId}, cancelled pending follow-ups.`);
+          }
+        }
 
         logger.info(`Saved metadata for email ${emailData.id} (user: ${user.email})`);
       } catch (error: any) {

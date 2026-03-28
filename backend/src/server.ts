@@ -14,6 +14,7 @@ import gmailRoutes from './routes/gmail.routes.js';
 import aiRoutes from './routes/ai.routes.js';
 import calendarRoutes from './routes/calendar.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
+import followupRoutes from './routes/followup.routes.js';
 
 const app = express();
 
@@ -57,6 +58,7 @@ app.use('/api/gmail', gmailRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/followup', followupRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ 
@@ -87,7 +89,8 @@ app.get('/', (req, res) => {
       gmail: '/api/gmail',
       ai: '/api/ai',
       calendar: '/api/calendar',
-      analytics: '/api/analytics'
+      analytics: '/api/analytics',
+      followup: '/api/followup'
     }
   });
 });

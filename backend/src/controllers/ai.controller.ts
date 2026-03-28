@@ -215,7 +215,12 @@ export const rewrite = async (req: AuthRequest | any, res: Response, next: NextF
     if (!text || !instruction) throw new AppError('Text and instruction required', 400);
 
     const user = await getUserFromRequest(req);
-    const rewritten = await aiService.rewriteText(text, instruction);
+    const rewritten = await aiService.rewriteText(
+      text, 
+      instruction, 
+      user.name, 
+      user.preferences?.signature
+    );
 
     await AIUsage.create({
       userId: user._id,
