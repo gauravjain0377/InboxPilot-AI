@@ -291,7 +291,7 @@ Contributions are welcome. Open an issue or submit a pull request.
 | **Portfolio** | [gauravjain.tech](https://www.gauravjain.tech/) |
 | **GitHub** | [@gauravjain0377](https://github.com/gauravjain0377) |
 | **LinkedIn** | [linkedin.com/in/this-is-gaurav-jain](https://www.linkedin.com/in/this-is-gaurav-jain/) |
-| **X (Twitter)** | [@gauravjain0377](https://x.com/gauravjain0377) |
+| **X** | [@gauravjain0377](https://x.com/gauravjain0377) |
 
 ***
 

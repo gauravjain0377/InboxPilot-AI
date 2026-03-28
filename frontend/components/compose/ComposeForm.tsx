@@ -1,6 +1,7 @@
 'use client';
 
 import { Input } from '@/components/ui/input';
+import { MultiEmailInput } from '@/components/ui/multi-email-input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { X, Sparkles, Check, Clock, Settings2 } from 'lucide-react';
@@ -84,12 +85,11 @@ export default function ComposeForm({
       <div className="border-b border-gray-100">
         <div className="flex items-center px-3 sm:px-4 py-2 sm:py-3">
           <Label className="w-10 sm:w-14 text-xs sm:text-sm text-gray-500 shrink-0">To</Label>
-          <Input
-            type="email"
+          <MultiEmailInput
             value={to}
-            onChange={(e) => onToChange(e.target.value)}
+            onChange={(val) => onToChange(val)}
             placeholder="recipient@example.com"
-            className="flex-1 border-0 shadow-none focus-visible:ring-0 px-0 text-sm text-gray-900 bg-transparent placeholder:text-gray-400 min-w-0"
+            className="flex-1 border-0 shadow-none focus-visible:ring-0 px-0 text-sm text-gray-900 bg-transparent min-w-0"
           />
           <div className="flex items-center gap-2 text-xs shrink-0 ml-2">
             {!showCc && (
@@ -117,12 +117,11 @@ export default function ComposeForm({
         {showCc && (
           <div className="flex items-center px-3 sm:px-4 py-2 sm:py-3 border-t border-gray-100">
             <Label className="w-10 sm:w-14 text-xs sm:text-sm text-gray-500 shrink-0">Cc</Label>
-            <Input
-              type="email"
+            <MultiEmailInput
               value={cc}
-              onChange={(e) => onCcChange(e.target.value)}
+              onChange={(val) => onCcChange(val)}
               placeholder="cc@example.com"
-              className="flex-1 border-0 shadow-none focus-visible:ring-0 px-0 text-sm text-gray-900 bg-transparent placeholder:text-gray-400 min-w-0"
+              className="flex-1 border-0 shadow-none focus-visible:ring-0 px-0 text-sm text-gray-900 bg-transparent min-w-0"
             />
             <button
               type="button"
@@ -141,12 +140,11 @@ export default function ComposeForm({
         {showBcc && (
           <div className="flex items-center px-3 sm:px-4 py-2 sm:py-3 border-t border-gray-100">
             <Label className="w-10 sm:w-14 text-xs sm:text-sm text-gray-500 shrink-0">Bcc</Label>
-            <Input
-              type="email"
+            <MultiEmailInput
               value={bcc}
-              onChange={(e) => onBccChange(e.target.value)}
+              onChange={(val) => onBccChange(val)}
               placeholder="bcc@example.com"
-              className="flex-1 border-0 shadow-none focus-visible:ring-0 px-0 text-sm text-gray-900 bg-transparent placeholder:text-gray-400 min-w-0"
+              className="flex-1 border-0 shadow-none focus-visible:ring-0 px-0 text-sm text-gray-900 bg-transparent min-w-0"
             />
             <button
               type="button"
