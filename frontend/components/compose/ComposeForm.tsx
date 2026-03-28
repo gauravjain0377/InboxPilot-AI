@@ -3,7 +3,7 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { X, Sparkles, Check } from 'lucide-react';
+import { X, Sparkles, Check, Clock, Settings2 } from 'lucide-react';
 
 type Tone = 'formal' | 'friendly' | 'assertive' | 'short';
 
@@ -27,6 +27,16 @@ interface ComposeFormProps {
   onToneChange: (tone: Tone) => void;
   onUseSuggestion: () => void;
   onDismissSuggestion: () => void;
+  followUpEnabled: boolean;
+  followUpDelays: number[];
+  followUpMode: 'manual' | 'auto' | 'hybrid';
+  onFollowUpEnabledChange: (enabled: boolean) => void;
+  onFollowUpDelaysChange: (delays: number[]) => void;
+  onFollowUpModeChange: (mode: 'manual' | 'auto' | 'hybrid') => void;
+  followUpTone: Tone;
+  onFollowUpToneChange: (tone: Tone) => void;
+  followUpTime: string;
+  onFollowUpTimeChange: (time: string) => void;
 }
 
 export default function ComposeForm({
@@ -49,8 +59,24 @@ export default function ComposeForm({
   onToneChange,
   onUseSuggestion,
   onDismissSuggestion,
+  followUpEnabled,
+  followUpDelays,
+  followUpMode,
+  onFollowUpEnabledChange,
+  onFollowUpDelaysChange,
+  onFollowUpModeChange,
+  followUpTone,
+  onFollowUpToneChange,
+  followUpTime,
+  onFollowUpTimeChange,
 }: ComposeFormProps) {
   const tones: Tone[] = ['formal', 'friendly', 'assertive', 'short'];
+  const selectedDelay = followUpDelays[0] || 2;
+
+  const applyDelay = (delay: number) => {
+    if (!Number.isFinite(delay) || delay < 1) return;
+    onFollowUpDelaysChange([delay]);
+  };
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -220,6 +246,169 @@ export default function ComposeForm({
 
           <div className="text-xs text-gray-400 shrink-0">{body.length} chars</div>
         </div>
+      </div>
+
+      {/* Follow-up Settings */}
+      <div className="border-t border-gray-100 px-3 sm:px-4 py-3 sm:py-4 bg-white rounded-b-xl">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-gray-500" />
+            <span className="text-sm font-medium text-gray-900">Automated Follow-ups</span>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input 
+              type="checkbox" 
+              className="sr-only peer" 
+              checked={followUpEnabled}
+              onChange={(e) => onFollowUpEnabledChange(e.target.checked)}
+            />
+            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+          </label>
+        </div>
+        
+        {followUpEnabled && (
+          <div className="pt-3 border-t border-gray-100 space-y-4">
+            {/* Quick presets */}
+            <div>
+              <Label className="text-xs text-gray-500 mb-2 block">Follow up after (days)</Label>
+              <div className="flex flex-wrap gap-2">
+                {[1, 2, 3, 5, 7].map((val) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => applyDelay(val)}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                      selectedDelay === val
+                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                        : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    {val} day{val > 1 ? 's' : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom delay input */}
+            <div>
+              <Label className="text-xs text-gray-500 mb-2 block">Or enter custom days</Label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  max="90"
+                  placeholder="e.g. 10"
+                  className="w-20 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const val = parseInt((e.target as HTMLInputElement).value);
+                      if (val > 0) {
+                        applyDelay(val);
+                        (e.target as HTMLInputElement).value = '';
+                      }
+                    }
+                  }}
+                  id="custom-delay-input"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const input = document.getElementById('custom-delay-input') as HTMLInputElement;
+                    const val = parseInt(input?.value);
+                    if (val > 0) {
+                      applyDelay(val);
+                      input.value = '';
+                    }
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium rounded-md bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+                >
+                  Set
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+              Follow-up will be sent after <span className="font-semibold">{selectedDelay} day{selectedDelay > 1 ? 's' : ''}</span> if there is no reply.
+            </div>
+            
+            <div>
+              <Label className="text-xs text-gray-500 mb-2 block">Sending Mode</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => onFollowUpModeChange('manual')}
+                  className={`px-3 py-2 text-xs font-medium rounded-md text-left transition-colors ${
+                    followUpMode === 'manual'
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                      : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="font-semibold">Manual Review</div>
+                  <div className="text-[10px] font-normal opacity-80 mt-0.5">Approve before sending</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onFollowUpModeChange('auto')}
+                  className={`px-3 py-2 text-xs font-medium rounded-md text-left transition-colors ${
+                    followUpMode === 'auto'
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                      : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="font-semibold">Auto Send</div>
+                  <div className="text-[10px] font-normal opacity-80 mt-0.5">Send automatically</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onFollowUpModeChange('hybrid')}
+                  className={`px-3 py-2 text-xs font-medium rounded-md text-left transition-colors ${
+                    followUpMode === 'hybrid'
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                      : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="font-semibold">Hybrid</div>
+                  <div className="text-[10px] font-normal opacity-80 mt-0.5">Review 1st, auto later</div>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Follow-up Time */}
+              <div>
+                <Label className="text-xs text-gray-500 mb-2 block">Time of Day</Label>
+                <input
+                  type="time"
+                  value={followUpTime}
+                  onChange={(e) => onFollowUpTimeChange(e.target.value)}
+                  className="w-full sm:w-32 px-3 py-1.5 text-xs bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200 transition-colors"
+                />
+              </div>
+
+              {/* Tone Selector */}
+              <div>
+                <Label className="text-xs text-gray-500 mb-2 block">Follow-up Tone</Label>
+                <div className="flex flex-wrap gap-2">
+                  {(['friendly', 'formal', 'assertive', 'short'] as Tone[]).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => onFollowUpToneChange(t)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md capitalize transition-colors ${
+                        followUpTone === t
+                          ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                          : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

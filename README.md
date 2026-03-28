@@ -36,12 +36,12 @@
 | Feature | Description |
 |--------|-------------|
 | **Gmail integration** | Read, compose, reply, star, archive, trash — full inbox control |
-| **AI replies** | Generate replies with tone: formal, friendly, short |
-| **AI summarization** | One-click summaries for long threads |
-| **Smart compose** | AI-enhanced drafts with tone adjustment |
-| **Follow-up generation** | Auto-generated follow-up emails |
-| **Priority & categories** | Smart labels: Work, Task, Meeting, Promotions, Reply Needed, etc. |
-| **Dashboard** | Analytics, priority breakdown, category stats |
+| **AI replies & summaries** | Generate context-aware replies with custom tones and one-click thread summaries |
+| **Smart compose** | AI-enhanced drafts with tone adjustment to match your writing style |
+| **Automated Follow-ups** | Schedule auto follow-up emails with customizable delays (minutes, hours, days). Manage cron-jobs straight from the inbox or dashboard |
+| **AI Chat Assistant** | Interactive "Talk to my AI" side-panel to manage your inbox, summarize data, and ask general questions |
+| **Priority & categories** | Smart categorization labels: Work, Task, Meeting, Promotions, Reply Needed, etc. |
+| **Dashboard & Settings** | Analytics, priority tracking, custom email signatures, and global follow-up management |
 | **Secure auth** | Google OAuth 2.0, encrypted tokens |
 
 ***

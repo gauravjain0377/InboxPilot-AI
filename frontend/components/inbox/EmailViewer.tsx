@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { Mail, Archive, Trash2, Reply, MoreHorizontal, Download, ExternalLink, ChevronDown, ChevronUp, Image as ImageIcon, ArrowLeft } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Mail, Archive, Trash2, Reply, MoreHorizontal, Download, ExternalLink, ChevronDown, ChevronUp, Image as ImageIcon, ArrowLeft, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Email } from './types';
 import AIActionsBar from './AIActionsBar';
 import ReplyBox from './ReplyBox';
+import FollowUpScheduler from './FollowUpScheduler';
+import api from '@/lib/axios';
 
 interface EmailViewerProps {
   email: Email | null;
@@ -128,7 +130,26 @@ export default function EmailViewer({
 }: EmailViewerProps) {
   const [showImages, setShowImages] = useState(true);
   const [showDetails, setShowDetails] = useState(false);
+  const [threadFollowUps, setThreadFollowUps] = useState<any[]>([]);
+  const [showScheduler, setShowScheduler] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  const fetchThreadFollowUps = useCallback(async (threadId: string) => {
+    try {
+      const { data } = await api.get(`/followup?threadId=${threadId}`);
+      setThreadFollowUps(data.followUps || []);
+    } catch {
+      setThreadFollowUps([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (email?.threadId) {
+      fetchThreadFollowUps(email.threadId);
+    } else {
+      setThreadFollowUps([]);
+    }
+  }, [email?.threadId, fetchThreadFollowUps]);
 
   const formatSenderName = (from: string) => {
     const match = from.match(/^([^<]+)/);
@@ -271,6 +292,15 @@ export default function EmailViewer({
             >
               <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowScheduler(!showScheduler)}
+              className={`h-8 w-8 sm:h-9 sm:w-9 p-0 rounded-full ${showScheduler ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}
+              title="Schedule Follow-up"
+            >
+              <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
+            </Button>
           </div>
         </div>
 
@@ -351,6 +381,36 @@ export default function EmailViewer({
         copiedToClipboard={copiedToClipboard}
       />
 
+      {/* Follow-up Status Banner */}
+      {threadFollowUps.length > 0 && (
+        <div className="px-3 sm:px-6 py-2 bg-blue-50 border-b border-blue-100 shrink-0">
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-blue-700">
+            <Clock className="w-4 h-4 shrink-0" />
+            <span className="font-medium">
+              {(() => {
+                const pending = threadFollowUps.filter(f => ['pending', 'pending_review', 'snoozed'].includes(f.status));
+                const sent = threadFollowUps.filter(f => f.status === 'sent');
+                if (pending.length > 0) {
+                  const next = pending[0];
+                  const date = new Date(next.scheduledTime);
+                  const delayText = next.delayDays
+                    ? `after ${next.delayDays} day${next.delayDays > 1 ? 's' : ''}`
+                    : `follow-up ${next.stepNumber}`;
+                  return `Next follow-up ${delayText}: ${date.toLocaleDateString()} (${next.status === 'pending_review' ? 'Needs Review' : next.mode})`;
+                }
+                if (sent.length > 0) {
+                  return `${sent.length} follow-up${sent.length > 1 ? 's' : ''} sent`;
+                }
+                return 'Follow-ups configured';
+              })()}
+            </span>
+            <a href="/dashboard/followups" className="ml-auto text-blue-600 hover:text-blue-800 text-xs font-medium underline shrink-0">
+              Manage
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* Image Toggle Banner */}
       {hasHtmlContent && (
         <div className="px-3 sm:px-6 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between shrink-0">
@@ -376,6 +436,21 @@ export default function EmailViewer({
           dangerouslySetInnerHTML={{ __html: displayContent || '<p class="text-gray-500">Loading email content...</p>' }}
         />
       </div>
+
+      {/* Follow-up Scheduler Panel */}
+      {showScheduler && email && (
+        <FollowUpScheduler
+          threadId={email.threadId}
+          messageId={email.gmailId}
+          to={Array.isArray(email.from) ? email.from : email.from}
+          subject={email.subject}
+          onClose={() => setShowScheduler(false)}
+          onScheduled={() => {
+            setShowScheduler(false);
+            fetchThreadFollowUps(email.threadId);
+          }}
+        />
+      )}
 
       {/* Reply Section */}
       <ReplyBox

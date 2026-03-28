@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/store/userStore';
 import Navbar from './Navbar';
+import FollowUpNotification from '@/components/inbox/FollowUpNotification';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -48,6 +49,7 @@ export default function AppShell({ children }: AppShellProps) {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <main>{children}</main>
+      <FollowUpNotification />
     </div>
   );
 }

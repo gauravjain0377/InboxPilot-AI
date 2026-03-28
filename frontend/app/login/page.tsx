@@ -271,23 +271,6 @@ export default function LoginPage() {
                 )}
               </motion.button>
 
-              {/* Alternative: Email Sign In (disabled/coming soon) */}
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-neutral-200"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-white text-neutral-400">or</span>
-                </div>
-              </div>
-
-              <button
-                disabled
-                className="w-full bg-neutral-100 text-neutral-400 h-14 rounded-xl font-medium text-base flex items-center justify-center gap-3 cursor-not-allowed"
-              >
-                <Mail className="w-5 h-5" />
-                <span>Email sign-in coming soon</span>
-              </button>
 
               {/* Terms Agreement */}
               <div className="mt-6 text-center">

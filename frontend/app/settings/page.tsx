@@ -25,6 +25,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -90,6 +91,15 @@ export default function SettingsPage() {
       setDisconnecting(false);
       setToast({ message: 'Failed to disconnect Gmail', type: 'error' });
     }
+  };
+
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = () => {
+    logout();
+    router.push('/login');
   };
 
   return (
@@ -233,21 +243,31 @@ export default function SettingsPage() {
           </Card>
 
           {/* Save Button */}
-          <div className="flex justify-end gap-3 pt-2">
-            <Button 
-              variant="outline" 
-              onClick={() => router.push('/dashboard')}
-              className="border-gray-200"
-            >
-              Cancel
-            </Button>
+          <div className="flex justify-between items-center pt-2">
             <Button
-              onClick={handleSaveClick}
-              className="bg-gray-900 hover:bg-gray-800 text-white"
+              variant="outline"
+              onClick={handleLogoutClick}
+              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
             >
-              <Save className="h-4 w-4 mr-2" />
-              Save Settings
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
             </Button>
+            <div className="flex justify-end gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => router.push('/dashboard')}
+                className="border-gray-200"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveClick}
+                className="bg-gray-900 hover:bg-gray-800 text-white"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save Settings
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -262,6 +282,18 @@ export default function SettingsPage() {
         cancelText="Cancel"
         onConfirm={savePreferences}
         loading={saving}
+      />
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        title="Logout"
+        description="Are you sure you want to logout from your account?"
+        confirmText="Logout"
+        cancelText="Cancel"
+        onConfirm={confirmLogout}
+        confirmVariant="destructive"
       />
 
       {/* Disconnect Gmail Modal */}

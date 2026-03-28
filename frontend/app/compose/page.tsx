@@ -40,6 +40,12 @@ function ComposeContent() {
   
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
   const [selectedTone, setSelectedTone] = useState<Tone>('friendly');
+  
+  const [followUpEnabled, setFollowUpEnabled] = useState(false);
+  const [followUpDelays, setFollowUpDelays] = useState<number[]>([2]);
+  const [followUpMode, setFollowUpMode] = useState<'manual' | 'auto' | 'hybrid'>('hybrid');
+  const [followUpTone, setFollowUpTone] = useState<Tone>('friendly');
+  const [followUpTime, setFollowUpTime] = useState<string>('09:00');
 
   // Toast and Modal states
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -162,13 +168,34 @@ function ComposeContent() {
     // Delay the actual send to allow undo
     pendingSendRef.current = setTimeout(async () => {
       try {
-        await api.post('/gmail/send', {
+        const { data } = await api.post('/gmail/send', {
           to: recipients.join(', '),
           cc: ccRecipients.length > 0 ? ccRecipients.join(', ') : undefined,
           bcc: bccRecipients.length > 0 ? bccRecipients.join(', ') : undefined,
           subject: subject.trim(),
           body: bodyWithSignature,
         });
+
+        const primaryDelay = followUpDelays[0] || 2;
+
+        if (followUpEnabled && primaryDelay > 0 && data.message?.id) {
+          try {
+            await api.post('/followup/config', {
+              threadId: data.message.threadId,
+              messageId: data.message.id,
+              to: recipients.join(', '),
+              subject: subject.trim(),
+              delayDays: primaryDelay,
+              delays: [primaryDelay],
+              mode: followUpMode,
+              tone: followUpTone,
+              timeOfDay: followUpTime
+            });
+          } catch (followupErr) {
+            console.error('Failed to configure follow-up:', followupErr);
+            // Non-fatal, email still sent
+          }
+        }
 
         pendingSendRef.current = null;
         setToast({ message: 'Email sent successfully!', type: 'success' });
@@ -246,6 +273,21 @@ function ComposeContent() {
           onToneChange={setSelectedTone}
           onUseSuggestion={useSuggestion}
           onDismissSuggestion={() => setAiSuggestion(null)}
+          followUpEnabled={followUpEnabled}
+          followUpDelays={followUpDelays}
+          followUpMode={followUpMode}
+          followUpTone={followUpTone}
+          onFollowUpEnabledChange={(enabled) => {
+            setFollowUpEnabled(enabled);
+            if (enabled && followUpDelays.length === 0) {
+              setFollowUpDelays([2]);
+            }
+          }}
+          onFollowUpDelaysChange={setFollowUpDelays}
+          onFollowUpModeChange={setFollowUpMode}
+          onFollowUpToneChange={setFollowUpTone}
+          followUpTime={followUpTime}
+          onFollowUpTimeChange={setFollowUpTime}
         />
       </div>
 

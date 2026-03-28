@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { motion, useScroll, useTransform, useInView } from 'framer-motion';
-import { Mail, Sparkles, Clock, TrendingUp, Zap, Shield, ArrowRight, Check, Star, Inbox, Reply, Brain, Play } from 'lucide-react';
+import { Mail, Sparkles, Clock, TrendingUp, Zap, Shield, ArrowRight, Check, Star, Reply, Brain, Play, Menu, X, ChevronDown } from 'lucide-react';
 import { ContactModal } from '@/components/ui/contact-modal';
 
 // Typewriter Effect Component
@@ -105,12 +105,75 @@ const AnimatedCounter = ({ value, suffix = '' }: { value: number, suffix?: strin
   return <span ref={ref}>{count.toLocaleString()}{suffix}</span>;
 };
 
+const FaqItem = ({
+  question,
+  answer,
+  isOpen,
+  onToggle,
+}: {
+  question: string;
+  answer: string;
+  isOpen: boolean;
+  onToggle: () => void;
+}) => {
+  return (
+    <div className="border border-neutral-200 rounded-2xl bg-white overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-neutral-50 transition-colors"
+      >
+        <span className="text-base md:text-lg font-semibold text-neutral-900">{question}</span>
+        <ChevronDown className={`w-5 h-5 text-neutral-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div className="px-6 pb-6 text-neutral-600 leading-relaxed">
+          {answer}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Main Landing Page
 export default function LandingPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: containerRef });
   const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
   const [showContactModal, setShowContactModal] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [openFaqIndex, setOpenFaqIndex] = useState(0);
+
+  const landingNavItems = [
+    { label: 'Features', href: '#features' },
+    { label: 'How it Works', href: '#how-it-works' },
+    { label: 'Testimonials', href: '#testimonials' },
+  ];
+
+  const trustLogos = ['Apex Labs', 'Northstar VC', 'BlueOak', 'Vector Systems', 'NovaOps'];
+
+  const faqs = [
+    {
+      question: 'How does InboxPilot AI learn my writing style?',
+      answer:
+        'InboxPilot AI analyzes tone, phrase choices, and sentence patterns from your sent emails, then adapts suggestions to match your natural communication style over time.',
+    },
+    {
+      question: 'Is my Gmail data secure?',
+      answer:
+        'Yes. We use OAuth 2.0 for authentication, encrypted transport, and strict access scopes. Your credentials are never stored as plain text and you can revoke access anytime.',
+    },
+    {
+      question: 'Can I control what AI can and cannot do?',
+      answer:
+        'Absolutely. You can set automation rules, approval workflows, and follow-up preferences so the AI assists you without taking actions you have not approved.',
+    },
+    {
+      question: 'How quickly can I get started?',
+      answer:
+        'Most users connect Gmail and start seeing value within a minute. The setup is guided and does not require technical configuration.',
+    },
+  ];
 
   const features = [
     {
@@ -146,10 +209,10 @@ export default function LandingPage() {
   ];
 
   return (
-    <div ref={containerRef} className="min-h-screen bg-white text-neutral-900 overflow-hidden font-sans">
+    <div ref={containerRef} className="relative min-h-screen bg-white text-neutral-900 overflow-hidden font-sans">
       
       {/* Background */}
-      <div className="fixed inset-0 z-0">
+      <div className="fixed inset-0 -z-10 pointer-events-none">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-50 via-white to-white" />
         <div className="absolute inset-0 opacity-[0.015]"
           style={{
@@ -176,33 +239,62 @@ export default function LandingPage() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
-            {['Features', 'How it Works', 'Pricing'].map((item) => (
+            {landingNavItems.map((item) => (
               <a
-                key={item}
-                href={`#${item.toLowerCase().replace(' ', '-')}`}
+                key={item.href}
+                href={item.href}
                 className="text-neutral-600 hover:text-neutral-900 transition-colors text-sm font-medium"
               >
-                {item}
+                {item.label}
               </a>
             ))}
-            <Link
-              href="/privacy"
-              className="text-neutral-600 hover:text-neutral-900 transition-colors text-sm font-medium"
-            >
-              Privacy
-            </Link>
           </nav>
 
-          <Link href="/login">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="px-5 py-2.5 bg-neutral-900 text-white rounded-xl font-medium text-sm hover:bg-neutral-800 transition-colors"
+          <div className="flex items-center gap-2">
+            <Link href="/login" className="hidden sm:block">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="px-5 py-2.5 bg-neutral-900 text-white rounded-xl font-medium text-sm hover:bg-neutral-800 transition-colors"
+              >
+                Get Started
+              </motion.button>
+            </Link>
+            <button
+              type="button"
+              onClick={() => setIsMobileNavOpen((prev) => !prev)}
+              className="md:hidden inline-flex items-center justify-center p-2 rounded-lg text-neutral-700 hover:bg-neutral-100 transition-colors"
+              aria-label="Toggle navigation"
+              aria-expanded={isMobileNavOpen}
             >
-              Get Started
-            </motion.button>
-          </Link>
+              {isMobileNavOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
+
+        {isMobileNavOpen && (
+          <div className="md:hidden border-t border-neutral-100 bg-white/95 backdrop-blur-xl">
+            <nav className="container mx-auto px-6 py-3 flex flex-col gap-1">
+              {landingNavItems.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setIsMobileNavOpen(false)}
+                  className="px-3 py-2 rounded-lg text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
+                >
+                  {item.label}
+                </a>
+              ))}
+              <Link
+                href="/login"
+                onClick={() => setIsMobileNavOpen(false)}
+                className="mt-2 px-3 py-2 rounded-lg text-sm font-semibold bg-neutral-900 text-white text-center hover:bg-neutral-800 transition-colors"
+              >
+                Get Started
+              </Link>
+            </nav>
+          </div>
+        )}
       </motion.header>
 
       {/* Hero Section */}
@@ -269,14 +361,60 @@ export default function LandingPage() {
                 </motion.button>
               </Link>
 
-              <motion.button
+              <motion.a
+                href="#how-it-works"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="px-8 py-4 bg-neutral-100 text-neutral-900 rounded-2xl font-semibold text-lg hover:bg-neutral-200 transition-colors flex items-center justify-center gap-3"
               >
                 <Play className="w-5 h-5" />
                 Watch Demo
-              </motion.button>
+              </motion.a>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="mt-10"
+            >
+              <div className="max-w-3xl mx-auto border border-neutral-200 bg-white/90 backdrop-blur rounded-3xl p-4 md:p-6 shadow-[0_20px_80px_-30px_rgba(0,0,0,0.25)]">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2 text-sm text-neutral-500">
+                    <span className="w-2.5 h-2.5 rounded-full bg-neutral-300" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-400" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-neutral-300" />
+                  </div>
+                  <p className="text-xs md:text-sm text-neutral-500">Live inbox intelligence</p>
+                </div>
+
+                <div className="space-y-3 text-left">
+                  {[
+                    { subject: 'Q2 Budget Approval', tag: 'High Priority', time: '2m ago' },
+                    { subject: 'Partnership Follow-up', tag: 'Auto Draft Ready', time: '10m ago' },
+                    { subject: 'Investor Update Thread', tag: 'Summary Generated', time: '17m ago' },
+                  ].map((mail, index) => (
+                    <motion.div
+                      key={mail.subject}
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.75 + index * 0.08 }}
+                      className="rounded-2xl border border-neutral-200 bg-white px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                    >
+                      <div>
+                        <p className="font-semibold text-neutral-900">{mail.subject}</p>
+                        <p className="text-sm text-neutral-500">AI triaged and prepared next action</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                          {mail.tag}
+                        </span>
+                        <span className="text-xs text-neutral-400">{mail.time}</span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
             </motion.div>
 
             {/* Social Proof */}
@@ -351,6 +489,23 @@ export default function LandingPage() {
                 <p className="text-neutral-600">{stat.label}</p>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="relative py-10 px-4">
+        <div className="container mx-auto">
+          <div className="rounded-2xl border border-neutral-200 bg-white/80 backdrop-blur px-6 py-5">
+            <p className="text-center text-xs md:text-sm text-neutral-500 uppercase tracking-[0.16em] mb-4">
+              Trusted by teams at
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
+              {trustLogos.map((logo) => (
+                <span key={logo} className="text-neutral-700 font-semibold text-sm md:text-base">
+                  {logo}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -436,7 +591,7 @@ export default function LandingPage() {
       </section>
 
       {/* Testimonials */}
-      <section className="relative py-24 px-4">
+      <section id="testimonials" className="relative py-24 px-4">
         <div className="container mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -538,8 +693,42 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section id="faq" className="relative py-24 px-4 bg-neutral-50/80">
+        <div className="container mx-auto max-w-4xl">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-neutral-200 rounded-full mb-5">
+              <Sparkles className="w-4 h-4 text-neutral-700" />
+              <span className="text-sm text-neutral-700 font-medium">FAQ</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold mb-5 font-display tracking-tight text-neutral-900">
+              Questions, answered
+            </h2>
+            <p className="text-lg text-neutral-600 max-w-2xl mx-auto">
+              Everything you need to know before you connect your inbox.
+            </p>
+          </motion.div>
+
+          <div className="space-y-4">
+            {faqs.map((faq, index) => (
+              <FaqItem
+                key={faq.question}
+                question={faq.question}
+                answer={faq.answer}
+                isOpen={openFaqIndex === index}
+                onToggle={() => setOpenFaqIndex(openFaqIndex === index ? -1 : index)}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
-      <footer className="relative py-12 px-4 border-t border-neutral-200">
+      <footer id="contact" className="relative py-12 px-4 border-t border-neutral-200">
         <div className="container mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
