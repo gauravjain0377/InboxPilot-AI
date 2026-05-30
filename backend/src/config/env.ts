@@ -10,6 +10,7 @@ export const config = {
   },
   ai: {
     geminiKey: process.env.GEMINI_API_KEY || '',
+    openAiKey: process.env.OPENAI_API_KEY || '',
   },
   db: {
     mongoUri: process.env.MONGO_URI || '',

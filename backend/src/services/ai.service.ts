@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import { config } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 
@@ -6,41 +7,43 @@ export type Tone = 'formal' | 'friendly' | 'assertive' | 'short' | 'negative' | 
 
 export class AIService {
   private gemini: GoogleGenerativeAI | null = null;
+  private openai: OpenAI | null = null;
+  private openaiInitialized: boolean = false;
   private cachedModels: string[] | null = null;
   private geminiInitialized: boolean = false;
   private initializationError: string | null = null;
 
   constructor() {
+    // ── OpenAI (primary) ──────────────────────────────────────────────────────
+    if (config.ai.openAiKey && config.ai.openAiKey.trim().length > 0) {
+      try {
+        this.openai = new OpenAI({ apiKey: config.ai.openAiKey });
+        this.openaiInitialized = true;
+        logger.info('OpenAI service initialized (primary AI provider)');
+      } catch (err: any) {
+        logger.warn('OpenAI initialization failed:', err.message);
+      }
+    } else {
+      logger.info('No OPENAI_API_KEY set — will use Gemini only');
+    }
+
+    // ── Gemini (fallback) ──────────────────────────────────────────────────────
     try {
       if (!config.ai.geminiKey || config.ai.geminiKey.trim().length === 0) {
-        this.initializationError = 'Gemini API key not configured. Please set GEMINI_API_KEY in backend/.env file';
-        logger.warn(this.initializationError);
+        if (!this.openaiInitialized) {
+          this.initializationError = 'No AI API key configured. Please set OPENAI_API_KEY or GEMINI_API_KEY in backend/.env';
+          logger.warn(this.initializationError);
+        }
         return;
       }
-      
-      // Basic validation - Gemini API keys usually start with "AIza"
-      if (!config.ai.geminiKey.startsWith('AIza')) {
-        logger.warn('Gemini API key format looks unusual. Please verify your API key is correct.');
-        logger.warn('Valid Gemini API keys start with "AIza". Get a free key at https://makersuite.google.com/app/apikey');
-      }
-      
       this.gemini = new GoogleGenerativeAI(config.ai.geminiKey);
       this.geminiInitialized = true;
-      logger.info('Gemini AI service initialized (using @google/generative-ai SDK)');
-      
-      // Verify API key and cache available models asynchronously (don't block initialization)
+      logger.info('Gemini AI service initialized (fallback provider)');
+
       this.verifyAPIKey().then(result => {
         if (result.valid) {
-          logger.info(`Gemini API key verified. Available models: ${result.availableModels.join(', ') || 'default free tier models'}`);
-          // Cache the models for use in generate()
           this.cachedModels = result.availableModels;
-        } else {
-          logger.warn(`Gemini API key verification failed: ${result.error}`);
-          logger.warn('Please verify your API key at https://makersuite.google.com/app/apikey');
-          logger.warn('Also ensure:');
-          logger.warn('1. The Generative Language API is enabled in Google Cloud Console');
-          logger.warn('2. Your API key has access to Gemini models');
-          logger.warn('3. Billing may need to be enabled for some models (free tier should still work)');
+          logger.info(`Gemini models cached: ${result.availableModels.join(', ')}`);
         }
       }).catch(err => {
         logger.warn('Could not verify Gemini API key on startup:', err.message);
@@ -49,6 +52,21 @@ export class AIService {
       this.initializationError = error.message || 'Failed to initialize Gemini AI service';
       logger.error('Gemini AI service initialization error:', error);
     }
+  }
+
+  // ── OpenAI text generation ───────────────────────────────────────────────────
+  private async generateWithOpenAI(prompt: string): Promise<string> {
+    if (!this.openai || !this.openaiInitialized) throw new Error('OpenAI not initialized');
+    const response = await this.openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      max_tokens: 1500,
+    });
+    const text = response.choices[0]?.message?.content || '';
+    if (!text.trim()) throw new Error('Empty response from OpenAI');
+    logger.info('Generated via OpenAI gpt-4o-mini');
+    return text.trim();
   }
 
   async verifyAPIKey(): Promise<{ valid: boolean; availableModels: string[]; error?: string }> {
@@ -126,12 +144,24 @@ export class AIService {
   }
 
   private async generate(prompt: string): Promise<string> {
-    if (!this.geminiInitialized || this.initializationError) {
-      throw new Error(this.initializationError || 'Gemini AI service not initialized. Please check your GEMINI_API_KEY in backend/.env file');
+    // ── Try OpenAI first ──────────────────────────────────────────────────────
+    if (this.openaiInitialized) {
+      try {
+        return await this.generateWithOpenAI(prompt);
+      } catch (err: any) {
+        logger.warn('OpenAI failed, falling back to Gemini:', err.message);
+      }
     }
 
+    // ── Gemini fallback ───────────────────────────────────────────────────────
+    if (!this.geminiInitialized && !this.openaiInitialized) {
+      throw new Error(this.initializationError || 'No AI provider configured. Set OPENAI_API_KEY or GEMINI_API_KEY.');
+    }
+    if (!this.geminiInitialized) {
+      throw new Error('OpenAI failed and Gemini is not configured.');
+    }
     if (!this.gemini) {
-      throw new Error(this.initializationError || 'Gemini AI service not initialized');
+      throw new Error('Gemini AI service not initialized');
     }
 
     // Try to get available models first
@@ -443,9 +473,93 @@ IMPORTANT RULES:
   }
 
   async generateCampaignEmail(context: string): Promise<string> {
-    const prompt = `Write a professional cold email based on the following context. Do not include a Subject line in the body, just the email content. Be concise and persuasive.\n\nContext:\n${context}\n\nEmail Draft:`;
+    const prompt = `You are writing a cold email on behalf of a job seeker or professional.
+
+STRICT RULES — violating any of these is unacceptable:
+1. Write like a real human, NOT like an AI or a template.
+2. NEVER use placeholder brackets like [Name], [Company], [Role] — only use real info from the context.
+3. NEVER use these opening lines: "I hope this email finds you well", "My name is", "I am writing to"
+4. NEVER use these closing lines: "Thank you for your time and consideration", "Looking forward to hearing from you", "I would welcome the opportunity"
+5. NEVER use corporate jargon: "leverage", "synergies", "touch base", "circle back", "reach out", "paradigm"
+6. NEVER mention attaching resume unless the context specifically says to ("I have attached my resume" is BANNED unless user requested it).
+7. Keep it short — 3 short paragraphs max. No fluff, no padding.
+8. Use exactly the greeting and signature specified in the context.
+9. Sound confident, direct, and human. End naturally without a formal closing line.
+10. No Subject line in the body.
+
+Context:
+${context}
+
+Write the email body now:`;
     return this.generate(prompt);
   }
+
+  async extractEmailsFromFileVision(buffer: Buffer, mimeType: string): Promise<string[]> {
+    const EMAIL_REGEX = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+    const visionPrompt = 'Look carefully at this image or document. Find every email address visible in it. Read character by character — do NOT guess or hallucinate. Return ONLY a plain comma-separated list of the exact email addresses you can see. No explanations, no labels, no markdown. If you see no emails, return an empty string.';
+
+    // ── Strategy A: OpenAI Vision (GPT-4o) — best at image OCR ──────────────
+    if (this.openai && this.openaiInitialized) {
+      try {
+        const supportedByOpenAI = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+        if (supportedByOpenAI.includes(mimeType) || mimeType.startsWith('image/')) {
+          const base64 = buffer.toString('base64');
+          const dataUrl = `data:${mimeType};base64,${base64}`;
+
+          const response = await this.openai.chat.completions.create({
+            model: 'gpt-4o',
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'image_url', image_url: { url: dataUrl, detail: 'high' } },
+                { type: 'text', text: visionPrompt },
+              ],
+            }],
+            max_tokens: 1000,
+            temperature: 0,
+          });
+
+          const text = (response.choices[0]?.message?.content || '').trim();
+          logger.info(`OpenAI Vision response: ${text.slice(0, 200)}`);
+          const found = text.match(EMAIL_REGEX) || [];
+          const emails = [...new Set(found.map(e => e.toLowerCase()))];
+          if (emails.length > 0) {
+            logger.info(`OpenAI Vision extracted ${emails.length} emails`);
+            return emails;
+          }
+          logger.warn('OpenAI Vision returned 0 emails, trying Gemini Vision...');
+        }
+      } catch (err: any) {
+        logger.warn('OpenAI Vision failed, trying Gemini Vision:', err.message);
+      }
+    }
+
+    // ── Strategy B: Gemini Vision fallback ───────────────────────────────────
+    if (!this.gemini || !this.geminiInitialized) return [];
+
+    try {
+      const supportedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/gif', 'application/pdf'];
+      const visionMime = supportedMimes.includes(mimeType) ? mimeType : 'application/pdf';
+      const modelName = this.cachedModels?.find(m => m.includes('flash') && !m.includes('lite') && !m.includes('image'))
+        || 'gemini-2.0-flash';
+      const model = this.gemini.getGenerativeModel({ model: modelName });
+      const base64Data = buffer.toString('base64');
+
+      const result = await model.generateContent([
+        { inlineData: { data: base64Data, mimeType: visionMime } },
+        visionPrompt,
+      ]);
+
+      const text = result.response.text().trim();
+      logger.info(`Gemini Vision response: ${text.slice(0, 200)}`);
+      const found = text.match(EMAIL_REGEX) || [];
+      return [...new Set(found.map(e => e.toLowerCase()))];
+    } catch (err: any) {
+      logger.error('Gemini Vision email extraction failed:', err.message);
+      return [];
+    }
+  }
+
 
   async detectMeetingRequest(emailBody: string): Promise<boolean> {
     const prompt = `Does this email contain a meeting request or scheduling request? Answer only "yes" or "no":\n\n${emailBody}`;

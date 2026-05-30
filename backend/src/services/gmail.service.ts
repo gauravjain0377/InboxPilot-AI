@@ -202,65 +202,117 @@ export class GmailService {
     }
   }
 
+  // Convert plain text to clean HTML — preserves paragraphs, no mid-sentence wrapping
+  private textToHtml(text: string): string {
+    const escaped = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+
+    // Split on double newlines → paragraphs; single newlines → <br>
+    const paragraphs = escaped.split(/\n{2,}/).map(para =>
+      `<p style="margin:0 0 14px 0;line-height:1.6;">${para.replace(/\n/g, '<br>')}</p>`
+    );
+
+    return `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#1a1a1a;max-width:600px;">${paragraphs.join('')}</body></html>`;
+  }
+
   async sendMessage(
-    user: IUser, 
-    to: string, 
-    subject: string, 
-    body: string, 
-    threadId?: string, 
-    inReplyTo?: string, 
+    user: IUser,
+    to: string,
+    subject: string,
+    body: string,
+    threadId?: string,
+    inReplyTo?: string,
     references?: string,
     cc?: string,
-    bcc?: string
+    bcc?: string,
+    attachments?: Array<{ filename: string; content: Buffer; mimeType: string }>
   ) {
     try {
       const oauth2Client = this.getOAuth2Client(user);
       const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-      // Get user's email for From header
       const profile = await gmail.users.getProfile({ userId: 'me' });
       const fromEmail = profile.data.emailAddress;
 
-      const headers = [
-        `From: ${fromEmail}`,
-        `To: ${to}`,
-        `Subject: ${subject}`,
-        'MIME-Version: 1.0',
-        'Content-Type: text/plain; charset=utf-8',
-      ];
+      const htmlBody = this.textToHtml(body);
+      let rawMessage: string;
 
-      // Add CC header if provided
-      if (cc) headers.push(`Cc: ${cc}`);
-      
-      // Add BCC header if provided
-      if (bcc) headers.push(`Bcc: ${bcc}`);
+      if (attachments && attachments.length > 0) {
+        const boundary = `boundary_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
-      // Add reply headers if this is a reply (keeps email in same thread)
-      if (inReplyTo) headers.push(`In-Reply-To: ${inReplyTo}`);
-      if (references) headers.push(`References: ${references}`);
+        const headerLines = [
+          `From: ${fromEmail}`,
+          `To: ${to}`,
+          `Subject: ${subject}`,
+          'MIME-Version: 1.0',
+          `Content-Type: multipart/mixed; boundary="${boundary}"`,
+        ];
+        if (cc) headerLines.push(`Cc: ${cc}`);
+        if (bcc) headerLines.push(`Bcc: ${bcc}`);
+        if (inReplyTo) headerLines.push(`In-Reply-To: ${inReplyTo}`);
+        if (references) headerLines.push(`References: ${references}`);
 
-      const message = [...headers, '', body].join('\r\n');
-      const encodedMessage = Buffer.from(message).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        const parts: string[] = [];
 
-      const requestBody: any = {
-        raw: encodedMessage,
-      };
+        // HTML body part
+        parts.push(
+          `--${boundary}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n` +
+          Buffer.from(htmlBody).toString('base64')
+        );
 
-      // Include threadId to keep reply in the same conversation
+        // Attachment parts
+        for (const att of attachments) {
+          const attBase64 = att.content.toString('base64');
+          parts.push(
+            `--${boundary}\r\n` +
+            `Content-Type: ${att.mimeType}; name="${att.filename}"\r\n` +
+            `Content-Disposition: attachment; filename="${att.filename}"\r\n` +
+            `Content-Transfer-Encoding: base64\r\n\r\n` +
+            attBase64
+          );
+        }
+
+        parts.push(`--${boundary}--`);
+        rawMessage = [...headerLines, '', ...parts].join('\r\n');
+      } else {
+        // HTML, no attachments
+        const headers = [
+          `From: ${fromEmail}`,
+          `To: ${to}`,
+          `Subject: ${subject}`,
+          'MIME-Version: 1.0',
+          'Content-Type: text/html; charset=utf-8',
+        ];
+        if (cc) headers.push(`Cc: ${cc}`);
+        if (bcc) headers.push(`Bcc: ${bcc}`);
+        if (inReplyTo) headers.push(`In-Reply-To: ${inReplyTo}`);
+        if (references) headers.push(`References: ${references}`);
+        rawMessage = [...headers, '', htmlBody].join('\r\n');
+      }
+
+      const encodedMessage = Buffer.from(rawMessage)
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+      const requestBody: any = { raw: encodedMessage };
       if (threadId) requestBody.threadId = threadId;
 
-      const response = await gmail.users.messages.send({
-        userId: 'me',
-        requestBody,
-      });
+      const response = await gmail.users.messages.send({ userId: 'me', requestBody });
 
-      logger.info(`Email sent successfully: ${response.data.id}, thread: ${response.data.threadId}`);
+      logger.info(`Email sent: ${response.data.id}, attachments: ${attachments?.length || 0}`);
       return response.data;
     } catch (error: any) {
       logger.error('Error sending message:', error);
+
       throw new Error(`Failed to send message: ${error.message}`);
     }
   }
+
 
   async replyToMessage(user: IUser, originalMessageId: string, body: string) {
     try {
