@@ -1,9 +1,18 @@
 import { Response } from 'express';
+import { Request } from 'express';
 import { AuthRequest } from '../middlewares/auth.js';
 import { AIService } from '../services/ai.service.js';
 import { GmailService } from '../services/gmail.service.js';
 import { User } from '../models/User.js';
 import { logger } from '../utils/logger.js';
+
+// Multer-aware request type — avoids Express.Multer namespace which isn't always available
+interface MulterAuthRequest extends Request {
+  user?: { userId: string; email: string };
+  file?: any;
+  files?: any;
+}
+
 
 const aiService = new AIService();
 const gmailService = new GmailService();
@@ -25,7 +34,7 @@ async function extractTextFromPdf(buffer: Buffer): Promise<string> {
 }
 
 // ─── Extract Emails Controller ────────────────────────────────────────────────
-export const extractEmails = async (req: AuthRequest, res: Response) => {
+export const extractEmails = async (req: MulterAuthRequest, res: Response) => {
   try {
     const file = req.file;
     const { text } = req.body;
@@ -58,7 +67,7 @@ export const extractEmails = async (req: AuthRequest, res: Response) => {
       if (uniqueEmails.length === 0 && !mime.startsWith('image/')) {
         const rawText = file.buffer.toString('utf-8');
         const found = rawText.match(EMAIL_REGEX) || [];
-        uniqueEmails = [...new Set(found.map(e => e.toLowerCase()))];
+        uniqueEmails = [...new Set(found.map((e: string) => e.toLowerCase()))] as string[];
         logger.info(`UTF-8 text fallback extracted ${uniqueEmails.length} emails`);
       }
 
@@ -127,7 +136,7 @@ const processQueue = async () => {
 };
 
 // ─── Start Campaign Controller ────────────────────────────────────────────────
-export const startCampaign = async (req: AuthRequest, res: Response) => {
+export const startCampaign = async (req: MulterAuthRequest, res: Response) => {
   try {
     const { emails, context, isPersonalized, subject, directBody, mode } = req.body;
     const userId = req.user?.userId;
@@ -155,12 +164,13 @@ export const startCampaign = async (req: AuthRequest, res: Response) => {
 
     // Collect attachments — upload.fields() gives req.files as { fieldname: File[] }
     const attachments: Array<{ filename: string; content: Buffer; mimeType: string }> = [];
-    const filesMap = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
-    const uploadedFiles = filesMap?.['attachments'] || [];
+    const filesMap = (req.files as { [fieldname: string]: any[] }) || {};
+    const uploadedFiles: any[] = filesMap['attachments'] || [];
     for (const f of uploadedFiles) {
       attachments.push({ filename: f.originalname, content: f.buffer, mimeType: f.mimetype });
       logger.info(`Attachment collected: ${f.originalname} (${f.mimetype}, ${f.size} bytes)`);
     }
+
 
     // Pre-generate AI template once if not personalized
     let templateBody = '';
