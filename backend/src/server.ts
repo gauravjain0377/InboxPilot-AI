@@ -15,6 +15,7 @@ import aiRoutes from './routes/ai.routes.js';
 import calendarRoutes from './routes/calendar.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import followupRoutes from './routes/followup.routes.js';
+import campaignRoutes from './routes/campaign.routes.js';
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/followup', followupRoutes);
+app.use('/api/campaigns', campaignRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ 
@@ -70,7 +72,8 @@ app.get('/api', (req, res) => {
       gmail: '/api/gmail',
       ai: '/api/ai',
       calendar: '/api/calendar',
-      analytics: '/api/analytics'
+      analytics: '/api/analytics',
+      campaigns: '/api/campaigns'
     }
   });
 });
@@ -90,7 +93,8 @@ app.get('/', (req, res) => {
       ai: '/api/ai',
       calendar: '/api/calendar',
       analytics: '/api/analytics',
-      followup: '/api/followup'
+      followup: '/api/followup',
+      campaigns: '/api/campaigns'
     }
   });
 });

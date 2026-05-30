@@ -16,6 +16,7 @@ import {
   User,
   ChevronDown,
   Clock,
+  Megaphone,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
@@ -43,6 +44,7 @@ export default function Navbar() {
     { href: '/compose', label: 'Compose', icon: Send },
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/dashboard/followups', label: 'Follow-ups', icon: Clock },
+    { href: '/campaigns', label: 'Campaigns', icon: Megaphone },
   ];
 
   const isActive = (href: string) => pathname === href;

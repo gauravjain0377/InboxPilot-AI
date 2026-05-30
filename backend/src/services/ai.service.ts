@@ -442,6 +442,11 @@ IMPORTANT RULES:
     return this.generate(prompt);
   }
 
+  async generateCampaignEmail(context: string): Promise<string> {
+    const prompt = `Write a professional cold email based on the following context. Do not include a Subject line in the body, just the email content. Be concise and persuasive.\n\nContext:\n${context}\n\nEmail Draft:`;
+    return this.generate(prompt);
+  }
+
   async detectMeetingRequest(emailBody: string): Promise<boolean> {
     const prompt = `Does this email contain a meeting request or scheduling request? Answer only "yes" or "no":\n\n${emailBody}`;
     const response = await this.generate(prompt);
