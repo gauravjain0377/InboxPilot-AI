@@ -586,5 +586,199 @@ Write the email body now:`;
 
     return { hasMeeting: false };
   }
-}
 
+  // ─── Company Research ─────────────────────────────────────────────────────────
+  async fetchCompanyInfo(companyName: string, domain: string): Promise<string> {
+    // Strategy A: Fetch company website and summarize
+    try {
+      const url = `https://${domain}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 7000);
+
+      const resp = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; InboxPilot/1.0; +https://inboxpilot.app)',
+          'Accept': 'text/html,application/xhtml+xml',
+        },
+      });
+      clearTimeout(timeoutId);
+
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+      const html = await resp.text();
+      // Strip scripts, styles, tags
+      const text = html
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 4000);
+
+      if (text.length < 80) throw new Error('Too little content from website');
+
+      const summary = await this.generate(
+        `Based on this website content from ${companyName} (${domain}), write 2–3 specific sentences describing:\n1. What the company does (their core business/product/service)\n2. Their industry or domain\n3. Any notable mission, clients, or product names\n\nBe factual and specific. No fluff:\n\n${text}`
+      );
+      logger.info(`Company info fetched via website for ${companyName}`);
+      return summary;
+    } catch (err: any) {
+      logger.warn(`Website fetch failed for ${domain}: ${err.message}. Trying AI knowledge...`);
+    }
+
+    // Strategy B: Use AI general knowledge about the company
+    try {
+      const summary = await this.generate(
+        `In 2–3 specific sentences, describe what ${companyName} does. Include their core business/product/service, industry, and any notable product names or clients you know. If you don't know, say what a company named "${companyName}" in the domain "${domain}" likely does based on their name/domain. Be concrete and factual.`
+      );
+      logger.info(`Company info via AI knowledge for ${companyName}`);
+      return summary;
+    } catch {
+      return `${companyName} is a company operating in their respective industry.`;
+    }
+  }
+
+  // ─── Personalized Company Email Generation ────────────────────────────────────
+  async generatePersonalizedCompanyEmail(params: {
+    companyName: string;
+    companyInfo: string;
+    recipientEmail: string;
+    context: string;
+    greeting: string;
+    senderName: string;
+    senderTitle: string;
+    role: string;
+    tone: string;
+    senderSignature: string;
+    extraNotes: string;
+  }): Promise<{ subject: string; body: string }> {
+    const {
+      companyName, companyInfo, context, greeting,
+      senderName, senderTitle, role, tone, senderSignature, extraNotes,
+    } = params;
+
+    const prompt = `You are writing a personalized cold job application email from ${senderName || 'a candidate'} to ${companyName}.
+
+ABOUT ${companyName.toUpperCase()}:
+${companyInfo}
+
+SENDER DETAILS:
+- Name: ${senderName || 'Not provided'}
+- Title/Status: ${senderTitle || 'Not provided'}
+- Role applying for: ${role || 'Software Engineer'}
+- Background/Context: ${context}
+- Tone: ${tone}
+${extraNotes ? `- Additional notes: ${extraNotes}` : ''}
+
+STRICT RULES — every single rule must be followed:
+1. Start with exactly: "${greeting}"
+2. In paragraph 1: mention SOMETHING SPECIFIC about ${companyName} from the info above (their product, mission, or what they build). This shows you've done research.
+3. In paragraph 2: highlight 1-2 specific things from the sender's background that are directly relevant to ${companyName}'s work.
+4. In paragraph 3: a direct, confident ask (e.g., "Would you be open to a quick chat?") - no more than 1-2 sentences.
+5. End with the exact signature provided.
+6. NEVER use: "Thank you for your time and consideration", "I hope this email finds you well", "I am writing to", "Looking forward to hearing from you", "I would welcome the opportunity", "I have attached my resume"
+7. NEVER use [brackets] or placeholder text of any kind.
+8. Keep it under 150 words for the body. Short, punchy, human.
+9. No Subject line in the body.
+10. Sound like a real person wrote this, not AI.
+11. Naturally mention the role "${role || 'Software Engineer'}" somewhere in the first or second paragraph.
+
+SIGNATURE TO USE:
+${senderSignature || senderName}
+
+Generate a subject line that MUST include the role "${role || 'SDE'}" and sender name. Good examples:
+- "${role || 'SDE'} Application - ${senderName} for ${companyName}"
+- "Exploring ${role || 'SDE'} at ${companyName} - ${senderName}"
+Keep under 70 chars. Make it specific, not generic.
+
+Return ONLY valid JSON in this exact format, nothing else:
+{"subject": "...", "body": "..."}`;
+
+
+    try {
+      const response = await this.generate(prompt);
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.subject && parsed.body) return parsed;
+      }
+    } catch (err: any) {
+      logger.warn(`JSON parse failed for ${companyName}, using fallback:`, err.message);
+    }
+
+    // Fallback: generate body only, use role-inclusive subject
+    const body = await this.generate(`Write a short personalized cold email from ${senderName} to ${companyName}. Context: ${context}. Mention the role "${role || 'Software Engineer'}" naturally. Start with "${greeting}". End with: ${senderSignature || senderName}. Keep under 120 words. No subject line.`);
+    return {
+      subject: `${role || 'SDE'} Application - ${senderName || 'Candidate'} for ${companyName}`,
+      body,
+    };
+  }
+
+  // ─── AI-powered company+email parser ─────────────────────────────────────────
+  // Handles ANY format the user pastes: URL | email, comma-sep, plain list, etc.
+  async parseCompanyEmails(rawText: string): Promise<Array<{ name: string; email: string }>> {
+    const prompt = `You are a data extractor. Extract every company name + email address pair from the text below.
+
+The user may paste in ANY format. Here are examples you MUST handle:
+- "https://inboxpilot-ai.vercel.app/ | jaingaurav906@gmail.com" -> name: "InboxPilot AI", email: "jaingaurav906@gmail.com"
+- "https://stocksathi.vercel.app/ | gj569161@gmail.com" -> name: "StockSathi", email: "gj569161@gmail.com"
+- "KPMG, siddharthakundu@kpmg.com" -> name: "KPMG", email: "siddharthakundu@kpmg.com"
+- "Deloitte - satjha@deloitte.com" -> name: "Deloitte", email: "satjha@deloitte.com"
+- "recruiter@tcs.com TCS" -> name: "TCS", email: "recruiter@tcs.com"
+- "hr@accenture.com" (no company on the line) -> derive name from email domain: "Accenture"
+
+Rules for deriving company name from a URL like "https://stocksathi.vercel.app/":
+- Extract the subdomain before .vercel.app, .netlify.app, etc: "stocksathi" -> "StockSathi"
+- Split on hyphens and title-case each word: "inbox-pilot-ai" -> "Inbox Pilot AI"
+
+Rules for deriving company name from email domain like "@kpmg.com":
+- Use the domain name title-cased: "kpmg" -> "KPMG"
+
+NEVER leave name blank. NEVER return duplicates. Only return pairs where there is a valid email.
+
+Text to parse:
+${rawText}
+
+Return ONLY a valid JSON array with no extra text:
+[{"name": "CompanyName", "email": "email@example.com"}]`;
+
+    try {
+      const response = await this.generate(prompt);
+      const jsonMatch = response.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((p: any) => p.name && p.email && p.email.includes('@'));
+        }
+      }
+    } catch (err: any) {
+      logger.warn('AI company parsing failed, falling back to regex:', err.message);
+    }
+
+    // Regex fallback for when AI fails
+    const emailRe = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+    const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+    const results: Array<{ name: string; email: string }> = [];
+    for (const line of lines) {
+      const emails = line.match(emailRe);
+      if (!emails) continue;
+      const email = emails[0].toLowerCase();
+      const urlMatch = line.match(/https?:\/\/([^/\s|,]+)/);
+      let name = '';
+      if (urlMatch) {
+        const host = urlMatch[1];
+        const sub = host.replace(/\.(vercel|netlify|herokuapp|render)\.app$/, '').replace(/\.(com|in|io|net|org|co)$/, '');
+        name = sub.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      } else {
+        name = line.replace(email, '').replace(/[|\-,]/g, '').trim();
+        if (!name) {
+          const domain = email.split('@')[1]?.split('.')[0] || 'Company';
+          name = domain.charAt(0).toUpperCase() + domain.slice(1);
+        }
+      }
+      results.push({ name: name.trim(), email });
+    }
+    return results;
+  }
+}

@@ -1,25 +1,42 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { extractEmails, startCampaign } from '../controllers/campaign.controller.js';
+import {
+  extractEmails,
+  parseCompanies,
+  startCampaign,
+  previewPersonalizedEmail,
+  startPersonalizedCampaign,
+} from '../controllers/campaign.controller.js';
+import {
+  saveTemplate,
+  listTemplates,
+  deleteTemplate,
+  useTemplate,
+} from '../controllers/template.controller.js';
 import { authenticate } from '../middlewares/auth.js';
 
 const router = Router();
 
-// Memory storage — files go into req.file / req.files as buffers
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB per file
+  limits: { fileSize: 25 * 1024 * 1024 },
 });
 
-// Route: extract emails from a single uploaded file OR raw text
+// ─── Email extraction ─────────────────────────────────────────────────────────
 router.post('/extract-emails', authenticate, upload.single('file'), extractEmails);
+router.post('/parse-companies', authenticate, parseCompanies);
 
-// Route: start campaign — 'attachments' is the field name for multiple attached files
-router.post(
-  '/send',
-  authenticate,
-  upload.fields([{ name: 'attachments', maxCount: 10 }]),
-  startCampaign
-);
+// ─── Campaign send ────────────────────────────────────────────────────────────
+router.post('/send', authenticate, upload.fields([{ name: 'attachments', maxCount: 10 }]), startCampaign);
+router.post('/send-personalized', authenticate, upload.fields([{ name: 'attachments', maxCount: 10 }]), startPersonalizedCampaign);
+
+// ─── Preview ──────────────────────────────────────────────────────────────────
+router.post('/preview-personalized', authenticate, previewPersonalizedEmail);
+
+// ─── Template Library ─────────────────────────────────────────────────────────
+router.post('/templates', authenticate, saveTemplate);
+router.get('/templates', authenticate, listTemplates);
+router.delete('/templates/:id', authenticate, deleteTemplate);
+router.post('/templates/:id/use', authenticate, useTemplate);
 
 export default router;

@@ -41,7 +41,10 @@
 | **Smart compose** | AI-enhanced drafts with tone adjustment to match your writing style |
 | **Automated Follow-ups** | Schedule auto follow-up emails with customizable delays (minutes, hours, days). Manage cron-jobs straight from the inbox or dashboard |
 | **AI Chat Assistant** | Interactive "Talk to my AI" side-panel to manage your inbox, summarize data, and ask general questions |
-| **Cold Email Campaigns** | Upload a PDF or paste email addresses, choose Direct Send or AI Generate mode, attach files (resume, portfolio, etc.), and blast bulk emails at 50/hour to stay safe with Gmail limits |
+| **Cold Email Campaigns** | 3 modes: Direct Send, AI Generate, and Personalized (AI researches each company's website and writes a unique email per company). Paste recipients in any format — URLs, plain emails, company names — AI extracts the right data. Gmail-safe 50/hour rate limiting |
+| **Campaign Template Library** | Save successful email campaigns as named templates. Load and reuse them for future batches with one click |
+| **Auto Follow-up for Campaigns** | Enable auto follow-up per campaign with configurable delay (2–7 days). If no reply is received, a follow-up is sent automatically |
+| **AI Company Parser** | Paste company + email in any format (URL, company name, or just email). AI intelligently extracts the correct company name and email address |
 | **Priority & categories** | Smart categorization labels: Work, Task, Meeting, Promotions, Reply Needed, etc. |
 | **Dashboard & Settings** | Analytics, priority tracking, custom email signatures, and global follow-up management |
 | **Secure auth** | Google OAuth 2.0, encrypted tokens |
@@ -177,30 +180,63 @@ NEXT_PUBLIC_API_URL=http://localhost:5000/api
 
 ## Cold Email Campaigns
 
-The **Campaigns** feature lets you send bulk cold emails directly from your connected Gmail account.
+The **Campaigns** feature lets you send bulk cold emails directly from your connected Gmail account — at Gmail-safe rates, with full personalization powered by AI.
 
-### How it works
+### Three Campaign Modes
 
-1. **Add recipients** — Upload a PDF (even scanned/image-based) or paste email addresses. The app uses a 3-strategy pipeline to extract every valid email:
-   - PDF text layer parsing
-   - OpenAI GPT-4o Vision (for scanned/image PDFs)
-   - Raw UTF-8 text fallback
+#### 1. Direct Send
+Write your exact email once. It is sent as-is to every recipient with zero AI changes. Best for newsletters or announcements.
 
-2. **Choose a mode**:
-   - **Direct Send** — Write your exact email once. Sent as-is to every recipient with zero AI changes.
-   - **AI Generate** — Provide your context, role, name, tone, and signature. AI writes a professional, human-sounding email (no `[brackets]`, no clichés).
+#### 2. AI Generate
+Provide your background context, role, name, greeting, tone, and signature. AI writes one professional, human-sounding email (no `[brackets]`, no clichés) and sends it to everyone.
 
-3. **Attach files** — Attach your resume, portfolio, images, or any files. They are included as real email attachments.
+#### 3. Personalized (Most Effective)
+Paste a list of companies + emails. For each company:
+1. AI researches the company's website (or uses its own knowledge as fallback)
+2. Generates a **unique email** referencing their specific product, mission, or work
+3. Includes your role in both the **subject line** and **email body**
+4. Sends at 50/hour, processing each company in the background
 
-4. **Launch** — Campaign sends at **50 emails/hour** automatically to stay within Gmail limits. Safe to close the page after launching.
+### AI Company Parser
 
-### Gmail safety limits
+Paste your company list in **any format** — AI figures out the correct name and email:
 
-| Recipients | Estimated time |
-|-----------|---------------|
+```
+https://inboxpilot-ai.vercel.app/ | jaingaurav906@gmail.com
+KPMG | siddharthakundu@kpmg.com
+Deloitte, satjha@deloitte.com
+recruiter@tcs.com TCS
+hr@accenture.com
+```
+
+URL subdomains, email domains, or explicit names — AI handles all of them.
+
+### Template Library
+
+Save any campaign configuration as a named template. Load it next time with one click — pre-fills mode, subject, context, sender details, greeting, tone, and signature.
+
+### Auto Follow-up
+
+Enable per campaign. Choose a delay (2, 3, 4, 5, or 7 days). If a recipient doesn't reply, the existing Gmail follow-up system sends a short follow-up automatically. Manage or cancel from the Dashboard.
+
+> 70% of cold email replies come after the follow-up.
+
+### Recipient Extraction (Direct / AI modes)
+
+Upload a PDF (even scanned/image-based) or paste any text. The app uses a 3-strategy pipeline:
+1. PDF text layer parsing
+2. OpenAI GPT-4o Vision (for scanned/image PDFs)
+3. Raw UTF-8 text fallback
+
+### Gmail Safety Limits
+
+| Recipients | Estimated Time |
+|-----------|----------------|
 | 1–50 | Under 1 hour |
 | 51–100 | ~2 hours |
 | 101–500 | ~10 hours |
+
+Safe to close the page after launching — sending runs in the background on the server.
 
 ***
 
@@ -273,7 +309,8 @@ InboxPilot-AI/
 | **Auth** | `GET /api/auth/url`, `GET /api/auth/google/callback` |
 | **Gmail** | `GET /api/gmail/messages`, `GET /api/gmail/message/:id`, `POST /api/gmail/send`, `POST /api/gmail/message/:id/reply`, `POST /api/gmail/message/:id/star`, `POST /api/gmail/message/:id/trash`, `POST /api/gmail/message/:id/archive` |
 | **AI** | `POST /api/ai/summarize`, `POST /api/ai/reply`, `POST /api/ai/rewrite`, `POST /api/ai/followup` |
-| **Campaigns** | `POST /api/campaigns/extract-emails`, `POST /api/campaigns/send` |
+| **Campaigns** | `POST /api/campaigns/extract-emails`, `POST /api/campaigns/parse-companies`, `POST /api/campaigns/send`, `POST /api/campaigns/send-personalized`, `POST /api/campaigns/preview-personalized` |
+| **Templates** | `GET /api/campaigns/templates`, `POST /api/campaigns/templates`, `DELETE /api/campaigns/templates/:id`, `POST /api/campaigns/templates/:id/use` |
 | **Analytics** | `GET /api/analytics/dashboard` |
 
 ***
