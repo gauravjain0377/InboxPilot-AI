@@ -7,7 +7,7 @@ import {
   Megaphone, FileText, Upload, AlertCircle, CheckCircle2, Loader2,
   Info, Send, Sparkles, ChevronRight, X, Users, Paperclip,
   Image as ImageIcon, File, Building2, Eye, Zap, BookOpen,
-  Trash2, Clock, Plus, RefreshCw, Save,
+  Trash2, Plus, RefreshCw, Save,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -300,9 +300,7 @@ export default function CampaignsPage() {
     role: '', tone: 'professional', extraNotes: '',
   });
 
-  // Follow-up
-  const [followUpEnabled, setFollowUpEnabled] = useState(false);
-  const [followUpDays, setFollowUpDays] = useState(4);
+  // Follow-up intentionally removed from campaign — inbox follow-up feature still works
 
   // Attachments
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
@@ -372,8 +370,6 @@ export default function CampaignsPage() {
     setFile(null); setRawText(''); setEmails([]);
     setCompanyRawText(''); setCompanyPairs([]);
     setSubject(''); setDirectBody(''); setAiContext(''); setPersonContext('');
-    setSender({ greeting: 'Hi,', customGreeting: '', senderName: '', senderTitle: '', senderSignature: '', role: '', tone: 'professional', extraNotes: '' });
-    setFollowUpEnabled(false); setFollowUpDays(4);
     setAttachedFiles([]); setPreview(null);
     setError(null); setSuccessMsg(null);
     if (pdfInputRef.current) pdfInputRef.current.value = '';
@@ -447,8 +443,6 @@ export default function CampaignsPage() {
     setError(null); setSuccessMsg(null); setIsStarting(true);
     try {
       const fd = new FormData();
-      fd.append('followUpEnabled', String(followUpEnabled));
-      fd.append('followUpDelayDays', String(followUpDays));
       for (const att of attachedFiles) fd.append('attachments', att.file, att.file.name);
 
       if (mode === 'personalized') {
@@ -974,15 +968,6 @@ export default function CampaignsPage() {
 
                     {/* Attachments */}
                     <div className="pt-2 border-t border-gray-100">{AttachmentZone()}</div>
-
-                    {/* Follow-up */}
-                    <div className="pt-2 border-t border-gray-100">
-                      <p className="text-sm font-medium text-gray-800 mb-3 flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-gray-600" /> Auto Follow-up
-                        <span className="text-xs font-normal text-gray-500">- 70% of replies come after the follow-up</span>
-                      </p>
-                      {FollowUpToggle()}
-                    </div>
                   </div>
                 </div>
 
@@ -1073,16 +1058,6 @@ export default function CampaignsPage() {
                       </div>
                     )}
 
-                    {/* Follow-up summary */}
-                    {followUpEnabled && (
-                      <div className="flex items-start gap-3 p-4 rounded-xl border border-gray-200 bg-gray-50">
-                        <Clock className="h-5 w-5 shrink-0 mt-0.5 text-gray-600" />
-                        <div>
-                          <p className="text-sm font-semibold text-gray-800">Auto Follow-up Active</p>
-                          <p className="text-xs text-gray-500 mt-0.5">If no reply in <strong>{followUpDays} days</strong>, a follow-up will be sent automatically to all {totalRecipients} recipients.</p>
-                        </div>
-                      </div>
-                    )}
 
                     {/* Safety notice */}
                     <div className="flex items-start gap-3 p-4 rounded-xl bg-gray-50 border border-gray-200">

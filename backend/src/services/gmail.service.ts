@@ -1,23 +1,65 @@
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import { config } from '../config/env.js';
-import { decrypt } from '../utils/encrypt.js';
+import { decrypt, encrypt } from '../utils/encrypt.js';
 import { IUser } from '../models/User.js';
+import { User } from '../models/User.js';
 import { logger } from '../utils/logger.js';
 
 export class GmailService {
-  private getOAuth2Client(user: IUser): OAuth2Client {
+  // ── Build OAuth client and auto-refresh expired token ─────────────────────
+  private async getAuthenticatedClient(user: IUser): Promise<OAuth2Client> {
     const oauth2Client = new google.auth.OAuth2(
       config.google.clientId,
       config.google.clientSecret,
       config.google.redirectUri
     );
 
+    const accessToken = user.accessToken ? decrypt(user.accessToken) : '';
+    const refreshToken = user.refreshToken ? decrypt(user.refreshToken) : '';
+
     oauth2Client.setCredentials({
-      access_token: decrypt(user.accessToken),
-      refresh_token: decrypt(user.refreshToken),
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expiry_date: user.tokenExpiry ? user.tokenExpiry.getTime() : undefined,
     });
 
+    // If the token is expired (or expires in the next 5 minutes), force a refresh
+    const isExpired = !user.tokenExpiry || user.tokenExpiry.getTime() < Date.now() + 5 * 60 * 1000;
+    if (isExpired && refreshToken) {
+      try {
+        logger.info(`Access token expired for ${user.email}, refreshing...`);
+        const { credentials } = await oauth2Client.refreshAccessToken();
+
+        // Persist the new token back to MongoDB so future calls don't expire too
+        await User.findByIdAndUpdate(user._id, {
+          accessToken: encrypt(credentials.access_token || ''),
+          tokenExpiry: credentials.expiry_date ? new Date(credentials.expiry_date) : undefined,
+        });
+
+        oauth2Client.setCredentials(credentials);
+        logger.info(`Token refreshed successfully for ${user.email}`);
+      } catch (refreshErr: any) {
+        logger.warn(`Token refresh failed for ${user.email}: ${refreshErr.message}. Using existing token.`);
+        // Continue with the old token — it may still work (or fail gracefully below)
+      }
+    }
+
+    return oauth2Client;
+  }
+
+  // Keep synchronous version for callers that don't need refresh (non-send operations)
+  private getOAuth2Client(user: IUser): OAuth2Client {
+    const oauth2Client = new google.auth.OAuth2(
+      config.google.clientId,
+      config.google.clientSecret,
+      config.google.redirectUri
+    );
+    oauth2Client.setCredentials({
+      access_token: user.accessToken ? decrypt(user.accessToken) : '',
+      refresh_token: user.refreshToken ? decrypt(user.refreshToken) : '',
+      expiry_date: user.tokenExpiry ? user.tokenExpiry.getTime() : undefined,
+    });
     return oauth2Client;
   }
 
@@ -231,7 +273,8 @@ export class GmailService {
     attachments?: Array<{ filename: string; content: Buffer; mimeType: string }>
   ) {
     try {
-      const oauth2Client = this.getOAuth2Client(user);
+      // Use authenticated client that auto-refreshes expired tokens
+      const oauth2Client = await this.getAuthenticatedClient(user);
       const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
       const profile = await gmail.users.getProfile({ userId: 'me' });

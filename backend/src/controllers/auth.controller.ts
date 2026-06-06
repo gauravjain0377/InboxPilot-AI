@@ -35,9 +35,9 @@ export const googleAuth = async (req: Request, res: Response, next: NextFunction
     let user = await User.findOne({ email: userInfo.data.email });
 
     if (user) {
-      user.accessToken = encrypt(tokens.access_token || '');
-      user.refreshToken = encrypt(tokens.refresh_token || '');
-      user.tokenExpiry = tokens.expiry_date ? new Date(tokens.expiry_date) : undefined;
+      if (tokens.access_token) user.accessToken = encrypt(tokens.access_token);
+      if (tokens.refresh_token) user.refreshToken = encrypt(tokens.refresh_token);
+      if (tokens.expiry_date) user.tokenExpiry = new Date(tokens.expiry_date);
       await user.save();
     } else {
       user = await User.create({
@@ -82,6 +82,7 @@ export const getAuthUrl = (req: Request, res: Response): void => {
 
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
+    prompt: 'consent',
     scope: [
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/gmail.send',
@@ -153,9 +154,9 @@ export const handleCallback = async (req: Request, res: Response, next: NextFunc
       user = await User.findOne({ email: userInfo.data.email });
 
       if (user) {
-        user.accessToken = encrypt(tokens.access_token || '');
-        user.refreshToken = encrypt(tokens.refresh_token || '');
-        user.tokenExpiry = tokens.expiry_date ? new Date(tokens.expiry_date) : undefined;
+        if (tokens.access_token) user.accessToken = encrypt(tokens.access_token);
+        if (tokens.refresh_token) user.refreshToken = encrypt(tokens.refresh_token);
+        if (tokens.expiry_date) user.tokenExpiry = new Date(tokens.expiry_date);
         await user.save();
       } else {
         user = await User.create({

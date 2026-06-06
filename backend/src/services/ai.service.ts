@@ -5,6 +5,55 @@ import { logger } from '../utils/logger.js';
 
 export type Tone = 'formal' | 'friendly' | 'assertive' | 'short' | 'negative' | 'concise';
 
+const DEFAULT_SENDER_PROFILE = `
+Name: Gaurav Jain
+Status: Final year B.Tech Information Technology student at Poornima College of Engineering, Jaipur | CGPA 9.0
+Primary Stack: JavaScript, TypeScript, React, Next.js, Node.js, Express.js, MongoDB, REST APIs
+GitHub: github.com/gauravjain0377
+
+PROJECTS (pick 1-2 most relevant to the company):
+
+1. InboxPilot AI — AI-powered Gmail assistant (Next.js, Node.js, Gemini AI, Gmail API, OAuth2)
+   - Built a system that reads, categorizes, and drafts replies to emails using AI
+   - Implemented background campaign system sending personalized cold emails to 100+ companies
+   - Designed real-time follow-up scheduling, Google Calendar integration, and analytics dashboard
+   - Sole architect and developer — handled frontend, backend, AI integration, and deployment
+
+2. StockSathi — Real-time stock trading simulation platform (React, Node.js, MongoDB, Socket.io, WebSockets)
+   - Built live market data streaming using WebSockets, batched Yahoo Finance API calls to avoid rate limits
+   - Designed portfolio management with buy/sell logic, transaction history, and P&L tracking
+   - Integrated JWT auth + Google OAuth, transactional emails via Brevo
+   - Solved complex state-sync problems between WebSocket server and React frontend
+
+3. HackZen — Full-stack hackathon management platform (React, Node.js, MongoDB, Socket.io, Cloudinary)
+   - Team project: designed and built backend APIs for participant registration, team formation, judging workflow, and result declaration
+   - Implemented role-based access control (RBAC) for 4 user types: participants, organizers, judges, admins
+   - Integrated 2FA (TOTP via speakeasy), Google/GitHub OAuth (Passport.js), file uploads to Cloudinary
+
+INTERNSHIPS:
+
+1. STPI (Software Technology Parks of India) — under Ministry of Electronics & IT, Govt. of India
+   - Full Stack Developer Intern
+   - Built a Hackathon Management System: end-to-end, from participant registration to result declaration
+   - Designed REST APIs, role-based workflows, MongoDB schemas, authentication, and API integration
+   - Worked in Agile sprints with requirement analysis, testing, and sprint reviews
+
+2. Edunet Foundation (in collaboration with AICTE)
+   - Frontend Developer Intern
+   - Built responsive React UIs with reusable components, integrated APIs, handled state management
+   - Applied performance optimization: lazy loading, code splitting, asset optimization
+
+ACHIEVEMENTS:
+- Winner, EDU Chain Hackathon (Earn Category) — built Cryptify, a blockchain-based contract & payment platform — awarded $4,000 prize
+- Selected for Open Campus Incubator Program for Cryptify
+- Winner, Microsoft Asia AI Odyssey 2024
+- FOSS Hack Campus Ambassador — Delhi NCR
+- 2nd place, TEK-Connect project exhibition
+
+WHAT HE'S LOOKING FOR:
+SDE Intern / Full-Time SDE role in a product-focused company. Strong preference for companies building developer tools, fintech, AI, or platform infrastructure. Wants to contribute to real backend systems, not just fix CSS.
+`.trim();
+
 export class AIService {
   private gemini: GoogleGenerativeAI | null = null;
   private openai: OpenAI | null = null;
@@ -75,51 +124,45 @@ export class AIService {
     }
 
     try {
-      // Use direct API call to list models and verify key
-      // Try v1 first (newer API), fallback to v1beta if needed
       const apiKey = config.ai.geminiKey;
       let url = `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`;
       let response = await fetch(url);
-      
-      // If v1 fails, try v1beta
+
       if (!response.ok && response.status === 404) {
         url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
         response = await fetch(url);
       }
-      
+
       if (response.ok) {
         const data = await response.json() as any;
         const modelNames = (data?.models || [])
           .map((m: any) => m.name?.replace('models/', '') || m.name)
           .filter((name: string) => name && name.includes('gemini'));
-        
+
         logger.info('Available Gemini models:', modelNames);
         this.cachedModels = modelNames;
         return { valid: true, availableModels: modelNames };
       } else {
         const errorText = await response.text();
-        return { 
-          valid: false, 
-          availableModels: [], 
-          error: `API key verification failed: ${response.status} ${errorText}` 
+        return {
+          valid: false,
+          availableModels: [],
+          error: `API key verification failed: ${response.status} ${errorText}`,
         };
       }
     } catch (error: any) {
       logger.error('API key verification error:', error);
-      return { 
-        valid: false, 
-        availableModels: [], 
-        error: error.message || 'Failed to verify API key' 
+      return {
+        valid: false,
+        availableModels: [],
+        error: error.message || 'Failed to verify API key',
       };
     }
   }
 
   private async listAvailableModels(): Promise<string[]> {
-    if (!this.gemini) {
-      return [];
-    }
+    if (!this.gemini) return [];
 
-    // Cache the models list to avoid repeated API calls (but refresh occasionally)
     if (this.cachedModels !== null && this.cachedModels.length > 0) {
       return this.cachedModels;
     }
@@ -135,8 +178,7 @@ export class AIService {
     } catch (error: any) {
       logger.warn('Could not list available models, will use defaults:', error.message);
     }
-    
-    // Return empty array, will use fallback models
+
     if (this.cachedModels === null) {
       this.cachedModels = [];
     }
@@ -164,10 +206,8 @@ export class AIService {
       throw new Error('Gemini AI service not initialized');
     }
 
-    // Try to get available models first
     let availableModels = await this.listAvailableModels();
-    
-    // Default model names to try - include variants
+
     let modelsToTry = [
       'gemini-1.5-flash-latest',
       'gemini-1.5-flash',
@@ -177,11 +217,9 @@ export class AIService {
       'gemini-1.0-pro',
     ];
 
-    // If we have available models from API, use those first
     if (availableModels && availableModels.length > 0) {
       logger.info('Using available models from API:', availableModels);
-      // Filter to models that support generateContent
-      const generateModels = availableModels.filter(m => 
+      const generateModels = availableModels.filter(m =>
         m.includes('gemini') && (m.includes('flash') || m.includes('pro'))
       );
       if (generateModels.length > 0) {
@@ -195,56 +233,44 @@ export class AIService {
     const errors: string[] = [];
 
     for (const modelName of modelsToTry) {
-      // Try SDK first - it might work even if direct API doesn't
-      // The SDK handles API version negotiation automatically
       try {
         logger.info(`Trying Gemini model: ${modelName} via SDK`);
-        
-        const model = this.gemini.getGenerativeModel({ 
-          model: modelName,
-        });
+
+        const model = this.gemini.getGenerativeModel({ model: modelName });
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
-        
+
         if (!text || text.trim().length === 0) {
           throw new Error('Empty response from model');
         }
-        
+
         logger.info(`Successfully used model: ${modelName} via SDK`);
         return text.trim();
       } catch (sdkError: any) {
         const sdkErrorMsg = sdkError?.message || String(sdkError);
         const sdkErrorString = JSON.stringify(sdkError) || sdkErrorMsg;
         logger.warn(`SDK failed for ${modelName}:`, sdkErrorMsg);
-        
-        // Check if it's a v1beta/404 error
+
         const isV1BetaError = sdkErrorString.includes('v1beta') || sdkErrorMsg.includes('v1beta') || sdkErrorString.includes('/v1beta/');
         const is404Error = sdkErrorMsg.includes('404') || sdkErrorString.includes('404');
-        
-        // If SDK fails with v1beta/404, try direct v1 API as fallback
+
         if (isV1BetaError || is404Error) {
           logger.info(`SDK failed with v1beta/404 error, trying direct v1 API for ${modelName}`);
-          
+
           try {
             const apiKey = config.ai.geminiKey;
             const response = await fetch(
               `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${apiKey}`,
               {
                 method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  contents: [{
-                    parts: [{
-                      text: prompt
-                    }]
-                  }]
-                })
+                  contents: [{ parts: [{ text: prompt }] }],
+                }),
               }
             );
-            
+
             if (response.ok) {
               const data = await response.json() as any;
               const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -255,8 +281,6 @@ export class AIService {
             } else {
               const errorText = await response.text().catch(() => 'Could not read error response');
               logger.warn(`Direct v1 API also failed for ${modelName}: ${response.status} ${errorText}`);
-              
-              // Parse error response to get more details
               try {
                 const errorData = JSON.parse(errorText);
                 if (errorData.error?.message) {
@@ -265,11 +289,9 @@ export class AIService {
                 } else {
                   errors.push(`${modelName}: Direct v1 API returned ${response.status}`);
                 }
-              } catch (e) {
+              } catch {
                 errors.push(`${modelName}: Direct v1 API returned ${response.status} - ${errorText.substring(0, 100)}`);
               }
-              
-              // Continue to next model
               lastError = sdkError;
               continue;
             }
@@ -280,73 +302,61 @@ export class AIService {
             continue;
           }
         } else {
-          // SDK failed with non-404 error, record and continue
           lastError = sdkError;
           const errorDetails = sdkError?.errorDetails || sdkError?.status || '';
           errors.push(`${modelName}: ${sdkErrorMsg}${errorDetails ? ` (${errorDetails})` : ''}`);
-          
-          // If it's authentication/authorization, don't try other models
-          if (sdkErrorMsg.includes('401') || 
-              sdkErrorMsg.includes('403') || 
-              sdkErrorMsg.includes('Authentication') || 
-              sdkErrorMsg.includes('API key') ||
-              sdkErrorMsg.includes('PERMISSION_DENIED') ||
-              (sdkErrorMsg.includes('INVALID_ARGUMENT') && sdkErrorMsg.includes('API key'))) {
+
+          if (
+            sdkErrorMsg.includes('401') ||
+            sdkErrorMsg.includes('403') ||
+            sdkErrorMsg.includes('Authentication') ||
+            sdkErrorMsg.includes('API key') ||
+            sdkErrorMsg.includes('PERMISSION_DENIED') ||
+            (sdkErrorMsg.includes('INVALID_ARGUMENT') && sdkErrorMsg.includes('API key'))
+          ) {
             logger.error('Authentication error detected, stopping model attempts');
             break;
           }
-          
-          // For quota/rate limit errors, try next model (might be model-specific)
+
           if (sdkErrorMsg.includes('quota') || sdkErrorMsg.includes('429') || sdkErrorMsg.includes('rate limit')) {
             logger.warn(`Rate limit on ${modelName}, trying next model`);
             continue;
           }
-          
-          // For other errors, try next model
+
           continue;
         }
       }
     }
 
-    // If all models failed, provide detailed error message
     const errorMsg = lastError?.message || String(lastError) || 'Unknown error';
     logger.error('All Gemini models failed. Errors:', errors);
-    
-    // Check if it's an API key issue
-    if (errorMsg.includes('API key') || 
-        errorMsg.includes('401') || 
-        errorMsg.includes('403') || 
-        errorMsg.includes('Authentication') || 
-        errorMsg.includes('Invalid') ||
-        errorMsg.includes('PERMISSION_DENIED')) {
+
+    if (errorMsg.includes('API key') || errorMsg.includes('401') || errorMsg.includes('403') || errorMsg.includes('Authentication') || errorMsg.includes('Invalid') || errorMsg.includes('PERMISSION_DENIED')) {
       throw new Error(`AI generation failed: Invalid or missing Gemini API key. Please check your GEMINI_API_KEY in backend/.env file. Get a free API key at https://makersuite.google.com/app/apikey`);
     }
-    
-    // Check if it's a quota issue
+
     if (errorMsg.includes('quota') || errorMsg.includes('429') || errorMsg.includes('rate limit')) {
       throw new Error(`AI generation failed: Free tier quota exceeded or rate limited. Please check your Gemini API usage limits at https://makersuite.google.com/app/apikey`);
     }
-    
-    // Check if models are not found - provide specific instructions
-    // This often happens when SDK uses v1beta but models need v1, or API key doesn't have access
+
     const allErrorsString = errors.join(' ');
     const has404Error = errorMsg.includes('404') || errors.some(e => e.includes('404')) || allErrorsString.includes('404');
     const hasV1BetaError = errorMsg.includes('v1beta') || errors.some(e => e.includes('v1beta')) || allErrorsString.includes('v1beta') || allErrorsString.includes('/v1beta/');
     const hasNotFoundError = errorMsg.includes('not found') || errors.some(e => e.includes('not found')) || allErrorsString.includes('NotFound');
-    
+
     if (has404Error || hasNotFoundError || hasV1BetaError) {
-      const helpText = hasV1BetaError 
-        ? 'The SDK tried to use v1beta API but models require v1. We attempted to use v1 API directly, but it appears your API key may not have access or there\'s a configuration issue.'
+      const helpText = hasV1BetaError
+        ? "The SDK tried to use v1beta API but models require v1. We attempted to use v1 API directly, but it appears your API key may not have access or there's a configuration issue."
         : 'Models are not available. This could be due to API key permissions or model availability.';
-      
       throw new Error(`AI generation failed: No free tier models available. ${helpText}\n\nPlease verify:\n1. Your Gemini API key is valid and active (get one at https://makersuite.google.com/app/apikey)\n2. The Generative Language API is enabled in Google Cloud Console\n3. Your API key has access to free tier models (gemini-1.5-flash, gemini-1.5-pro)\n4. Try regenerating your API key if the issue persists\n5. Check that your API key hasn't reached rate limits\n\nErrors: ${errors.join('; ')}`);
     }
-    
+
     throw new Error(`AI generation failed: ${errorMsg}\n\nTried models: ${modelsToTry.join(', ')}\nErrors: ${errors.join('; ')}\n\nPlease verify your GEMINI_API_KEY in backend/.env is correct and get a free API key at https://makersuite.google.com/app/apikey`);
   }
 
+  // ─── Standard email methods (untouched) ───────────────────────────────────────
+
   async summarizeEmail(emailBody: string): Promise<string> {
-    // Truncate email body if too long for faster processing
     const truncatedBody = emailBody.length > 2000 ? emailBody.substring(0, 2000) + '...' : emailBody;
     const prompt = `Summarize this email in 2-3 sentences:\n\n${truncatedBody}`;
     return this.generate(prompt);
@@ -362,36 +372,31 @@ export class AIService {
       negative: 'Write a polite but firm reply expressing disagreement or concerns',
     };
 
-    // Truncate email body if too long for faster processing
     const truncatedBody = originalEmail.length > 2000 ? originalEmail.substring(0, 2000) + '...' : originalEmail;
-    
-    // Build prompt with signature instruction if provided
+
     let prompt = `Write exactly ONE ${toneInstructions[tone].toLowerCase()} ready to send. DO NOT provide multiple options. DO NOT include a "Subject:" line, "Re:", or any explanatory text before or after the email body.\n\nOriginal Email:\n${truncatedBody}\n\n`;
-    
+
     if (signature && signature.trim()) {
       prompt += `IMPORTANT: You must sign off with the exact following signature at the end: \n${signature.trim()}\n\n`;
     }
 
     prompt += `Drafted Reply:\n`;
 
-    // Generate only one reply for speed (user can regenerate if needed)
     const reply = await this.generate(prompt);
-    
-    // Clean up the reply (remove markdown, options, etc)
+
     let finalReply = this.cleanEnhancedText(reply);
-    
-    // Ensure signature is appended if not already included
+
     if (signature && signature.trim() && !finalReply.includes(signature.trim())) {
       finalReply = `${finalReply}\n\n${signature.trim()}`;
     }
-    
+
     return [finalReply];
   }
 
   async rewriteText(text: string, instruction: string, userName?: string, userSignature?: string): Promise<string> {
     const contextStr = [
       userName ? `Sender Name: ${userName}` : '',
-      userSignature ? `Sender Signature:\n${userSignature}` : ''
+      userSignature ? `Sender Signature:\n${userSignature}` : '',
     ].filter(Boolean).join('\n');
 
     const rules = `
@@ -402,59 +407,46 @@ IMPORTANT RULES:
 4. ${userSignature ? `Append the sender's signature exactly as provided at the very bottom.` : ''}
     `.trim();
 
-    // For enhance operations, be more direct - just return the enhanced text without explanations
     if (instruction.toLowerCase().includes('enhance') || instruction.toLowerCase().includes('improve')) {
       const prompt = `Rewrite and enhance the following email text. ${instruction}\n\n${contextStr}\n\n${rules}\n\nReturn ONLY the enhanced email text, nothing else. No explanations, no options, no markdown formatting. Just the improved email text ready to send:\n\n${text}`;
       const result = await this.generate(prompt);
-      // Clean up the result - remove any explanations or markdown
       return this.cleanEnhancedText(result);
     }
-    
+
     const prompt = `Rewrite the following text: ${instruction}\n\n${contextStr}\n\n${rules}\n\nText:\n${text}\n\nReturn only the rewritten text, no explanations.`;
     const result = await this.generate(prompt);
     return this.cleanEnhancedText(result);
   }
 
   private cleanEnhancedText(text: string): string {
-    // Remove common AI explanation patterns
     let cleaned = text.trim();
-    
-    // Remove markdown code blocks
     cleaned = cleaned.replace(/```[\s\S]*?```/g, '');
-    
-    // Remove "Here are" or "Here is" patterns
     cleaned = cleaned.replace(/^Here (are|is)[\s\S]*?(?=\n\n|$)/m, '');
-    
-    // Remove "Option 1", "Option 2" patterns
     cleaned = cleaned.replace(/\*\*Option \d+[^*]*\*\*[\s\S]*?(?=\n\n|\*\*Option|\*Key|$)/g, '');
-    
-    // Remove "Key improvements" sections
     cleaned = cleaned.replace(/\*\*Key improvements[\s\S]*$/m, '');
-    
-    // Remove "To choose" sections
     cleaned = cleaned.replace(/\*\*To choose[\s\S]*$/m, '');
-    
-    // Remove quoted text markers
     cleaned = cleaned.replace(/^>\s*/gm, '');
-    
-    // Remove extra blank lines
     cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
-    
-    // Remove leading/trailing whitespace from each line
     cleaned = cleaned.split('\n').map(line => line.trim()).join('\n');
-    
     return cleaned.trim();
   }
 
-  async generateFollowUp(originalEmail: string, stepNumber: number = 1, delayDays: number = 2, tone: string = 'friendly', userName: string = '', recipientName: string = ''): Promise<string> {
-    // Truncate email body if too long for faster processing
+  // ─── Follow-up generation (inbox feature — NOT campaign) ──────────────────────
+  async generateFollowUp(
+    originalEmail: string,
+    stepNumber: number = 1,
+    delayDays: number = 2,
+    tone: string = 'friendly',
+    userName: string = '',
+    recipientName: string = '',
+  ): Promise<string> {
     const truncatedBody = originalEmail.length > 2000 ? originalEmail.substring(0, 2000) + '...' : originalEmail;
-    
+
     let toneInstruction = 'polite and friendly';
     if (tone === 'formal') toneInstruction = 'formal and professional';
     if (tone === 'assertive') toneInstruction = 'direct and assertive';
     if (tone === 'short') toneInstruction = 'very brief and concise';
-    
+
     let stepContext = '';
     if (stepNumber === 1) {
       stepContext = `It has been ${delayDays} days since the last email. This is the first follow-up. Just casually checking in.`;
@@ -464,7 +456,6 @@ IMPORTANT RULES:
       stepContext = `This is follow-up #${stepNumber}. It has been ${delayDays} days since the last one. Be polite but try to get a clear yes/no/status.`;
     }
 
-    // Attempt to extract sensible names if none are provided
     const sender = userName || 'the sender';
     const recipient = recipientName || 'them';
 
@@ -472,33 +463,12 @@ IMPORTANT RULES:
     return this.generate(prompt);
   }
 
-  async generateCampaignEmail(context: string): Promise<string> {
-    const prompt = `You are writing a cold email on behalf of a job seeker or professional.
-
-STRICT RULES — violating any of these is unacceptable:
-1. Write like a real human, NOT like an AI or a template.
-2. NEVER use placeholder brackets like [Name], [Company], [Role] — only use real info from the context.
-3. NEVER use these opening lines: "I hope this email finds you well", "My name is", "I am writing to"
-4. NEVER use these closing lines: "Thank you for your time and consideration", "Looking forward to hearing from you", "I would welcome the opportunity"
-5. NEVER use corporate jargon: "leverage", "synergies", "touch base", "circle back", "reach out", "paradigm"
-6. NEVER mention attaching resume unless the context specifically says to ("I have attached my resume" is BANNED unless user requested it).
-7. Keep it short — 3 short paragraphs max. No fluff, no padding.
-8. Use exactly the greeting and signature specified in the context.
-9. Sound confident, direct, and human. End naturally without a formal closing line.
-10. No Subject line in the body.
-
-Context:
-${context}
-
-Write the email body now:`;
-    return this.generate(prompt);
-  }
-
+  // ─── Vision: extract emails from image/PDF ────────────────────────────────────
   async extractEmailsFromFileVision(buffer: Buffer, mimeType: string): Promise<string[]> {
     const EMAIL_REGEX = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
     const visionPrompt = 'Look carefully at this image or document. Find every email address visible in it. Read character by character — do NOT guess or hallucinate. Return ONLY a plain comma-separated list of the exact email addresses you can see. No explanations, no labels, no markdown. If you see no emails, return an empty string.';
 
-    // ── Strategy A: OpenAI Vision (GPT-4o) — best at image OCR ──────────────
+    // ── Strategy A: OpenAI Vision (GPT-4o) ──────────────────────────────────
     if (this.openai && this.openaiInitialized) {
       try {
         const supportedByOpenAI = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
@@ -560,7 +530,6 @@ Write the email body now:`;
     }
   }
 
-
   async detectMeetingRequest(emailBody: string): Promise<boolean> {
     const prompt = `Does this email contain a meeting request or scheduling request? Answer only "yes" or "no":\n\n${emailBody}`;
     const response = await this.generate(prompt);
@@ -607,7 +576,6 @@ Write the email body now:`;
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
       const html = await resp.text();
-      // Strip scripts, styles, tags
       const text = html
         .replace(/<script[\s\S]*?<\/script>/gi, '')
         .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -635,11 +603,60 @@ Write the email body now:`;
       logger.info(`Company info via AI knowledge for ${companyName}`);
       return summary;
     } catch {
-      return `${companyName} is a company operating in their respective industry.`;
+      return `${companyName} is a company in the technology sector.`;
     }
   }
 
-  // ─── Personalized Company Email Generation ────────────────────────────────────
+  // ─── Campaign: Generate AI email (per-email, grounded in real profile) ────────
+  async generateCampaignEmail(context: string): Promise<string> {
+    // Merge default profile if context is sparse
+    const fullContext = context.trim().length < 200
+      ? `${DEFAULT_SENDER_PROFILE}\n\nAdditional context:\n${context}`
+      : context;
+
+    const prompt = `You are ghostwriting a cold outreach email for Gaurav Jain, a B.Tech IT student and full-stack developer.
+
+You write like a real human being — not a recruiter, not a template, not an AI.
+Imagine a senior software engineer who has been in the industry 20 years sits down and writes a short, honest note.
+They know what they've built. They don't oversell. They don't beg. They state what they've done, connect it to the company, and make a clean ask.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DEFINITIONS OF FAILURE (NEVER do these):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+❌ Opening with: "I hope this email finds you well", "My name is", "I am writing to", "I wanted to reach out"
+❌ Asking: "Would you love to have a quick chat?" — BANNED FOREVER
+❌ Closing with: "Thank you for your time and consideration", "Looking forward to hearing from you", "I would welcome the opportunity", "It would be a pleasure"
+❌ Corporate jargon: "leverage", "synergy", "circle back", "touch base", "paradigm shift", "value add"
+❌ Saying "I have attached my resume" unless explicitly in context
+❌ Placeholder brackets: [Name], [Company], [Role] — NEVER
+❌ Sounding desperate or over-eager
+❌ More than 3 short paragraphs
+❌ Starting every sentence with "I"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DEFINITIONS OF SUCCESS (ALWAYS do these):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Sound like a real person who has built real things
+✅ First sentence must hook — a direct, confident statement about why you're reaching out
+✅ Second paragraph: reference 1-2 real projects from context that are directly relevant to this type of company
+✅ Third paragraph: ONE clean, direct ask — specific to the role. Examples of good CTAs:
+   - "If there's an opening, I'd like to be considered."
+   - "Happy to share my work if there's a fit."
+   - "Let me know if it makes sense to connect."
+✅ Use the exact greeting and signature from context
+✅ Keep under 130 words. Short emails get read. Long emails get deleted.
+✅ No Subject line in the body
+✅ Sound like a confident engineer, not a student begging for a chance
+
+Context:
+${fullContext}
+
+Write ONLY the email body now. Nothing else.`;
+
+    return this.generate(prompt);
+  }
+
+  // ─── Campaign: Generate personalized company email (per-company research) ──────
   async generatePersonalizedCompanyEmail(params: {
     companyName: string;
     companyInfo: string;
@@ -658,43 +675,77 @@ Write the email body now:`;
       senderName, senderTitle, role, tone, senderSignature, extraNotes,
     } = params;
 
-    const prompt = `You are writing a personalized cold job application email from ${senderName || 'a candidate'} to ${companyName}.
+    // Fall back to Gaurav's full profile if context is sparse
+    const fullContext = (!context || context.trim().length < 150)
+      ? DEFAULT_SENDER_PROFILE
+      : context;
 
-ABOUT ${companyName.toUpperCase()}:
+    const prompt = `You are ghostwriting a cold job outreach email. Write as if a real person — a confident, experienced software engineer — sat down and typed this themselves.
+
+The email is FROM: ${senderName || 'Gaurav Jain'} (${senderTitle || 'B.Tech IT Final Year, Full-Stack Developer'})
+The email is TO: hiring team at ${companyName}
+Role being explored: ${role || 'SDE Internship / Full-Time'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ABOUT ${companyName.toUpperCase()} (use this to personalize paragraph 1):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${companyInfo}
 
-SENDER DETAILS:
-- Name: ${senderName || 'Not provided'}
-- Title/Status: ${senderTitle || 'Not provided'}
-- Role applying for: ${role || 'Software Engineer'}
-- Background/Context: ${context}
-- Tone: ${tone}
-${extraNotes ? `- Additional notes: ${extraNotes}` : ''}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SENDER'S BACKGROUND (reference 1-2 specific things in paragraph 2):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${fullContext}
+${extraNotes ? `\nExtra guidance: ${extraNotes}` : ''}
 
-STRICT RULES — every single rule must be followed:
-1. Start with exactly: "${greeting}"
-2. In paragraph 1: mention SOMETHING SPECIFIC about ${companyName} from the info above (their product, mission, or what they build). This shows you've done research.
-3. In paragraph 2: highlight 1-2 specific things from the sender's background that are directly relevant to ${companyName}'s work.
-4. In paragraph 3: a direct, confident ask (e.g., "Would you be open to a quick chat?") - no more than 1-2 sentences.
-5. End with the exact signature provided.
-6. NEVER use: "Thank you for your time and consideration", "I hope this email finds you well", "I am writing to", "Looking forward to hearing from you", "I would welcome the opportunity", "I have attached my resume"
-7. NEVER use [brackets] or placeholder text of any kind.
-8. Keep it under 150 words for the body. Short, punchy, human.
-9. No Subject line in the body.
-10. Sound like a real person wrote this, not AI.
-11. Naturally mention the role "${role || 'Software Engineer'}" somewhere in the first or second paragraph.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HOW TO WRITE THIS EMAIL:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-SIGNATURE TO USE:
-${senderSignature || senderName}
+Tone to channel: Think of a senior engineer who has been building software for 20 years. They write clean, direct prose. No filler. No begging. They know their worth. The email should feel like it was written by a real human, not generated by a machine.
 
-Generate a subject line that MUST include the role "${role || 'SDE'}" and sender name. Good examples:
-- "${role || 'SDE'} Application - ${senderName} for ${companyName}"
-- "Exploring ${role || 'SDE'} at ${companyName} - ${senderName}"
-Keep under 70 chars. Make it specific, not generic.
+Paragraph 1 — The Hook (2-3 sentences):
+  Start with: "${greeting}"
+  Mention something SPECIFIC about ${companyName} — their product, mission, tech stack, or the problem they're solving. Make it clear you know what they do.
+  DO NOT start with "I" as the very first word.
 
-Return ONLY valid JSON in this exact format, nothing else:
+Paragraph 2 — The Evidence (2-3 sentences):
+  Pick 1-2 things from the sender's background that directly connect to ${companyName}'s work.
+  Mention a real project or outcome. Be specific, not vague.
+  Naturally work in the role: "${role || 'SDE'}"
+
+Paragraph 3 — The Ask (1-2 sentences MAX):
+  Direct, clean, no desperation. GOOD examples:
+  - "If there's a ${role || 'SDE'} opening, I'd like to be considered."
+  - "Happy to share more of my work if there's a fit."
+  - "Let me know if it makes sense to connect."
+  BANNED FOREVER: "Would you love to have a quick chat?", "I would welcome the opportunity", "Looking forward to hearing from you"
+
+Signature — use EXACTLY:
+${senderSignature || senderName || 'Gaurav Jain'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HARD RULES (violating = failure):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+❌ No: "I hope this email finds you well", "I am writing to", "Thank you for your time", "I would welcome the opportunity", "I have attached my resume"
+❌ No placeholder brackets: [Name], [Company], [Your Name]
+❌ No corporate jargon: leverage, synergies, circle back, touch base, paradigm
+❌ No subject line inside the body
+❌ No more than 3 paragraphs, no padding, no fluff
+❌ Body must be under 140 words
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUBJECT LINE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Generate a subject line that feels like a human wrote it — specific, not generic.
+Must include the role "${role || 'SDE'}" and the sender's name.
+Examples of GOOD subject lines:
+  - "${role || 'SDE'} – ${senderName || 'Gaurav Jain'}"
+  - "Exploring ${role || 'SDE'} at ${companyName} | ${senderName || 'Gaurav Jain'}"
+  - "${senderName || 'Gaurav Jain'} – ${role || 'SDE'} at ${companyName}"
+Keep under 65 characters.
+
+Return ONLY valid JSON — no explanation, no markdown, nothing else:
 {"subject": "...", "body": "..."}`;
-
 
     try {
       const response = await this.generate(prompt);
@@ -707,16 +758,17 @@ Return ONLY valid JSON in this exact format, nothing else:
       logger.warn(`JSON parse failed for ${companyName}, using fallback:`, err.message);
     }
 
-    // Fallback: generate body only, use role-inclusive subject
-    const body = await this.generate(`Write a short personalized cold email from ${senderName} to ${companyName}. Context: ${context}. Mention the role "${role || 'Software Engineer'}" naturally. Start with "${greeting}". End with: ${senderSignature || senderName}. Keep under 120 words. No subject line.`);
+    // Fallback: generate body only, role-inclusive subject
+    const body = await this.generate(
+      `Write a short personalized cold email from ${senderName || 'Gaurav Jain'} to ${companyName}. Context: ${fullContext}. Mention the role "${role || 'SDE'}" naturally. Start with "${greeting}". End with: ${senderSignature || senderName || 'Gaurav Jain'}. Keep under 130 words. No subject line. Sound like a real human — confident, direct, no filler phrases.`
+    );
     return {
-      subject: `${role || 'SDE'} Application - ${senderName || 'Candidate'} for ${companyName}`,
+      subject: `${role || 'SDE'} – ${senderName || 'Gaurav Jain'} for ${companyName}`,
       body,
     };
   }
 
   // ─── AI-powered company+email parser ─────────────────────────────────────────
-  // Handles ANY format the user pastes: URL | email, comma-sep, plain list, etc.
   async parseCompanyEmails(rawText: string): Promise<Array<{ name: string; email: string }>> {
     const prompt = `You are a data extractor. Extract every company name + email address pair from the text below.
 
@@ -756,7 +808,7 @@ Return ONLY a valid JSON array with no extra text:
       logger.warn('AI company parsing failed, falling back to regex:', err.message);
     }
 
-    // Regex fallback for when AI fails
+    // Regex fallback
     const emailRe = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
     const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
     const results: Array<{ name: string; email: string }> = [];

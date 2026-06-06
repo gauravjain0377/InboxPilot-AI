@@ -1,7 +1,8 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-// Tracks every email sent via campaign — used to schedule follow-ups
-// and check if a reply was received.
+// Tracks every email sent via campaign — used for analytics.
+// NOTE: Campaign follow-up has been removed. The inbox follow-up feature
+// (FollowUp model / followup.controller.ts) remains fully intact.
 export interface ICampaignSend extends Document {
   userId: mongoose.Types.ObjectId;
   campaignId: string;          // client-generated ID grouping a batch
@@ -11,11 +12,8 @@ export interface ICampaignSend extends Document {
   sentAt: Date;
   gmailMessageId?: string;
   gmailThreadId?: string;
-  followUpEnabled: boolean;
-  followUpDelayDays: number;   // default 4
-  followUpSentAt?: Date;
   repliedAt?: Date;            // set when a reply is detected
-  status: 'sent' | 'replied' | 'follow_up_sent' | 'bounced';
+  status: 'sent' | 'replied' | 'bounced';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,13 +28,10 @@ const CampaignSendSchema = new Schema<ICampaignSend>(
     sentAt: { type: Date, default: Date.now },
     gmailMessageId: { type: String },
     gmailThreadId: { type: String },
-    followUpEnabled: { type: Boolean, default: false },
-    followUpDelayDays: { type: Number, default: 4 },
-    followUpSentAt: { type: Date },
     repliedAt: { type: Date },
     status: {
       type: String,
-      enum: ['sent', 'replied', 'follow_up_sent', 'bounced'],
+      enum: ['sent', 'replied', 'bounced'],
       default: 'sent',
     },
   },
@@ -44,7 +39,7 @@ const CampaignSendSchema = new Schema<ICampaignSend>(
 );
 
 CampaignSendSchema.index({ userId: 1, campaignId: 1 });
-CampaignSendSchema.index({ userId: 1, status: 1, followUpEnabled: 1 });
+CampaignSendSchema.index({ userId: 1, status: 1 });
 CampaignSendSchema.index({ gmailThreadId: 1 });
 
 export const CampaignSend = mongoose.model<ICampaignSend>('CampaignSend', CampaignSendSchema);

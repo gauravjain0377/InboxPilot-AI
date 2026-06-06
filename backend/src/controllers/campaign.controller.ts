@@ -5,7 +5,6 @@ import { AIService } from '../services/ai.service.js';
 import { GmailService } from '../services/gmail.service.js';
 import { User } from '../models/User.js';
 import { CampaignSend } from '../models/CampaignSend.js';
-import { FollowUp } from '../models/FollowUp.js';
 import { logger } from '../utils/logger.js';
 
 // Multer-aware request type
@@ -96,7 +95,7 @@ export const parseCompanies = async (req: AuthRequest, res: Response) => {
     if (!text || typeof text !== 'string') {
       return res.status(400).json({ error: 'No text provided.' });
     }
-    
+
     logger.info('Parsing companies from text...');
     const companies = await aiService.parseCompanyEmails(text);
     res.json({ companies });
@@ -107,6 +106,8 @@ export const parseCompanies = async (req: AuthRequest, res: Response) => {
 };
 
 // ─── Campaign Queue ───────────────────────────────────────────────────────────
+// NOTE: Follow-up is intentionally NOT part of campaigns.
+// The inbox follow-up feature (followup.controller.ts / followup.routes.ts) remains fully intact.
 interface QueueItem {
   userId: string;
   campaignId: string;
@@ -115,8 +116,6 @@ interface QueueItem {
   subject: string;
   body: string;
   attachments?: Array<{ filename: string; content: Buffer; mimeType: string }>;
-  followUpEnabled?: boolean;
-  followUpDelayDays?: number;
 }
 
 const campaignQueue: QueueItem[] = [];
@@ -141,8 +140,8 @@ const processQueue = async () => {
             );
             logger.info(`Campaign email sent to ${item.to}`);
 
-            // ── Track the send ──────────────────────────────────────────────
-            const sendRecord = await CampaignSend.create({
+            // ── Track the send (for analytics) ─────────────────────────────
+            await CampaignSend.create({
               userId: item.userId,
               campaignId: item.campaignId,
               to: item.to,
@@ -151,33 +150,8 @@ const processQueue = async () => {
               sentAt: new Date(),
               gmailMessageId: sent?.id,
               gmailThreadId: sent?.threadId,
-              followUpEnabled: item.followUpEnabled || false,
-              followUpDelayDays: item.followUpDelayDays || 4,
               status: 'sent',
             });
-
-            // ── Schedule follow-up if opted in ───────────────────────────────
-            if (item.followUpEnabled && sent?.threadId && sent?.id) {
-              const delayDays = item.followUpDelayDays || 4;
-              const scheduledTime = new Date();
-              scheduledTime.setDate(scheduledTime.getDate() + delayDays);
-
-              await FollowUp.create({
-                userId: item.userId,
-                threadId: sent.threadId,
-                messageId: sent.id,
-                to: item.to,
-                subject: `Re: ${item.subject}`,
-                stepNumber: 1,
-                delayDays,
-                scheduledTime,
-                status: 'pending',
-                mode: 'auto',
-                tone: 'friendly',
-                draft: `Hi,\n\nJust following up on my previous email regarding the ${item.subject} position. I'd love to connect if you have a moment.\n\nBest,\n`,
-              });
-              logger.info(`Follow-up scheduled for ${item.to} in ${delayDays} days`);
-            }
           }
         } catch (err) {
           logger.error(`Failed to send to ${item.to}:`, err);
@@ -197,10 +171,10 @@ const processQueue = async () => {
   }
 };
 
-// ─── Start Campaign Controller (Direct / AI mode) ────────────────────────────
+// ─── Start Campaign Controller (AI mode: unique email per company via research) ─
 export const startCampaign = async (req: MulterAuthRequest, res: Response) => {
   try {
-    const { emails, context, isPersonalized, subject, directBody, mode, followUpEnabled, followUpDelayDays } = req.body;
+    const { emails, context, subject, directBody, mode } = req.body;
     const userId = req.user?.userId;
     const campaignId = `camp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -224,7 +198,7 @@ export const startCampaign = async (req: MulterAuthRequest, res: Response) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ error: 'User not found.' });
 
-    // Collect attachments — upload.fields() gives req.files as { fieldname: File[] }
+    // Collect attachments
     const attachments: Array<{ filename: string; content: Buffer; mimeType: string }> = [];
     const filesMap = (req.files as { [fieldname: string]: any[] }) || {};
     const uploadedFiles: any[] = filesMap['attachments'] || [];
@@ -233,41 +207,67 @@ export const startCampaign = async (req: MulterAuthRequest, res: Response) => {
       logger.info(`Attachment collected: ${f.originalname} (${f.mimetype}, ${f.size} bytes)`);
     }
 
-    let templateBody = '';
-    if (mode === 'ai' && !isPersonalized) {
-      templateBody = await aiService.generateCampaignEmail(context);
-    }
-
-    for (const email of emailList) {
-      let finalBody = '';
-
-      if (mode === 'direct') {
-        finalBody = directBody;
-      } else if (isPersonalized) {
-        finalBody = await aiService.generateCampaignEmail(`${context}\n\nRecipient: ${email}`);
-      } else {
-        finalBody = templateBody;
-      }
-
-      campaignQueue.push({
-        userId,
-        campaignId,
-        to: email,
-        subject,
-        body: finalBody,
-        attachments: attachments.length > 0 ? attachments : undefined,
-        followUpEnabled: followUpEnabled === 'true' || followUpEnabled === true,
-        followUpDelayDays: parseInt(followUpDelayDays || '4', 10),
-      });
-
-    }
-
-    processQueue();
-
+    // Respond immediately so the client isn't waiting
     res.json({
       message: `Campaign launched! ${emailList.length} email${emailList.length > 1 ? 's' : ''} queued. Sending at 50/hour to keep your account safe.`,
       queueLength: campaignQueue.length,
     });
+
+    if (mode === 'direct') {
+      // Direct mode: same body for everyone — just queue immediately
+      for (const email of emailList) {
+        campaignQueue.push({
+          userId,
+          campaignId,
+          to: email,
+          subject,
+          body: directBody,
+          attachments: attachments.length > 0 ? attachments : undefined,
+        });
+      }
+      processQueue();
+    } else {
+      // AI mode: research each company and generate a unique email per recipient
+      // This runs async in the background — client already got 200 response above
+      (async () => {
+        for (const email of emailList) {
+          try {
+            const domain = extractDomain(email);
+            // Derive a company name from the domain for AI context
+            const domainParts = domain.split('.');
+            const companyName = domainParts[0]
+              ? domainParts[0].charAt(0).toUpperCase() + domainParts[0].slice(1)
+              : domain;
+
+            logger.info(`Researching ${companyName} (${domain}) for AI email...`);
+            const companyInfo = await aiService.fetchCompanyInfo(companyName, domain);
+
+            // Build a full context merging user context + company info
+            const enrichedContext = `${context}\n\nCompany being emailed: ${companyName}\nAbout them: ${companyInfo}`;
+            const body = await aiService.generateCampaignEmail(enrichedContext);
+
+            campaignQueue.push({
+              userId,
+              campaignId,
+              to: email,
+              companyName,
+              subject,
+              body,
+              attachments: attachments.length > 0 ? attachments : undefined,
+            });
+
+            logger.info(`Queued unique AI email for ${email} (${companyName})`);
+            processQueue();
+
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } catch (err: any) {
+            logger.error(`Failed to generate email for ${email}:`, err.message);
+          }
+        }
+        logger.info(`All ${emailList.length} AI emails generated.`);
+      })();
+    }
+
   } catch (error: any) {
     logger.error('Error starting campaign:', error);
     res.status(500).json({ error: 'Failed to start campaign: ' + (error.message || 'Unknown error') });
@@ -309,13 +309,13 @@ export const previewPersonalizedEmail = async (req: MulterAuthRequest, res: Resp
   }
 };
 
-// ─── Start Personalized Campaign (Company-specific) ───────────────────────────
+// ─── Start Personalized Campaign (Company-specific, per-company research) ─────
 export const startPersonalizedCampaign = async (req: MulterAuthRequest, res: Response) => {
   try {
     const {
       companies, context, greeting,
       senderName, senderTitle, senderSignature,
-      role, tone, extraNotes, followUpEnabled, followUpDelayDays,
+      role, tone, extraNotes,
     } = req.body;
 
     const userId = req.user?.userId;
@@ -381,16 +381,12 @@ export const startPersonalizedCampaign = async (req: MulterAuthRequest, res: Res
             subject: result.subject,
             body: result.body,
             attachments: attachments.length > 0 ? attachments : undefined,
-            followUpEnabled: followUpEnabled === 'true' || followUpEnabled === true,
-            followUpDelayDays: parseInt(followUpDelayDays || '4', 10),
           });
 
           logger.info(`Queued personalized email for ${company.name} (${company.email})`);
 
-          // Start processing immediately so the first emails send while others are still generating
           processQueue();
 
-          // Small delay between API calls to avoid rate limits
           await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (err: any) {
           logger.error(`Failed to generate email for ${company.name}:`, err.message);
