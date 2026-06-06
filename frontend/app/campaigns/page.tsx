@@ -603,51 +603,7 @@ export default function CampaignsPage() {
     </div>
   );
 
-  const FollowUpToggle = () => (
-    <div className={`rounded-xl border-2 p-4 transition-all ${followUpEnabled ? 'border-gray-900 bg-gray-50' : 'border-gray-200 bg-white'}`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${followUpEnabled ? 'bg-gray-900' : 'bg-gray-100'}`}>
-            <Clock className={`h-4 w-4 ${followUpEnabled ? 'text-white' : 'text-gray-500'}`} />
-          </div>
-          <div>
-            <p className="font-semibold text-gray-900 text-sm">Auto Follow-up</p>
-            <p className="text-xs text-gray-500">Send a follow-up if no reply received</p>
-          </div>
-        </div>
-        {/* Toggle switch */}
-        <button
-          type="button"
-          onClick={() => setFollowUpEnabled(p => !p)}
-          className={`relative w-11 h-6 rounded-full transition-colors ${followUpEnabled ? 'bg-gray-900' : 'bg-gray-300'}`}
-        >
-          <span className={`absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${followUpEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
-        </button>
-      </div>
 
-      {followUpEnabled && (
-        <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Send follow-up after</label>
-            <div className="flex gap-2">
-              {[2, 3, 4, 5, 7].map(d => (
-                <button key={d} type="button" onClick={() => setFollowUpDays(d)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
-                    followUpDays === d ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-500'
-                  }`}>
-                  {d}d
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-white border border-gray-200 text-gray-600 text-xs">
-            <Info className="h-4 w-4 shrink-0 mt-0.5 text-gray-400" />
-            If no reply in {followUpDays} days, a short follow-up goes automatically using the existing Gmail follow-up system. You can manage or cancel it from the Dashboard.
-          </div>
-        </div>
-      )}
-    </div>
-  );
 
   return (
     <>
